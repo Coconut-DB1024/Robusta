@@ -1,0 +1,35 @@
+{
+  "NUMERIC": [
+    "<<", ">>", "&", "|", "^", "~",
+    "+", "-", "*", "/", "%", "DIV", "MOD",
+    "ABS", "FLOOR", "CEIL", "CEILING", "POW", "POWER", "SQRT",
+    "LOG", "LOG2", "LOG10", "EXP", "ROUND", "TRUNCATE", "SIGN",
+    "LENGTH", "CHAR_LENGTH", "ASCII",
+    "CRC32", "RAND"
+  ],
+  "STRING": [
+    "LIKE", "NOT LIKE", "REGEXP", "NOT REGEXP", "RLIKE", "STRCMP",
+    "CONCAT", "CONCAT_WS", "SUBSTRING", "SUBSTR", "LEFT", "RIGHT",
+    "TRIM", "LTRIM", "RTRIM", "REVERSE", "LOWER", "UPPER",
+    "LPAD", "RPAD", "REPEAT", "REPLACE", "SOUNDEX", "SPACE", "HEX", "UNHEX"
+  ],
+  "DATETIME": [
+    "DATE_ADD", "DATE_SUB", "DATEDIFF", "NOW", "CURDATE", "CURTIME",
+    "YEAR", "MONTH", "DAY", "HOUR", "MINUTE", "SECOND",
+    "TIMESTAMP", "FROM_UNIXTIME", "UNIX_TIMESTAMP"
+  ],
+  "LOGICAL": [
+    "AND", "&&", "OR", "||", "XOR", "NOT", "!"
+  ],
+  "COMPARISON": [
+    "<=>", "=", "!=", "<>", "<", "<=", ">", ">=",
+    "IS NULL", "IS NOT NULL", "IS TRUE", "IS FALSE",
+    "IN", "NOT IN", "BETWEEN"
+  ],
+  "JSON": [
+    "->", "->>", "JSON_EXTRACT", "JSON_CONTAINS", "JSON_KEYS"
+  ],
+  "FLOW_CONTROL": [
+    "IFNULL", "NULLIF", "COALESCE", "CASE", "IF"
+  ]
+}

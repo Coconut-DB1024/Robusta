@@ -1,0 +1,41 @@
+{
+  "INTEGER": [
+    "NUMBER",
+    "NUMBER(10)",
+    "NUMBER(38)",
+    "INTEGER"
+  ],
+  "FLOAT": [
+    "NUMBER(18,6)",
+    "FLOAT",
+    "FLOAT(126)",
+    "BINARY_FLOAT",
+    "BINARY_DOUBLE"
+  ],
+  "STRING": [
+    "VARCHAR2(255)",
+    "NVARCHAR2(255)",
+    "CHAR(50)",
+    "NCHAR(50)",
+    "CLOB",
+    "NCLOB"
+  ],
+  "DATETIME": [
+    "DATE",
+    "TIMESTAMP(6)",
+    "TIMESTAMP(6) WITH TIME ZONE",
+    "TIMESTAMP(6) WITH LOCAL TIME ZONE",
+    "INTERVAL YEAR(4) TO MONTH",
+    "INTERVAL DAY(3) TO SECOND(6)"
+  ],
+  "BINARY": [
+    "RAW(64)",
+    "BLOB"
+  ],
+  "JSON": [
+    "JSON"
+  ],
+  "BOOLEAN": [
+    "BOOLEAN"
+  ]
+}

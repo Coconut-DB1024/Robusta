@@ -1,0 +1,35 @@
+{
+  "FLOW_CONTROL": [
+    "ISNULL(", "NULLIF(", "COALESCE(", "IIF(", "GREATEST(", "LEAST(", "CHOOSE("
+  ],
+  "ANY": [
+    "DATALENGTH(", "ISNUMERIC(", "ISDATE(", "CHECKSUM(", "BINARY_CHECKSUM("
+  ],
+  "DATETIME": [
+    "DAY(", "MONTH(", "YEAR(", "EOMONTH("
+  ],
+  "STRING": [
+    "LIKE", "NOT LIKE",
+    "LEN(", "ASCII(", "UNICODE(", "CHARINDEX(", "PATINDEX(", "DIFFERENCE(", "ISJSON(",
+    "LOWER(", "UPPER(", "LTRIM(", "RTRIM(", "TRIM(", "REVERSE(", "SOUNDEX(", "QUOTENAME(",
+    "LEFT(", "RIGHT(", "SUBSTRING(", "REPLACE(", "TRANSLATE(", "REPLICATE(", "STUFF(",
+    "CONCAT(", "CONCAT_WS(", "PARSENAME("
+  ],
+  "NUMERIC": [
+    "+", "-", "*", "/", "%", "&", "|", "^", "~", "<<", ">>",
+    "ABS(", "CEILING(", "FLOOR(", "SIGN(", "SQRT(", "SQUARE(", "EXP(", "LOG(", "LOG10(",
+    "POWER(", "ROUND(", "DEGREES(", "RADIANS(", "ACOS(", "ASIN(", "ATAN(", "ATN2(",
+    "COS(", "COT(", "SIN(", "TAN(",
+    "BIT_COUNT(", "GET_BIT(", "SET_BIT(", "LEFT_SHIFT(", "RIGHT_SHIFT(",
+    "NCHAR(", "SPACE(", "STR(", "DATEFROMPARTS("
+  ],
+  "COMPARISON": [
+    "=", "<>", "!=", ">", ">=", "<", "<=", "!<", "!>",
+    "IS DISTINCT FROM", "IS NOT DISTINCT FROM", "IS NULL", "IS NOT NULL",
+    "IN", "NOT IN", "BETWEEN", "NOT BETWEEN"
+  ],
+  "LOGICAL": [
+    "AND", "OR", "NOT"
+  ],
+  "JSON": []
+}

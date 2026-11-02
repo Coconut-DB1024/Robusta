@@ -1,0 +1,24 @@
+{
+  "INTEGER": [
+    "SMALLINT", "SMALLINT", "INTEGER", "INTEGER", "BIGINT",
+    "SMALLINT", "INTEGER", "INTEGER", "BIGINT", "NUMERIC(20, 0)"
+  ],
+  "FLOAT": [
+    "REAL", "DOUBLE PRECISION", "NUMERIC(10, 2)", "NUMERIC(30, 10)",
+    "REAL", "DOUBLE PRECISION"
+  ],
+  "STRING": [
+    "CHAR(255)", "VARCHAR(255)",
+    "TEXT", "TEXT", "TEXT", "TEXT"
+  ],
+  "DATETIME": [
+    "DATE", "TIMESTAMP", "TIMESTAMP", "TIME", "SMALLINT"
+  ],
+  "BINARY": [
+    "BYTEA", "BYTEA",
+    "BYTEA", "BYTEA", "BYTEA", "BYTEA"
+  ],
+  "JSON": [
+    "TEXT"
+  ]
+}
