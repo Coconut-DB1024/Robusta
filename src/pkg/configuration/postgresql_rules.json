@@ -1,0 +1,1373 @@
+{
+  "description": "PostgreSQL Robust Rules for Fuzzing (SQLancer PostgreSQL operator set)",
+  "types": {
+    "T_BOOL": "Boolean logic (TRUE/FALSE)",
+    "T_CMP": "Comparable (Numbers, Strings, Dates)",
+    "T_STR": "Strict String",
+    "T_ANY": "Any type"
+  },
+  "definitions": {
+    "AND": [
+      "T_BOOL",
+      [
+        "T_BOOL",
+        "T_BOOL"
+      ]
+    ],
+    "OR": [
+      "T_BOOL",
+      [
+        "T_BOOL",
+        "T_BOOL"
+      ]
+    ],
+    "NOT": [
+      "T_BOOL",
+      [
+        "T_BOOL"
+      ]
+    ],
+    ">": [
+      "T_BOOL",
+      [
+        "T_CMP",
+        "T_CMP"
+      ]
+    ],
+    ">=": [
+      "T_BOOL",
+      [
+        "T_CMP",
+        "T_CMP"
+      ]
+    ],
+    "<": [
+      "T_BOOL",
+      [
+        "T_CMP",
+        "T_CMP"
+      ]
+    ],
+    "<=": [
+      "T_BOOL",
+      [
+        "T_CMP",
+        "T_CMP"
+      ]
+    ],
+    "=": [
+      "T_BOOL",
+      [
+        "T_CMP",
+        "T_CMP"
+      ]
+    ],
+    "!=": [
+      "T_BOOL",
+      [
+        "T_CMP",
+        "T_CMP"
+      ]
+    ],
+    "IS DISTINCT FROM": [
+      "T_BOOL",
+      [
+        "T_ANY",
+        "T_ANY"
+      ]
+    ],
+    "IS NOT DISTINCT FROM": [
+      "T_BOOL",
+      [
+        "T_ANY",
+        "T_ANY"
+      ]
+    ],
+    "LIKE": [
+      "T_BOOL",
+      [
+        "T_STR",
+        "T_STR"
+      ]
+    ],
+    "NOT LIKE": [
+      "T_BOOL",
+      [
+        "T_STR",
+        "T_STR"
+      ]
+    ],
+    "ILIKE": [
+      "T_BOOL",
+      [
+        "T_STR",
+        "T_STR"
+      ]
+    ],
+    "NOT ILIKE": [
+      "T_BOOL",
+      [
+        "T_STR",
+        "T_STR"
+      ]
+    ],
+    "~": [
+      "T_BOOL",
+      [
+        "T_STR",
+        "T_STR"
+      ]
+    ],
+    "~*": [
+      "T_BOOL",
+      [
+        "T_STR",
+        "T_STR"
+      ]
+    ],
+    "!~": [
+      "T_BOOL",
+      [
+        "T_STR",
+        "T_STR"
+      ]
+    ],
+    "!~*": [
+      "T_BOOL",
+      [
+        "T_STR",
+        "T_STR"
+      ]
+    ],
+    "SIMILAR TO": [
+      "T_BOOL",
+      [
+        "T_STR",
+        "T_STR"
+      ]
+    ],
+    "IN": [
+      "T_BOOL",
+      [
+        "T_CMP",
+        "T_CMP"
+      ]
+    ],
+    "NOT IN": [
+      "T_BOOL",
+      [
+        "T_CMP",
+        "T_CMP"
+      ]
+    ],
+    "IS NULL": [
+      "T_BOOL",
+      [
+        "T_ANY"
+      ]
+    ],
+    "IS NOT NULL": [
+      "T_BOOL",
+      [
+        "T_ANY"
+      ]
+    ],
+    "IS UNKNOWN": [
+      "T_BOOL",
+      [
+        "T_BOOL"
+      ]
+    ],
+    "IS NOT UNKNOWN": [
+      "T_BOOL",
+      [
+        "T_BOOL"
+      ]
+    ],
+    "IS TRUE": [
+      "T_BOOL",
+      [
+        "T_BOOL"
+      ]
+    ],
+    "IS FALSE": [
+      "T_BOOL",
+      [
+        "T_BOOL"
+      ]
+    ],
+    "IS NOT TRUE": [
+      "T_BOOL",
+      [
+        "T_BOOL"
+      ]
+    ],
+    "IS NOT FALSE": [
+      "T_BOOL",
+      [
+        "T_BOOL"
+      ]
+    ],
+    "IS NORMALIZED": [
+      "T_BOOL",
+      [
+        "T_STR"
+      ]
+    ],
+    "IS NOT NORMALIZED": [
+      "T_BOOL",
+      [
+        "T_STR"
+      ]
+    ],
+    "BETWEEN": [
+      "T_BOOL",
+      [
+        "T_CMP",
+        "T_CMP",
+        "T_CMP"
+      ]
+    ],
+    "BETWEEN SYMMETRIC": [
+      "T_BOOL",
+      [
+        "T_CMP",
+        "T_CMP",
+        "T_CMP"
+      ]
+    ],
+    "NOT BETWEEN": [
+      "T_BOOL",
+      [
+        "T_CMP",
+        "T_CMP",
+        "T_CMP"
+      ]
+    ],
+    "NOT BETWEEN SYMMETRIC": [
+      "T_BOOL",
+      [
+        "T_CMP",
+        "T_CMP",
+        "T_CMP"
+      ]
+    ],
+    "+": [
+      "T_CMP",
+      [
+        "T_CMP",
+        "T_CMP"
+      ]
+    ],
+    "-": [
+      "T_CMP",
+      [
+        "T_CMP",
+        "T_CMP"
+      ]
+    ],
+    "*": [
+      "T_CMP",
+      [
+        "T_CMP",
+        "T_CMP"
+      ]
+    ],
+    "/": [
+      "T_CMP",
+      [
+        "T_CMP",
+        "T_CMP"
+      ]
+    ],
+    "%": [
+      "T_CMP",
+      [
+        "T_CMP",
+        "T_CMP"
+      ]
+    ],
+    "^": [
+      "T_CMP",
+      [
+        "T_CMP",
+        "T_CMP"
+      ]
+    ],
+    "&": [
+      "T_CMP",
+      [
+        "T_CMP",
+        "T_CMP"
+      ]
+    ],
+    "|": [
+      "T_CMP",
+      [
+        "T_CMP",
+        "T_CMP"
+      ]
+    ],
+    "#": [
+      "T_CMP",
+      [
+        "T_CMP",
+        "T_CMP"
+      ]
+    ],
+    "<<": [
+      "T_CMP",
+      [
+        "T_CMP",
+        "T_CMP"
+      ]
+    ],
+    ">>": [
+      "T_CMP",
+      [
+        "T_CMP",
+        "T_CMP"
+      ]
+    ],
+    "||": [
+      "T_STR",
+      [
+        "T_STR",
+        "T_STR"
+      ]
+    ],
+    "LOWER()": [
+      "T_STR",
+      [
+        "T_STR"
+      ]
+    ],
+    "UPPER()": [
+      "T_STR",
+      [
+        "T_STR"
+      ]
+    ],
+    "LENGTH()": [
+      "T_CMP",
+      [
+        "T_STR"
+      ]
+    ],
+    "ASCII()": [
+      "T_CMP",
+      [
+        "T_STR"
+      ]
+    ],
+    "INITCAP()": [
+      "T_STR",
+      [
+        "T_STR"
+      ]
+    ],
+    "MD5()": [
+      "T_STR",
+      [
+        "T_STR"
+      ]
+    ],
+    "REVERSE()": [
+      "T_STR",
+      [
+        "T_STR"
+      ]
+    ],
+    "ABS()": [
+      "T_CMP",
+      [
+        "T_CMP"
+      ]
+    ],
+    "FLOOR()": [
+      "T_CMP",
+      [
+        "T_CMP"
+      ]
+    ],
+    "CEILING()": [
+      "T_CMP",
+      [
+        "T_CMP"
+      ]
+    ],
+    "CBRT()": [
+      "T_CMP",
+      [
+        "T_CMP"
+      ]
+    ],
+    "EXP()": [
+      "T_CMP",
+      [
+        "T_CMP"
+      ]
+    ],
+    "LN()": [
+      "T_CMP",
+      [
+        "T_CMP"
+      ]
+    ],
+    "LOG()": [
+      "T_CMP",
+      [
+        "T_CMP"
+      ]
+    ],
+    "DEGREES()": [
+      "T_CMP",
+      [
+        "T_CMP"
+      ]
+    ],
+    "RADIANS()": [
+      "T_CMP",
+      [
+        "T_CMP"
+      ]
+    ],
+    "ROUND()": [
+      "T_CMP",
+      [
+        "T_CMP"
+      ]
+    ],
+    "SIGN()": [
+      "T_CMP",
+      [
+        "T_CMP"
+      ]
+    ],
+    "TRUNC()": [
+      "T_CMP",
+      [
+        "T_CMP"
+      ]
+    ],
+    "ATAN()": [
+      "T_CMP",
+      [
+        "T_CMP"
+      ]
+    ],
+    "ATAND()": [
+      "T_CMP",
+      [
+        "T_CMP"
+      ]
+    ],
+    "COS()": [
+      "T_CMP",
+      [
+        "T_CMP"
+      ]
+    ],
+    "COSD()": [
+      "T_CMP",
+      [
+        "T_CMP"
+      ]
+    ],
+    "SIN()": [
+      "T_CMP",
+      [
+        "T_CMP"
+      ]
+    ],
+    "SIND()": [
+      "T_CMP",
+      [
+        "T_CMP"
+      ]
+    ],
+    "TAN()": [
+      "T_CMP",
+      [
+        "T_CMP"
+      ]
+    ],
+    "TAND()": [
+      "T_CMP",
+      [
+        "T_CMP"
+      ]
+    ],
+    "SINH()": [
+      "T_CMP",
+      [
+        "T_CMP"
+      ]
+    ],
+    "COSH()": [
+      "T_CMP",
+      [
+        "T_CMP"
+      ]
+    ],
+    "TANH()": [
+      "T_CMP",
+      [
+        "T_CMP"
+      ]
+    ],
+    "ASINH()": [
+      "T_CMP",
+      [
+        "T_CMP"
+      ]
+    ],
+    "COT()": [
+      "T_CMP",
+      [
+        "T_CMP"
+      ]
+    ],
+    "COTD()": [
+      "T_CMP",
+      [
+        "T_CMP"
+      ]
+    ],
+    "BTRIM()": [
+      "T_STR",
+      [
+        "T_STR",
+        "T_STR"
+      ]
+    ],
+    "RTRIM()": [
+      "T_STR",
+      [
+        "T_STR"
+      ]
+    ],
+    "STRPOS()": [
+      "T_CMP",
+      [
+        "T_STR",
+        "T_STR"
+      ]
+    ],
+    "QUOTE_IDENT()": [
+      "T_STR",
+      [
+        "T_STR"
+      ]
+    ],
+    "QUOTE_LITERAL()": [
+      "T_STR",
+      [
+        "T_STR"
+      ]
+    ],
+    "TRANSLATE()": [
+      "T_STR",
+      [
+        "T_STR",
+        "T_STR",
+        "T_STR"
+      ]
+    ],
+    "LEFT()": [
+      "T_STR",
+      [
+        "T_STR",
+        "T_CMP"
+      ]
+    ],
+    "RIGHT()": [
+      "T_STR",
+      [
+        "T_STR",
+        "T_CMP"
+      ]
+    ],
+    "RPAD()": [
+      "T_STR",
+      [
+        "T_STR",
+        "T_CMP"
+      ]
+    ],
+    "SUBSTR()": [
+      "T_STR",
+      [
+        "T_STR",
+        "T_CMP",
+        "T_CMP"
+      ]
+    ],
+    "CHR()": [
+      "T_STR",
+      [
+        "T_CMP"
+      ]
+    ],
+    "TO_ASCII()": [
+      "T_STR",
+      [
+        "T_STR",
+        "T_STR"
+      ]
+    ],
+    "TO_CHAR()": [
+      "T_STR",
+      [
+        "T_CMP",
+        "T_STR"
+      ]
+    ],
+    "BIT_LENGTH()": [
+      "T_CMP",
+      [
+        "T_STR"
+      ]
+    ],
+    "CHAR_LENGTH()": [
+      "T_CMP",
+      [
+        "T_STR"
+      ]
+    ],
+    "OCTET_LENGTH()": [
+      "T_CMP",
+      [
+        "T_STR"
+      ]
+    ],
+    "LTRIM()": [
+      "T_STR",
+      [
+        "T_STR"
+      ]
+    ],
+    "QUOTE_NULLABLE()": [
+      "T_STR",
+      [
+        "T_ANY"
+      ]
+    ],
+    "TO_HEX()": [
+      "T_STR",
+      [
+        "T_CMP"
+      ]
+    ],
+    "NORMALIZE()": [
+      "T_STR",
+      [
+        "T_STR"
+      ]
+    ],
+    "UNISTR()": [
+      "T_STR",
+      [
+        "T_STR"
+      ]
+    ],
+    "GCD()": [
+      "T_CMP",
+      [
+        "T_CMP",
+        "T_CMP"
+      ]
+    ],
+    "LCM()": [
+      "T_CMP",
+      [
+        "T_CMP",
+        "T_CMP"
+      ]
+    ],
+    "ATAN2()": [
+      "T_CMP",
+      [
+        "T_CMP",
+        "T_CMP"
+      ]
+    ],
+    "ATAN2D()": [
+      "T_CMP",
+      [
+        "T_CMP",
+        "T_CMP"
+      ]
+    ],
+    "DIV()": [
+      "T_CMP",
+      [
+        "T_CMP",
+        "T_CMP"
+      ]
+    ],
+    "STARTS_WITH()": [
+      "T_BOOL",
+      [
+        "T_STR",
+        "T_STR"
+      ]
+    ],
+    "REPEAT()": [
+      "T_STR",
+      [
+        "T_STR",
+        "T_CMP"
+      ]
+    ]
+  },
+  "promotions": {
+    "T_CMP": [
+      "T_BOOL",
+      "T_STR"
+    ],
+    "T_BOOL": [
+      "T_CMP"
+    ],
+    "T_STR": [
+      "T_CMP"
+    ]
+  },
+  "candidate_bitmap": {
+    "coarse_type_aliases": {
+      "T_ANY": "T_ANY",
+      "T_CMP": "T_CMP",
+      "T_BOOL": "T_BOOL",
+      "T_STR": "T_STR",
+      "INT": "T_CMP",
+      "SMALLINT": "T_CMP",
+      "INTEGER": "T_CMP",
+      "BIGINT": "T_CMP",
+      "FLOAT": "T_CMP",
+      "DOUBLE": "T_CMP",
+      "DOUBLE PRECISION": "T_CMP",
+      "DECIMAL": "T_CMP",
+      "NUMERIC": "T_CMP",
+      "REAL": "T_CMP",
+      "BIT": "T_CMP",
+      "DATE": "T_CMP",
+      "TIME": "T_CMP",
+      "DATETIME": "T_CMP",
+      "TIMESTAMP": "T_CMP",
+      "STRING": "T_STR",
+      "CHAR": "T_STR",
+      "BPCHAR": "T_STR",
+      "VARCHAR": "T_STR",
+      "TEXT": "T_STR",
+      "BINARY": "T_STR",
+      "VARBINARY": "T_STR",
+      "BYTEA": "T_STR",
+      "JSON": "T_STR",
+      "JSONB": "T_STR",
+      "BOOL": "T_BOOL",
+      "BOOLEAN": "T_BOOL",
+      "TRUE": "T_BOOL",
+      "FALSE": "T_BOOL",
+      "NULL": "T_ANY"
+    },
+    "compatibility": {
+      "strict": {
+        "T_ANY": [
+          "T_ANY",
+          "T_CMP",
+          "T_BOOL",
+          "T_STR"
+        ],
+        "T_CMP": [
+          "T_CMP"
+        ],
+        "T_BOOL": [
+          "T_BOOL"
+        ],
+        "T_STR": [
+          "T_STR"
+        ]
+      },
+      "weak": {
+        "T_CMP": [
+          "T_BOOL",
+          "T_STR"
+        ],
+        "T_BOOL": [
+          "T_CMP"
+        ],
+        "T_STR": [
+          "T_CMP",
+          "T_BOOL"
+        ]
+      },
+      "try": {
+        "T_BOOL": [
+          "T_STR"
+        ],
+        "T_STR": [
+          "T_BOOL"
+        ]
+      }
+    },
+    "terminal_tokens": {
+      "COL_INT": "INT",
+      "COL_FLOAT": "FLOAT",
+      "COL_STRING": "STRING",
+      "VALUE_TYPICAL_INT": "INT",
+      "VALUE_TYPICAL_FLOAT": "FLOAT",
+      "VALUE_TYPICAL_STRING": "STRING",
+      "NULL": "T_CMP",
+      "TRUE": "T_BOOL",
+      "FALSE": "T_BOOL",
+      "CURRENT_DATABASE()": "T_STR",
+      "CURRENT_SCHEMA()": "T_STR",
+      "VERSION()": "T_STR",
+      "PG_JIT_AVAILABLE()": "T_BOOL",
+      "INET_CLIENT_PORT()": "T_CMP",
+      "PG_BACKEND_PID()": "T_CMP",
+      "PG_NOTIFICATION_QUEUE_USAGE()": "T_CMP",
+      "PG_TRIGGER_DEPTH()": "T_CMP",
+      "PI()": "T_CMP",
+      "CURRENT_USER": "T_STR",
+      "SESSION_USER": "T_STR",
+      "PG_CLIENT_ENCODING()": "T_STR",
+      "INET_SERVER_PORT()": "T_CMP",
+      "PG_IS_IN_RECOVERY()": "T_BOOL"
+    },
+    "callable_terminal_tokens": [
+      "CURRENT_DATABASE()",
+      "CURRENT_SCHEMA()",
+      "VERSION()",
+      "PG_JIT_AVAILABLE()",
+      "INET_CLIENT_PORT()",
+      "PG_BACKEND_PID()",
+      "PG_NOTIFICATION_QUEUE_USAGE()",
+      "PG_TRIGGER_DEPTH()",
+      "PI()",
+      "PG_CLIENT_ENCODING()",
+      "INET_SERVER_PORT()",
+      "PG_IS_IN_RECOVERY()"
+    ],
+    "core_scored_tokens": [
+      "=",
+      "!=",
+      "<",
+      "<=",
+      ">",
+      ">=",
+      "LIKE",
+      "AND",
+      "OR",
+      "&",
+      "|",
+      "^",
+      "+",
+      "-",
+      "*",
+      "/",
+      "NOT",
+      "IN",
+      "BETWEEN"
+    ],
+    "extension_scored_tokens": [
+      "%",
+      "#",
+      "<<",
+      ">>",
+      "||",
+      "IS DISTINCT FROM",
+      "IS NOT DISTINCT FROM",
+      "IS NULL",
+      "IS NOT NULL",
+      "IS UNKNOWN",
+      "IS NOT UNKNOWN",
+      "IS TRUE",
+      "IS FALSE",
+      "IS NOT TRUE",
+      "IS NOT FALSE",
+      "IS NORMALIZED",
+      "IS NOT NORMALIZED",
+      "NOT IN",
+      "BETWEEN SYMMETRIC",
+      "NOT LIKE",
+      "ILIKE",
+      "NOT ILIKE",
+      "NOT BETWEEN",
+      "NOT BETWEEN SYMMETRIC",
+      "~",
+      "~*",
+      "!~",
+      "!~*",
+      "SIMILAR TO",
+      "LOWER()",
+      "UPPER()",
+      "LENGTH()",
+      "ASCII()",
+      "INITCAP()",
+      "MD5()",
+      "REVERSE()",
+      "ABS()",
+      "FLOOR()",
+      "CEILING()",
+      "CBRT()",
+      "EXP()",
+      "LN()",
+      "LOG()",
+      "DEGREES()",
+      "RADIANS()",
+      "ROUND()",
+      "SIGN()",
+      "TRUNC()",
+      "ATAN()",
+      "ATAND()",
+      "COS()",
+      "COSD()",
+      "SIN()",
+      "SIND()",
+      "TAN()",
+      "TAND()",
+      "SINH()",
+      "COSH()",
+      "TANH()",
+      "ASINH()",
+      "COT()",
+      "COTD()",
+      "BTRIM()",
+      "RTRIM()",
+      "STRPOS()",
+      "QUOTE_IDENT()",
+      "QUOTE_LITERAL()",
+      "TRANSLATE()",
+      "LEFT()",
+      "RIGHT()",
+      "RPAD()",
+      "SUBSTR()",
+      "CHR()",
+      "TO_ASCII()",
+      "TO_CHAR()",
+      "BIT_LENGTH()",
+      "CHAR_LENGTH()",
+      "OCTET_LENGTH()",
+      "LTRIM()",
+      "QUOTE_NULLABLE()",
+      "TO_HEX()",
+      "NORMALIZE()",
+      "UNISTR()",
+      "GCD()",
+      "LCM()",
+      "ATAN2()",
+      "ATAN2D()",
+      "DIV()",
+      "STARTS_WITH()",
+      "REPEAT()"
+    ],
+    "excluded_tokens": [
+      "//_COMMENT",
+      "//_NUMERIC",
+      "//_STRING",
+      "//_TIME",
+      "//_OTHER",
+      "//_COMMENT_END",
+      "INT()",
+      "TINYINT()",
+      "SMALLINT()",
+      "MEDIUMINT()",
+      "BIGINT()",
+      "FLOAT()",
+      "DOUBLE()",
+      "DECIMAL()",
+      "REAL()",
+      "BIT()",
+      "BOOL()",
+      "BOOLEAN()",
+      "STRING()",
+      "CHAR()",
+      "VARCHAR()",
+      "TEXT()",
+      "TINYTEXT()",
+      "MEDIUMTEXT()",
+      "LONGTEXT()",
+      "BINARY()",
+      "VARBINARY()",
+      "BLOB()",
+      "HEX()",
+      "JSON()",
+      "ENUM()",
+      "SET()",
+      "DATE()",
+      "DATETIME()",
+      "TIMESTAMP()",
+      "TIME()",
+      "YEAR()",
+      "HOUR()",
+      "MONTH()",
+      "WEEK()",
+      "WEEKDAY()",
+      "IF()",
+      "REGEXP",
+      "NOT REGEXP",
+      "RLIKE",
+      "<=>",
+      "<>",
+      "XOR",
+      "!",
+      "&&",
+      "IS",
+      "ISNULL",
+      "NOTNULL",
+      "@>",
+      "<@",
+      "&<",
+      ">&",
+      "-|-",
+      "UNARY_PLUS",
+      "UNARY_MINUS",
+      "VALUE_SINGULAR_INT",
+      "VALUE_SINGULAR_FLOAT",
+      "VALUE_SINGULAR_STRING",
+      "HOLE_T_CMP",
+      "HOLE_T_STR",
+      "HOLE_T_BOOL"
+    ],
+    "expand_valid_type_terminals": false,
+    "exclude_definition_prefixes": [
+      "//"
+    ],
+    "slot_type_constraint_mode": "level_hint_only",
+    "operator_prototype_aliases": {
+      "BTRIM()": ["RTRIM()"],
+      "LEFT()": ["SUBSTRING()"],
+      "RIGHT()": ["SUBSTRING()"],
+      "RPAD()": ["LPAD()"],
+      "STRPOS()": ["LOCATE()"],
+      "SUBSTR()": ["SUBSTRING()"],
+      "TO_ASCII()": ["ASCII()"],
+      "TO_CHAR()": ["CAST()"]
+    },
+    "non_target_slot_fixed_sql": {
+      "IS DISTINCT FROM": {
+        "0": "NULL",
+        "1": "NULL"
+      },
+      "IS NOT DISTINCT FROM": {
+        "0": "NULL",
+        "1": "NULL"
+      },
+      "LIKE": {
+        "1": "'%probe%'"
+      },
+      "NOT LIKE": {
+        "1": "'%probe%'"
+      },
+      "ILIKE": {
+        "1": "'%probe%'"
+      },
+      "NOT ILIKE": {
+        "1": "'%probe%'"
+      },
+      "~": {
+        "1": "'probe_str'"
+      },
+      "~*": {
+        "1": "'probe_str'"
+      },
+      "!~": {
+        "1": "'probe_str'"
+      },
+      "!~*": {
+        "1": "'probe_str'"
+      },
+      "SIMILAR TO": {
+        "1": "'%probe%'"
+      },
+      "/": {
+        "1": "1"
+      },
+      "%": {
+        "0": "1",
+        "1": "1"
+      },
+      "^": {
+        "0": "1",
+        "1": "1"
+      },
+      "&": {
+        "0": "1",
+        "1": "1"
+      },
+      "|": {
+        "0": "1",
+        "1": "1"
+      },
+      "#": {
+        "0": "1",
+        "1": "1"
+      },
+      "<<": {
+        "0": "1",
+        "1": "1"
+      },
+      ">>": {
+        "0": "1",
+        "1": "1"
+      },
+      "LEFT()": {
+        "1": "1"
+      },
+      "RIGHT()": {
+        "1": "1"
+      },
+      "RPAD()": {
+        "1": "1"
+      },
+      "SUBSTR()": {
+        "1": "1",
+        "2": "1"
+      },
+      "TO_ASCII()": {
+        "1": "'LATIN1'"
+      },
+      "TO_CHAR()": {
+        "1": "'FM999999.00'"
+      },
+      "GCD()": {
+        "0": "1",
+        "1": "1"
+      },
+      "LCM()": {
+        "0": "1",
+        "1": "1"
+      },
+      "DIV()": {
+        "0": "1",
+        "1": "1"
+      },
+      "REPEAT()": {
+        "1": "1"
+      }
+    },
+    "semantic_policy": {
+      "definition_signatures": "bootstrap_hints_not_oracle",
+      "manual_input_scope": "syntax_shape_and_initial_type_hints_only",
+      "learned_scope": "slot_acceptance_edges_and_implicit_conversions_are_decided_by_rl_db_parser_feedback",
+      "not_in_policy": "included_for_postgresql",
+      "non_target_slot_fallback": "only_for_probe_construction_not_semantic_oracle"
+    }
+  },
+  "sql_render": {
+    "version": "stage21_2a_sql_render_v1_postgresql",
+    "operator_templates": {
+      "IN": {
+        "style": "in_list",
+        "min_items": 1
+      },
+      "NOT IN": {
+        "style": "in_list",
+        "min_items": 1
+      },
+      "BETWEEN": {
+        "style": "between"
+      },
+      "BETWEEN SYMMETRIC": {
+        "style": "between"
+      },
+      "NOT BETWEEN": {
+        "style": "between"
+      },
+      "NOT BETWEEN SYMMETRIC": {
+        "style": "between"
+      },
+      "NOT": {
+        "style": "prefix"
+      },
+      "IS DISTINCT FROM": {
+        "style": "binary_infix"
+      },
+      "IS NOT DISTINCT FROM": {
+        "style": "binary_infix"
+      },
+      "LIKE": {
+        "style": "binary_infix"
+      },
+      "NOT LIKE": {
+        "style": "binary_infix"
+      },
+      "ILIKE": {
+        "style": "binary_infix"
+      },
+      "NOT ILIKE": {
+        "style": "binary_infix"
+      },
+      "~": {
+        "style": "binary_infix"
+      },
+      "~*": {
+        "style": "binary_infix"
+      },
+      "!~": {
+        "style": "binary_infix"
+      },
+      "!~*": {
+        "style": "binary_infix"
+      },
+      "SIMILAR TO": {
+        "style": "binary_infix"
+      },
+      "IS NULL": {
+        "style": "postfix"
+      },
+      "IS NOT NULL": {
+        "style": "postfix"
+      },
+      "IS UNKNOWN": {
+        "style": "postfix"
+      },
+      "IS NOT UNKNOWN": {
+        "style": "postfix"
+      },
+      "IS TRUE": {
+        "style": "postfix"
+      },
+      "IS FALSE": {
+        "style": "postfix"
+      },
+      "IS NOT TRUE": {
+        "style": "postfix"
+      },
+      "IS NOT FALSE": {
+        "style": "postfix"
+      },
+      "IS NORMALIZED": {
+        "style": "postfix"
+      },
+      "IS NOT NORMALIZED": {
+        "style": "postfix"
+      }
+    },
+    "literal_profiles": {
+      "cmp": "1",
+      "float": "1.5",
+      "string": "'probe_str'",
+      "bool": "TRUE",
+      "null": "NULL",
+      "like_pattern": "'%probe%'",
+      "regex_pattern": "'probe_str'",
+      "allow_hex_int_literals": false
+    }
+  },
+  "unary_operators": [
+    "NOT"
+  ],
+  "valid_types": [
+    "SMALLINT",
+    "INTEGER",
+    "INT",
+    "BIGINT",
+    "FLOAT",
+    "DOUBLE PRECISION",
+    "DECIMAL",
+    "NUMERIC",
+    "REAL",
+    "STRING",
+    "CHAR",
+    "VARCHAR",
+    "TEXT",
+    "BYTEA",
+    "DATE",
+    "TIME",
+    "TIMESTAMP",
+    "BOOL",
+    "BOOLEAN",
+    "JSON",
+    "JSONB"
+  ],
+  "forbidden_clauses": [
+    "SELECT",
+    "FROM",
+    "WHERE",
+    "INSERT",
+    "UPDATE",
+    "DELETE",
+    "DROP",
+    "ALTER",
+    "CREATE",
+    "TRUNCATE",
+    "REPLACE",
+    "JOIN",
+    "INNER",
+    "OUTER",
+    "LEFT",
+    "RIGHT",
+    "ON",
+    "GROUP",
+    "BY",
+    "HAVING",
+    "ORDER",
+    "LIMIT",
+    "OFFSET",
+    "UNION",
+    "WITH",
+    "AS",
+    "CASE",
+    "WHEN",
+    "THEN",
+    "ELSE",
+    "END"
+  ],
+  "precedence": {
+    "OR": 10,
+    "AND": 20,
+    "NOT": 25,
+    "BETWEEN": 30,
+    "BETWEEN SYMMETRIC": 30,
+    "NOT BETWEEN": 30,
+    "NOT BETWEEN SYMMETRIC": 30,
+    "CASE": 30,
+    "WHEN": 30,
+    "THEN": 30,
+    "ELSE": 30,
+    "=": 40,
+    ">=": 40,
+    ">": 40,
+    "<=": 40,
+    "<": 40,
+    "!=": 40,
+    "IS DISTINCT FROM": 40,
+    "IS NOT DISTINCT FROM": 40,
+    "LIKE": 40,
+    "NOT LIKE": 40,
+    "ILIKE": 40,
+    "NOT ILIKE": 40,
+    "~": 40,
+    "~*": 40,
+    "!~": 40,
+    "!~*": 40,
+    "SIMILAR TO": 40,
+    "IN": 40,
+    "NOT IN": 40,
+    "IS NULL": 40,
+    "IS NOT NULL": 40,
+    "IS UNKNOWN": 40,
+    "IS NOT UNKNOWN": 40,
+    "IS TRUE": 40,
+    "IS FALSE": 40,
+    "IS NOT TRUE": 40,
+    "IS NOT FALSE": 40,
+    "IS NORMALIZED": 40,
+    "IS NOT NORMALIZED": 40,
+    "|": 50,
+    "#": 52,
+    "&": 55,
+    "<<": 60,
+    ">>": 60,
+    "+": 70,
+    "-": 70,
+    "*": 80,
+    "/": 80,
+    "%": 80,
+    "^": 85,
+    "||": 90,
+    "UNARY_HIGH": 100
+  }
+}

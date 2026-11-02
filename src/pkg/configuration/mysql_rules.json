@@ -1,0 +1,373 @@
+{
+  "description": "MySQL Robust Rules for Fuzzing (Enhanced)",
+  "types": {
+    "T_BOOL": "Boolean logic (TRUE/FALSE)",
+    "T_CMP": "Comparable (Numbers, Strings, Dates)",
+    "T_STR": "Strict String",
+    "T_ANY": "Any type"
+  },
+  "definitions": {
+    "AND": ["T_BOOL", ["T_BOOL", "T_BOOL"]],
+    "&&": ["T_BOOL", ["T_BOOL", "T_BOOL"]],
+    "OR": ["T_BOOL", ["T_BOOL", "T_BOOL"]],
+    "||": ["T_BOOL", ["T_BOOL", "T_BOOL"]],
+    "XOR": ["T_BOOL", ["T_BOOL", "T_BOOL"]],
+
+    "NOT": ["T_BOOL", ["T_BOOL"]],
+    "!": ["T_BOOL", ["T_BOOL"]],
+    "~": ["T_CMP", ["T_CMP"]],
+
+    ">": ["T_BOOL", ["T_CMP", "T_CMP"]],
+    ">=": ["T_BOOL", ["T_CMP", "T_CMP"]],
+    "<": ["T_BOOL", ["T_CMP", "T_CMP"]],
+    "<=": ["T_BOOL", ["T_CMP", "T_CMP"]],
+    "=": ["T_BOOL", ["T_CMP", "T_CMP"]],
+    "<=>": ["T_BOOL", ["T_CMP", "T_CMP"]],
+    "!=": ["T_BOOL", ["T_CMP", "T_CMP"]],
+    "<>": ["T_BOOL", ["T_CMP", "T_CMP"]],
+
+    "LIKE": ["T_BOOL", ["T_STR", "T_STR"]],
+    "NOT LIKE": ["T_BOOL", ["T_STR", "T_STR"]],
+    "REGEXP": ["T_BOOL", ["T_STR", "T_STR"]],
+    "NOT REGEXP": ["T_BOOL", ["T_STR", "T_STR"]],
+    "IN": ["T_BOOL", ["T_CMP", "T_CMP"]],
+    "IS": ["T_BOOL", ["T_ANY", "T_ANY"]],
+
+    "BETWEEN": ["T_BOOL", ["T_CMP", "T_CMP", "T_CMP"]],
+    "NOT BETWEEN": ["T_BOOL", ["T_CMP", "T_CMP", "T_CMP"]],
+
+    "+": ["T_CMP", ["T_CMP", "T_CMP"]],
+    "-": ["T_CMP", ["T_CMP", "T_CMP"]],
+    "*": ["T_CMP", ["T_CMP", "T_CMP"]],
+    "/": ["T_CMP", ["T_CMP", "T_CMP"]],
+    "%": ["T_CMP", ["T_CMP", "T_CMP"]],
+
+    "&": ["T_CMP", ["T_CMP", "T_CMP"]],
+    "|": ["T_CMP", ["T_CMP", "T_CMP"]],
+    "^": ["T_CMP", ["T_CMP", "T_CMP"]],
+
+    "ABS()": ["T_CMP", ["T_CMP"]],
+    "FLOOR()": ["T_CMP", ["T_CMP"]],
+    "CEIL()": ["T_CMP", ["T_CMP"]],
+    "ROUND()": ["T_CMP", ["T_CMP"]],
+    "LENGTH()": ["T_CMP", ["T_STR"]],
+
+    "SIGN()": ["T_CMP", ["T_CMP"]],
+    "SQRT()": ["T_CMP", ["T_CMP"]],
+    "LOG()": ["T_CMP", ["T_CMP"]],
+    "LOG10()": ["T_CMP", ["T_CMP"]],
+    "EXP()": ["T_CMP", ["T_CMP"]],
+    "CHAR_LENGTH()": ["T_CMP", ["T_STR"]],
+    "ASCII()": ["T_CMP", ["T_STR"]],
+    "LOWER()": ["T_STR", ["T_STR"]],
+    "UPPER()": ["T_STR", ["T_STR"]],
+    "REVERSE()": ["T_STR", ["T_STR"]],
+    "TRIM()": ["T_STR", ["T_STR"]],
+
+    "DIV": ["T_CMP", ["T_CMP", "T_CMP"]],
+    "MOD": ["T_CMP", ["T_CMP", "T_CMP"]],
+    "<<": ["T_CMP", ["T_CMP", "T_CMP"]],
+    ">>": ["T_CMP", ["T_CMP", "T_CMP"]],
+    "TRUNCATE()": ["T_CMP", ["T_CMP", "T_CMP"]],
+    "BIT_COUNT()": ["T_CMP", ["T_CMP"]],
+    "DEGREES()": ["T_CMP", ["T_CMP"]],
+    "RADIANS()": ["T_CMP", ["T_CMP"]],
+    "SIN()": ["T_CMP", ["T_CMP"]],
+    "COS()": ["T_CMP", ["T_CMP"]],
+    "TAN()": ["T_CMP", ["T_CMP"]],
+    "ATAN()": ["T_CMP", ["T_CMP"]],
+    "BIT_LENGTH()": ["T_CMP", ["T_STR"]],
+    "OCTET_LENGTH()": ["T_CMP", ["T_STR"]],
+    "CRC32()": ["T_CMP", ["T_STR"]],
+    "STRCMP()": ["T_CMP", ["T_STR", "T_STR"]],
+    "LTRIM()": ["T_STR", ["T_STR"]],
+    "RTRIM()": ["T_STR", ["T_STR"]],
+
+    "QUOTE()": ["T_STR", ["T_STR"]],
+    "ORD()": ["T_CMP", ["T_STR"]],
+    "OCT()": ["T_STR", ["T_CMP"]],
+    "MD5()": ["T_STR", ["T_STR"]],
+    "SHA1()": ["T_STR", ["T_STR"]],
+    "TO_BASE64()": ["T_STR", ["T_STR"]],
+    "FROM_BASE64()": ["T_STR", ["T_STR"]],
+    "COMPRESS()": ["T_STR", ["T_STR"]],
+    "COLLATION()": ["T_STR", ["T_STR"]],
+    "COERCIBILITY()": ["T_CMP", ["T_STR"]],
+
+    "ATAN2()": ["T_CMP", ["T_CMP", "T_CMP"]],
+    "CONCAT()": ["T_STR", ["T_STR", "T_STR"]],
+    "CONCAT_WS()": ["T_STR", ["T_STR", "T_STR", "T_STR"]],
+    "SUBSTRING()": ["T_STR", ["T_STR", "T_CMP"]],
+    "LEFT()": ["T_STR", ["T_STR", "T_CMP"]],
+    "RIGHT()": ["T_STR", ["T_STR", "T_CMP"]],
+    "REPEAT()": ["T_STR", ["T_STR", "T_CMP"]],
+    "REPLACE()": ["T_STR", ["T_STR", "T_STR", "T_STR"]],
+    "SOUNDEX()": ["T_STR", ["T_STR"]],
+    "SPACE()": ["T_STR", ["T_CMP"]],
+    "UNHEX()": ["T_STR", ["T_STR"]],
+    "JSON_VALID()": ["T_BOOL", ["T_STR"]],
+    "ISNULL()": ["T_BOOL", ["T_ANY"]]
+  },
+  "promotions": {
+    "T_CMP": ["T_BOOL", "T_STR"],
+    "T_BOOL": ["T_CMP"],
+    "T_STR": ["T_CMP"]
+  },
+  "candidate_bitmap": {
+    "coarse_type_aliases": {
+      "T_ANY": "T_ANY",
+      "T_CMP": "T_CMP",
+      "T_BOOL": "T_BOOL",
+      "T_STR": "T_STR",
+      "INT": "T_CMP",
+      "TINYINT": "T_CMP",
+      "SMALLINT": "T_CMP",
+      "MEDIUMINT": "T_CMP",
+      "BIGINT": "T_CMP",
+      "FLOAT": "T_CMP",
+      "DOUBLE": "T_CMP",
+      "DECIMAL": "T_CMP",
+      "NUMERIC": "T_CMP",
+      "REAL": "T_CMP",
+      "BIT": "T_CMP",
+      "DATE": "T_CMP",
+      "TIME": "T_CMP",
+      "DATETIME": "T_CMP",
+      "TIMESTAMP": "T_CMP",
+      "YEAR": "T_CMP",
+      "STRING": "T_STR",
+      "CHAR": "T_STR",
+      "VARCHAR": "T_STR",
+      "TEXT": "T_STR",
+      "TINYTEXT": "T_STR",
+      "MEDIUMTEXT": "T_STR",
+      "LONGTEXT": "T_STR",
+      "BINARY": "T_STR",
+      "VARBINARY": "T_STR",
+      "BLOB": "T_STR",
+      "HEX": "T_STR",
+      "ENUM": "T_STR",
+      "SET": "T_STR",
+      "JSON": "T_STR",
+      "BOOL": "T_BOOL",
+      "BOOLEAN": "T_BOOL",
+      "TRUE": "T_BOOL",
+      "FALSE": "T_BOOL",
+      "NULL": "T_ANY"
+    },
+    "compatibility": {
+      "strict": {
+        "T_ANY": ["T_ANY", "T_CMP", "T_BOOL", "T_STR"],
+        "T_CMP": ["T_CMP"],
+        "T_BOOL": ["T_BOOL"],
+        "T_STR": ["T_STR"]
+      },
+      "weak": {
+        "T_CMP": ["T_BOOL", "T_STR"],
+        "T_BOOL": ["T_CMP"],
+        "T_STR": ["T_CMP", "T_BOOL"]
+      },
+      "try": {
+        "T_BOOL": ["T_STR"],
+        "T_STR": ["T_BOOL"]
+      }
+    },
+    "terminal_tokens": {
+      "COL_INT": "INT",
+      "COL_FLOAT": "FLOAT",
+      "COL_STRING": "STRING",
+      "VALUE_TYPICAL_INT": "INT",
+      "VALUE_TYPICAL_FLOAT": "FLOAT",
+      "VALUE_TYPICAL_STRING": "STRING",
+      "NULL": "T_CMP",
+      "TRUE": "T_BOOL",
+      "FALSE": "T_BOOL",
+      "PI()": "T_CMP",
+      "DATABASE()": "T_STR",
+      "CURRENT_USER()": "T_STR",
+      "SESSION_USER()": "T_STR",
+      "SYSTEM_USER()": "T_STR",
+      "VERSION()": "T_STR",
+      "CONNECTION_ID()": "T_CMP"
+    },
+    "callable_terminal_tokens": [
+      "PI()",
+      "DATABASE()",
+      "CURRENT_USER()",
+      "SESSION_USER()",
+      "SYSTEM_USER()",
+      "VERSION()",
+      "CONNECTION_ID()"
+    ],
+    "core_scored_tokens": [
+      "=", "!=", "<", "<=", ">", ">=", "LIKE", "AND", "OR", "XOR",
+      "&", "|", "^", "+", "-", "*", "/", "IS", "NOT", "IN", "BETWEEN"
+    ],
+    "extension_scored_tokens": [
+      "!", "~", "%", "<=>", "<>", "&&", "||",
+      "NOT LIKE", "REGEXP", "NOT REGEXP", "NOT BETWEEN",
+      "ABS()", "FLOOR()", "CEIL()", "ROUND()", "LENGTH()",
+      "SIGN()", "SQRT()", "LOG()", "LOG10()", "EXP()",
+      "CHAR_LENGTH()", "ASCII()",
+      "LOWER()", "UPPER()", "REVERSE()", "TRIM()",
+      "DIV", "MOD", "<<", ">>", "TRUNCATE()", "BIT_COUNT()",
+      "DEGREES()", "RADIANS()", "SIN()", "COS()", "TAN()", "ATAN()",
+      "BIT_LENGTH()", "OCTET_LENGTH()", "CRC32()", "STRCMP()",
+      "LTRIM()", "RTRIM()",
+      "QUOTE()", "ORD()", "OCT()", "MD5()", "SHA1()", "TO_BASE64()",
+      "FROM_BASE64()", "COMPRESS()", "COLLATION()", "COERCIBILITY()",
+      "ATAN2()", "CONCAT()", "CONCAT_WS()", "SUBSTRING()", "LEFT()",
+      "RIGHT()", "REPEAT()", "REPLACE()", "SOUNDEX()", "SPACE()",
+      "UNHEX()", "JSON_VALID()", "ISNULL()"
+    ],
+    "excluded_tokens": [
+      "//_COMMENT", "//_NUMERIC", "//_STRING", "//_TIME", "//_OTHER", "//_COMMENT_END",
+      "INT()", "TINYINT()", "SMALLINT()", "MEDIUMINT()", "BIGINT()",
+      "FLOAT()", "DOUBLE()", "DECIMAL()", "REAL()", "BIT()",
+      "BOOL()", "BOOLEAN()",
+      "STRING()", "CHAR()", "VARCHAR()", "TEXT()", "TINYTEXT()",
+      "MEDIUMTEXT()", "LONGTEXT()", "BINARY()", "VARBINARY()",
+      "BLOB()", "HEX()", "JSON()", "ENUM()", "SET()",
+      "DATE()", "DATETIME()", "TIMESTAMP()", "TIME()", "YEAR()",
+      "HOUR()", "MONTH()", "WEEK()", "WEEKDAY()", "IF()",
+      "NOT IN",
+      "IS NULL", "IS NOT NULL", "IS TRUE", "IS FALSE",
+      "VALUE_SINGULAR_INT", "VALUE_SINGULAR_FLOAT", "VALUE_SINGULAR_STRING",
+      "HOLE_T_CMP", "HOLE_T_STR", "HOLE_T_BOOL"
+    ],
+    "expand_valid_type_terminals": false,
+    "exclude_definition_prefixes": ["//"],
+    "slot_type_constraint_mode": "level_hint_only",
+    "non_target_slot_fixed_sql": {
+      "/": {"1": "1"},
+      "%": {"0": "1", "1": "1"},
+      "LIKE": {"0": "'probe_str'", "1": "'%probe%'"},
+      "NOT LIKE": {"0": "'probe_str'", "1": "'%probe%'"},
+      "REGEXP": {"0": "'probe_str'", "1": "'probe_str'"},
+      "NOT REGEXP": {"0": "'probe_str'", "1": "'probe_str'"},
+      "BETWEEN": {"0": "5", "1": "1", "2": "10"},
+      "NOT BETWEEN": {"0": "5", "1": "1", "2": "10"},
+      "IN": {"0": "1", "1": "1"},
+      "IS": {"0": "1", "1": "NULL"},
+      "DIV": {"0": "1", "1": "1"},
+      "MOD": {"0": "1", "1": "1"},
+      "<<": {"0": "1", "1": "1"},
+      ">>": {"0": "1", "1": "1"},
+      "TRUNCATE()": {"0": "1.5", "1": "0"},
+      "STRCMP()": {"0": "'probe_str'", "1": "'probe_str'"},
+      "ATAN2()": {"0": "1", "1": "1"},
+      "CONCAT()": {"0": "'probe_str'", "1": "'probe_str'"},
+      "CONCAT_WS()": {"0": "','", "1": "'probe_str'", "2": "'probe_str'"},
+      "SUBSTRING()": {"0": "'probe_str'", "1": "1"},
+      "LEFT()": {"0": "'probe_str'", "1": "1"},
+      "RIGHT()": {"0": "'probe_str'", "1": "1"},
+      "REPEAT()": {"0": "'probe_str'", "1": "1"},
+      "REPLACE()": {"0": "'probe_str'", "1": "'probe'", "2": "'value'"}
+    },
+    "semantic_policy": {
+      "definition_signatures": "bootstrap_hints_not_oracle",
+      "manual_input_scope": "syntax_shape_and_initial_type_hints_only",
+      "learned_scope": "slot_acceptance_edges_and_implicit_conversions_are_decided_by_rl_db_parser_feedback",
+      "not_in_policy": "excluded_in_stage21_2b",
+      "non_target_slot_fallback": "only_for_probe_construction_not_semantic_oracle"
+    }
+  },
+  "sql_render": {
+    "version": "stage21_2a_sql_render_v1",
+    "operator_templates": {
+      "IN": {
+        "style": "in_list",
+        "min_items": 1
+      },
+      "BETWEEN": {
+        "style": "between"
+      },
+      "NOT BETWEEN": {
+        "style": "between"
+      },
+      "IS": {
+        "style": "binary_infix"
+      },
+      "IS NULL": {
+        "style": "postfix"
+      },
+      "IS NOT NULL": {
+        "style": "postfix"
+      },
+      "IS TRUE": {
+        "style": "postfix"
+      },
+      "IS FALSE": {
+        "style": "postfix"
+      },
+      "NOT": {
+        "style": "prefix"
+      },
+      "!": {
+        "style": "prefix"
+      },
+      "~": {
+        "style": "prefix"
+      },
+      "-": {
+        "style": "prefix"
+      },
+      "+": {
+        "style": "prefix"
+      },
+      "LIKE": {
+        "style": "binary_infix"
+      },
+      "NOT LIKE": {
+        "style": "binary_infix"
+      },
+      "REGEXP": {
+        "style": "binary_infix"
+      },
+      "NOT REGEXP": {
+        "style": "binary_infix"
+      }
+    },
+    "literal_profiles": {
+      "cmp": "1",
+      "float": "1.5",
+      "string": "'probe_str'",
+      "bool": "TRUE",
+      "null": "NULL",
+      "like_pattern": "'%probe%'",
+      "regex_pattern": "'probe_str'",
+      "allow_hex_int_literals": true
+    }
+  },
+  "unary_operators": ["NOT", "!", "-", "+", "~"],
+  "valid_types": [
+    "INT", "TINYINT", "SMALLINT", "MEDIUMINT", "BIGINT", "HEX",
+    "FLOAT", "DOUBLE", "DECIMAL", "NUMERIC", "REAL",
+    "STRING", "CHAR", "VARCHAR", "TEXT", "TINYTEXT", "MEDIUMTEXT", "LONGTEXT",
+    "BINARY", "VARBINARY", "BLOB",
+    "DATE", "TIME", "DATETIME", "TIMESTAMP", "YEAR",
+    "BOOL", "BOOLEAN", "BIT", "ENUM", "SET", "JSON"
+  ],
+  "forbidden_clauses": [
+    "SELECT", "FROM", "WHERE", "INSERT", "UPDATE", "DELETE",
+    "DROP", "ALTER", "CREATE", "TRUNCATE", "REPLACE",
+    "JOIN", "INNER", "OUTER", "LEFT", "RIGHT", "ON",
+    "GROUP", "BY", "HAVING", "ORDER", "LIMIT", "OFFSET",
+    "UNION", "WITH", "AS",
+    "CASE", "WHEN", "THEN", "ELSE", "END"
+  ],
+  "precedence": {
+    "OR": 10, "||": 10, "XOR": 15,
+    "AND": 20, "&&": 20,
+    "NOT": 25,
+    "BETWEEN": 30, "NOT BETWEEN": 30,
+    "CASE": 30, "WHEN": 30, "THEN": 30, "ELSE": 30,
+    "=": 40, "<=>": 40, ">=": 40, ">": 40, "<=": 40, "<": 40, "<>": 40, "!=": 40,
+    "IS": 40, "LIKE": 40, "NOT LIKE": 40, "REGEXP": 40, "NOT REGEXP": 40, "IN": 40, "NOT IN": 40,
+    "|": 50, "&": 55, "<<": 60, ">>": 60,
+    "+": 70, "-": 70,
+    "*": 80, "/": 80, "%": 80, "DIV": 80, "MOD": 80,
+    "^": 85,
+    "UNARY_HIGH": 100
+  }
+}
