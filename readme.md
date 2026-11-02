@@ -5,3 +5,12 @@
 - `src/`: Contains the project source code and supporting resources.
 
 Output integration for `data/` and launch scripts for `exp/` are planned for future updates.
+
+Run `download_codet5_small.py` to download the required [CodeT5-small model](https://huggingface.co/Salesforce/codet5-small) from Hugging Face into `src/codet5-small/`. From the `Robusta` directory, install the dependencies if needed, then run:
+
+```bash
+python -m pip install "torch>=2.6" "transformers==4.57.1" "tokenizers==0.22.1" "safetensors==0.6.2"
+python download_codet5_small.py
+```
+
+The script uses a fixed model revision and verifies SHA-256 checksums to reproduce the project's original eight model files, including `model.safetensors`. The download location is relative to the script, regardless of the working directory. Existing matching files are kept, and temporary download files are cleaned up automatically.
