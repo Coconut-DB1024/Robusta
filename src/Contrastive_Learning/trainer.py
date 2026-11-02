@@ -1,5 +1,6 @@
 import os
 import sys
+import time
 from pathlib import Path
 
 import torch
@@ -11,6 +12,13 @@ from .loss import WeightedSupConLoss
 
 def get_project_root() -> Path:
     return Path(__file__).resolve().parent.parent
+
+
+def _print_training_progress(completed, total):
+    fraction = min(completed / total, 1.0) if total > 0 else 1.0
+    filled = int(fraction * 20)
+    bar = "#" * filled + "-" * (20 - filled)
+    print(f"[Encoder] 训练进度 [{bar}] {fraction * 100:.1f}%", flush=True)
 
 
 def run_contrastive_learning(
@@ -81,19 +89,19 @@ def run_contrastive_learning(
     )
 
     print(f"数据集大小: {len(dataset)} 个样本")
-    print(f"每个 epoch 的 batch 数量: {len(dataloader)}")
 
     # 只更新 Encoder（其中包含 T5 的共享输入 embedding）。
     encoder_parameters = model.base_model.get_encoder().parameters()
     optimizer = torch.optim.AdamW(encoder_parameters, lr=learning_rate)
     contrastive_criterion = WeightedSupConLoss(temperature=temperature)
 
-    for epoch in range(num_epochs):
-        print(f"\n=========== Epoch {epoch + 1}/{num_epochs} ===========")
-        loss_sum = 0.0
-        step_count = 0
+    total_samples = len(dataset) * num_epochs
+    completed_samples = 0
+    _print_training_progress(completed_samples, total_samples)
+    last_progress_time = time.monotonic()
 
-        for batch_idx, batch in enumerate(dataloader):
+    for epoch in range(num_epochs):
+        for batch in dataloader:
             input_ids = batch["input_ids"].to(device)
             attention_mask = batch["attention_mask"].to(device)
             labels = batch["labels"].to(device)
@@ -114,21 +122,14 @@ def run_contrastive_learning(
             contrastive_loss.backward()
             optimizer.step()
 
-            loss_value = float(contrastive_loss.detach().item())
-            loss_sum += loss_value
-            step_count += 1
+            completed_samples += input_ids.size(0)
+            now = time.monotonic()
+            if now - last_progress_time >= 30.0 and completed_samples < total_samples:
+                _print_training_progress(completed_samples, total_samples)
+                last_progress_time = now
 
-            if (batch_idx + 1) % 10 == 0 or (batch_idx + 1) == len(dataloader):
-                stats = getattr(contrastive_criterion, "last_stats", {})
-                print(
-                    f"[Encoder] Epoch {epoch + 1}/{num_epochs} | "
-                    f"Batch {batch_idx + 1}/{len(dataloader)} | "
-                    f"WeightedSupCon: {loss_value:.4f} | "
-                    f"valid_anchor={stats.get('valid_anchors', 0)} | "
-                    f"skipped_anchor={stats.get('skipped_anchors', 0)}"
-                )
-
-        print(f"[Encoder] Epoch {epoch + 1} 平均损失: {loss_sum / max(step_count, 1):.4f}")
+    if total_samples > 0:
+        _print_training_progress(completed_samples, total_samples)
 
     os.makedirs(model_dir, exist_ok=True)
     torch.save(model.encoder_state_dict(), encoder_state_path)
