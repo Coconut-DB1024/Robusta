@@ -1,0 +1,133 @@
+{
+  "int": [
+    "number",
+    "integer",
+    "smallint",
+    "bigint"
+  ],
+  "float": [
+    "binary_float",
+    "binary_double",
+    "float",
+    "real",
+    "double precision",
+    "decimal",
+    "numeric"
+  ],
+  "string": [
+    "char",
+    "nchar",
+    "varchar",
+    "varchar2",
+    "nvarchar2",
+    "clob",
+    "nclob",
+    "long",
+    "rowid",
+    "urowid"
+  ],
+  "binary": [
+    "raw",
+    "long raw",
+    "blob"
+  ],
+  "date": [
+    "date",
+    "timestamp",
+    "timestamp with time zone",
+    "timestamp with local time zone",
+    "interval year to month",
+    "interval day to second"
+  ],
+  "json": [
+    "json"
+  ],
+  "boolean": [
+    "boolean"
+  ],
+  "operator_profile": {
+    "target_sparse_operators": [
+      "LIKE",
+      "NOT LIKE",
+      "LIKEC",
+      "LIKE2",
+      "LIKE4",
+      "REGEXP_LIKE()",
+      "IN",
+      "NOT IN",
+      "BETWEEN",
+      "NOT BETWEEN",
+      "IS NULL",
+      "IS NOT NULL",
+      "IS TRUE",
+      "IS FALSE",
+      "IS NOT TRUE",
+      "IS NOT FALSE",
+      "IS JSON",
+      "IS NOT JSON",
+      "JSON_EXISTS()",
+      "LNNVL()",
+      "NOT",
+      "AND",
+      "OR",
+      "!=::T_BOOL",
+      "<>::T_BOOL",
+      "<::T_BOOL",
+      "<=::T_BOOL",
+      "||::T_STR",
+      "LOWER()",
+      "UPPER()",
+      "INITCAP()",
+      "LENGTH()",
+      "LENGTHB()",
+      "INSTR()",
+      "SUBSTR()",
+      "REGEXP_COUNT()",
+      "REGEXP_INSTR()",
+      "REGEXP_REPLACE()",
+      "REGEXP_SUBSTR()",
+      "ABS()",
+      "FLOOR()",
+      "CEIL()",
+      "ROUND()",
+      "TRUNC()",
+      "EXP()",
+      "LN()",
+      "LOG()",
+      "TO_BOOLEAN()",
+      "JSON_VALUE()",
+      "JSON_QUERY()"
+    ],
+    "high_freq_operators": [
+      "=::T_BOOL",
+      ">::T_BOOL",
+      ">=::T_BOOL",
+      "+::T_CMP",
+      "-::T_CMP",
+      "*::T_CMP",
+      "/::T_CMP"
+    ],
+    "dirty_generated_tokens": [
+      "NAND",
+      "NOR",
+      "YAND",
+      "YOR",
+      "SAND",
+      "NOLIKE",
+      "NOEXP",
+      "OPEXP",
+      "OP??",
+      "OPW",
+      "OPATER"
+    ],
+    "bad_function_prefixes": [
+      "FREATEST",
+      "NREATEST",
+      "NANDA",
+      "NORA",
+      "LEASTAST",
+      "FREOR",
+      "FloorOR"
+    ]
+  }
+}

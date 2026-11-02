@@ -1,0 +1,77 @@
+{
+  "int": [
+    "tinyint", "smallint", "mediumint", "int", "integer", "bigint", "bit", "year", "hex"
+  ],
+  "float": [
+    "float", "double", "decimal", "numeric", "real"
+  ],
+  "string": [
+    "char", "varchar", "tinytext", "text", "mediumtext", "longtext",
+    "tinyblob", "blob", "mediumblob", "longblob", "enum", "set", "binary", "varbinary"
+  ],
+  "date": [
+    "date", "time", "datetime", "timestamp"
+  ],
+  "json": [
+    "json"
+  ],
+  "spatial": [
+    "geometry", "point", "linestring", "polygon",
+    "multipoint", "multilinestring", "multipolygon", "geometrycollection"
+  ],
+  "operator_profile": {
+    "target_sparse_operators": [
+      "LIKE",
+      "REGEXP",
+      "IN",
+      "BETWEEN",
+      "IS",
+      "NOT",
+      "AND",
+      "OR",
+      "XOR",
+      "!=::T_BOOL",
+      "<::T_BOOL",
+      "<=::T_BOOL",
+      "!::T_BOOL",
+      "&&::T_BOOL",
+      "|::T_CMP",
+      "%::T_CMP",
+      "ROUND()::T_CMP",
+      "FLOOR()::T_CMP",
+      "LENGTH()::T_CMP"
+    ],
+    "high_freq_operators": [
+      "-::T_CMP",
+      ">::T_BOOL",
+      "^::T_CMP",
+      "+::T_CMP",
+      "/::T_CMP",
+      "&::T_CMP",
+      "~::T_CMP",
+      ">=::T_BOOL"
+    ],
+    "dirty_generated_tokens": [
+      "NAND",
+      "NOR",
+      "YAND",
+      "YOR",
+      "SAND",
+      "NOLIKE",
+      "NOEXP",
+      "OPEXP",
+      "OP??",
+      "OPW",
+      "OPATER"
+    ],
+    "bad_function_prefixes": [
+      "FREATEST",
+      "NREATEST",
+      "NANDA",
+      "NORA",
+      "LEASTAST",
+      "FREOR",
+      "FloorOR"
+    ]
+  }
+}

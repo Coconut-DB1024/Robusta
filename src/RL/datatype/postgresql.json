@@ -1,0 +1,122 @@
+{
+  "int": [
+    "smallint",
+    "integer",
+    "int",
+    "bigint"
+  ],
+  "float": [
+    "real",
+    "double precision",
+    "decimal",
+    "numeric"
+  ],
+  "string": [
+    "char",
+    "character",
+    "varchar",
+    "character varying",
+    "text"
+  ],
+  "binary": [
+    "bytea"
+  ],
+  "date": [
+    "date",
+    "time",
+    "timestamp",
+    "timestamp without time zone"
+  ],
+  "json": [
+    "json",
+    "jsonb"
+  ],
+  "spatial": [
+    "geometry",
+    "point",
+    "linestring",
+    "polygon",
+    "multipoint",
+    "multilinestring",
+    "multipolygon",
+    "geometrycollection"
+  ],
+  "operator_profile": {
+    "target_sparse_operators": [
+      "LIKE",
+      "~",
+      "~*",
+      "!~",
+      "!~*",
+      "SIMILAR TO",
+      "IN",
+      "NOT IN",
+      "BETWEEN",
+      "BETWEEN SYMMETRIC",
+      "IS NULL",
+      "IS NOT NULL",
+      "IS UNKNOWN",
+      "IS NOT UNKNOWN",
+      "IS TRUE",
+      "IS FALSE",
+      "IS DISTINCT FROM",
+      "IS NOT DISTINCT FROM",
+      "NOT",
+      "AND",
+      "OR",
+      "!=::T_BOOL",
+      "<::T_BOOL",
+      "<=::T_BOOL",
+      "#::T_CMP",
+      "|::T_CMP",
+      "%::T_CMP",
+      "||::T_STR",
+      "LOWER()",
+      "UPPER()",
+      "LENGTH()",
+      "ASCII()",
+      "INITCAP()",
+      "MD5()",
+      "REVERSE()",
+      "ABS()",
+      "FLOOR()",
+      "CEILING()",
+      "CBRT()",
+      "EXP()",
+      "LN()",
+      "LOG()"
+    ],
+    "high_freq_operators": [
+      "-::T_CMP",
+      ">::T_BOOL",
+      "^::T_CMP",
+      "+::T_CMP",
+      "/::T_CMP",
+      "&::T_CMP",
+      "*::T_CMP",
+      ">=::T_BOOL"
+    ],
+    "dirty_generated_tokens": [
+      "NAND",
+      "NOR",
+      "YAND",
+      "YOR",
+      "SAND",
+      "NOLIKE",
+      "NOEXP",
+      "OPEXP",
+      "OP??",
+      "OPW",
+      "OPATER"
+    ],
+    "bad_function_prefixes": [
+      "FREATEST",
+      "NREATEST",
+      "NANDA",
+      "NORA",
+      "LEASTAST",
+      "FREOR",
+      "FloorOR"
+    ]
+  }
+}
