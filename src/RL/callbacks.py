@@ -1,9 +1,30 @@
+import sys
 import time
 from typing import Any, Dict, List, Optional
 
 from stable_baselines3.common.callbacks import BaseCallback
+from stable_baselines3.common.logger import HumanOutputFormat
 from RL.config import RL_ALGO_CONFIG, RL_ENV_CONFIG, RECYCLE_CONFIG
 from RL import candidate_bitmap as candidate_bitmap_tools
+from RL.progress import print_rl_progress
+
+
+class PercentageOutputFormat(HumanOutputFormat):
+    def write(self, key_values, key_excluded, step=0):
+        print_rl_progress(step)
+
+
+class PercentageLogCallback(BaseCallback):
+    def _on_training_start(self) -> None:
+        self.logger.output_formats = [
+            PercentageOutputFormat(output.file)
+            if isinstance(output, HumanOutputFormat) and output.file is sys.stdout
+            else output
+            for output in self.logger.output_formats
+        ]
+
+    def _on_step(self) -> bool:
+        return True
 
 
 # ==================== [自定义回调函数类 (从原文件剪切过来)] ====================
@@ -70,25 +91,19 @@ class RecycleIntervalStopCallback(BaseCallback):
         self.has_triggered = True
         self.trigger_step = int(self.num_timesteps)
 
-        print(
-            f"\n[Recycle Trigger] Reached {self.trigger_step} timesteps "
-            f"(interval={self.interval_steps})."
-        )
-
         # 通知后台进程尽量做一次同步打印/刷盘。
         # 真正完整刷盘仍然依赖 train_actor_critic.py finally 中发送 DONE 并 join 后台进程。
         if self.shared_queue is not None:
             try:
                 self.shared_queue.put(("SYNC_PRINT", self.trigger_step))
-                print("[Recycle Trigger] Sent SYNC_PRINT before stopping current RL cycle.")
             except Exception as e:
                 print(f"[Recycle Trigger Warning] Failed to send SYNC_PRINT: {e}")
 
         if self.stop_training_after_trigger:
-            print("[Recycle Trigger] Returning False to stop current model.learn() gracefully.")
+            print("触发回流重训。", flush=True)
             return False
 
-        print("[Recycle Trigger] Trigger recorded, but training will continue by config.")
+        print("已记录回流触发，继续训练。", flush=True)
         return True
 
 
@@ -380,16 +395,7 @@ class CandidateBitmapUpdateCallback(BaseCallback):
             )
 
             if self.verbose > 0:
-                print(
-                    "[CandidateBitmap Callback] refreshed pattern_transfer_score; "
-                    f"step={self.last_pattern_transfer_refresh_step}; "
-                    f"positive={self.last_pattern_transfer_refresh_report.get('positive_pattern_transfer_score_count')}; "
-                    f"zero={self.last_pattern_transfer_refresh_report.get('zero_pattern_transfer_score_count')}; "
-                    f"max={self.last_pattern_transfer_refresh_report.get('max_pattern_transfer_score')}; "
-                    f"mean={self.last_pattern_transfer_refresh_report.get('mean_pattern_transfer_score')}; "
-                    f"operator_similarity_loaded={self.last_pattern_transfer_refresh_report.get('operator_similarity_loaded')}",
-                    flush=True,
-                )
+                print_rl_progress(self.num_timesteps)
 
             return True
 
@@ -421,22 +427,7 @@ class CandidateBitmapUpdateCallback(BaseCallback):
             self.last_report = report if isinstance(report, dict) else {}
 
             if self.verbose > 0:
-                print(
-                    "[CandidateBitmap Callback] flushed "
-                    f"{flushed_count} edge results; "
-                    f"observed_added={self.last_report.get('observed_added_count')}; "
-                    f"failed_disabled={self.last_report.get('failed_disabled_count')}; "
-                    f"available={self.last_report.get('bitmap_counts', {}).get('available_initial_bitmap')}; "
-                    f"reservation_attempts={self.reservation_attempt_count}; "
-                    f"reservation_conflicts={self.reservation_conflict_count}; "
-                    f"conflict_skips={self.reservation_conflict_skip_count}; "
-                    f"released={self.reservation_release_count}; "
-                    f"timeouts={sum(self.reservation_timeout_by_worker.values())}; "
-                    f"ppo_shards={len(self.ppo_shard_sizes)}; "
-                    f"shard_range={min(self.ppo_shard_sizes.values()) if self.ppo_shard_sizes else 0}"
-                    f"-{max(self.ppo_shard_sizes.values()) if self.ppo_shard_sizes else 0}",
-                    flush=True,
-                )
+                print_rl_progress(self.num_timesteps)
 
             refreshed_pattern_scores = self._maybe_refresh_pattern_transfer_scores(
                 int(self.last_report.get("observed_added_count", 0) or 0)
@@ -452,14 +443,7 @@ class CandidateBitmapUpdateCallback(BaseCallback):
                 try:
                     self.training_env.env_method("_reload_candidate_bitmap_state", force=True)
                     if self.verbose > 0:
-                        if refreshed_pattern_scores:
-                            print(
-                                "[CandidateBitmap Callback] workers reloaded candidate bitmap state "
-                                "after pattern_transfer_score refresh.",
-                                flush=True,
-                            )
-                        else:
-                            print("[CandidateBitmap Callback] workers reloaded candidate bitmap state.", flush=True)
+                        print_rl_progress(self.num_timesteps)
                 except Exception as sync_exc:
                     if self.verbose > 0:
                         print(f"[CandidateBitmap Callback Warning] worker reload failed: {sync_exc}", flush=True)

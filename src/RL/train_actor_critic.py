@@ -36,6 +36,7 @@ from RL.config import (
     RL_DIR,
     RECYCLE_CONFIG,
 )
+from RL.progress import get_rl_progress_total_steps
 
 # 【重要提醒】
 # 此时此刻，绝对不要导入 RL.env_sql_dependency, stable_baselines3, torch 等库。
@@ -325,7 +326,8 @@ def run_training():
     # 2. 启动原本的 PKG 图谱守护进程
     master_graph_p = mp.Process(
         target=global_graph_manager,
-        args=(graph_queue, MONITOR_CONFIG.io_batch_size, MONITOR_CONFIG.global_correct_txt_path)
+        args=(graph_queue, MONITOR_CONFIG.io_batch_size, MONITOR_CONFIG.global_correct_txt_path),
+        kwargs={"progress_total_steps": get_rl_progress_total_steps()},
     )
     master_graph_p.start()
     print("[Main Process] Global PKG Manager (Pipeline Stage 2) started successfully.")
@@ -343,6 +345,7 @@ def run_training():
         from RL.candidate_policy import CandidateScoringPolicy
         # 从新文件导入我们的 Callback
         from RL.callbacks import (
+            PercentageLogCallback,
             RecycleIntervalStopCallback,
             CandidateBitmapUpdateCallback,
             CandidateBitmapProgressCallback,
@@ -507,7 +510,7 @@ def run_training():
     )
 
 
-    callback_items = [checkpoint_callback]
+    callback_items = [PercentageLogCallback(), checkpoint_callback]
 
     if bool(getattr(RL_ENV_CONFIG, "candidate_bitmap_callback_update_enabled", True)):
         candidate_bitmap_update_callback = CandidateBitmapUpdateCallback(
@@ -517,9 +520,6 @@ def run_training():
             candidate_shared_state=candidate_shared_state,
         )
         callback_items.append(candidate_bitmap_update_callback)
-        print("[CandidateBitmap Callback] Enabled centralized bitmap update callback.")
-    else:
-        print("[CandidateBitmap Callback] Disabled by config.")
 
     # progress_log_enabled=True 时，candidate_bitmap 独立记录消融进度；
     # False 时不创建统计 callback，也不发送周期 SYNC_PRINT。该开关不依赖 bitmap 更新开关。
@@ -529,11 +529,6 @@ def run_training():
             verbose=1,
         )
         callback_items.append(candidate_bitmap_progress_callback)
-        print(
-            f"[CandidateBitmap Progress] Enabled. interval_steps="
-            f"{getattr(RL_ALGO_CONFIG, 'progress_log_interval_steps', 2048)}"
-        )
-    print("[CandidateBitmap Progress] Disabled by progress_log_enabled=False.")
 
     if RECYCLE_CONFIG.recycle_enable_periodic_trigger:
         recycle_trigger_callback = RecycleIntervalStopCallback(
@@ -544,15 +539,6 @@ def run_training():
         )
         callback_items.append(recycle_trigger_callback)
 
-        print(
-            f"[Recycle Trigger] Enabled. interval_steps="
-            f"{RECYCLE_CONFIG.recycle_interval_steps}, "
-            f"stop_training_after_trigger="
-            f"{RECYCLE_CONFIG.recycle_stop_training_after_trigger}"
-        )
-    else:
-        print("[Recycle Trigger] Periodic trigger disabled.")
-
     callbacks = CallbackList(callback_items)
 
     # 9. 开始训练
@@ -561,7 +547,7 @@ def run_training():
         model.learn(
             total_timesteps=RL_ALGO_CONFIG.total_timesteps,
             callback=callbacks,
-            progress_bar=True
+            progress_bar=False
         )
         print("\n[PPO] Training Completed.")
     except KeyboardInterrupt:
@@ -611,12 +597,6 @@ def run_training():
         )
 
         trigger_reason = "periodic_stop" if recycle_triggered_by_callback else "training_end"
-
-        if recycle_triggered_by_callback:
-            print(
-                f"[Recycle Trigger] Current RL cycle stopped by periodic trigger "
-                f"at step={getattr(recycle_trigger_callback, 'trigger_step', None)}."
-            )
 
         _run_predicate_recycle_after_training(trigger_reason=trigger_reason)
         # ==================================================================

@@ -31,6 +31,7 @@ from RL.predicate_structure import (
     abstract_predicate_for_graph as _structure_abstract_predicate_for_graph,
 )
 from RL.graph_runtime_stats import get_default_runtime_stats
+from RL.progress import print_rl_progress
 
 import re  # 【新增】引入正则表达式模块
 from RL.config import (
@@ -636,7 +637,7 @@ def ensure_initial_global_knowledge_graph(correct_txt_path=None, graph_path=None
     }
 
 
-def global_graph_manager(queue, batch_size, correct_txt_path):
+def global_graph_manager(queue, batch_size, correct_txt_path, progress_total_steps=None):
     """
     Master 进程的核心循环函数。
     由 train_actor_critic.py 在独立进程中启动。
@@ -1057,8 +1058,7 @@ def global_graph_manager(queue, batch_size, correct_txt_path):
                 _append_progress_snapshot(step, progress_payload)
 
             # 打印对齐日志！
-            print(f"[Master] Step {step}: Processed {total_received} correct predicates so far. "
-                  f"Session New Edges: +{total_new_edges_session}. Total PKG Edges: {builder.total_edges}", flush=True)
+            print_rl_progress(step, progress_total_steps)
             continue
 
         # 3. 正常接收到谓词字符串或 candidate_bitmap 目标边事件。
