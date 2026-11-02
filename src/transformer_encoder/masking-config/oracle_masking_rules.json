@@ -1,0 +1,38 @@
+{
+  "sql_vocabulary": [
+    "??",
+    "col",
+    "NULL", "TRUE", "FALSE",
+    "int", "float", "string", "date", "decimal", "double", "char", "varchar", "time", "timestamp", "hex", "bit", "bool", "boolean",
+    "number", "integer", "smallint", "bigint", "real", "numeric", "binary_float", "binary_double",
+    "nchar", "varchar2", "nvarchar2", "clob", "nclob", "raw", "blob", "long", "json",
+    "INTERVAL", "HOUR", "MINUTE", "SECOND", "DAY", "MONTH", "YEAR",
+    "AND", "OR", "NOT",
+    ">", ">=", "<", "<=", "=", "!=", "<>",
+    "IS NULL", "IS NOT NULL", "IS TRUE", "IS FALSE",
+    "IS NOT TRUE", "IS NOT FALSE",
+    "LIKE", "NOT LIKE", "LIKEC", "LIKE2", "LIKE4",
+    "BETWEEN", "NOT BETWEEN", "IN", "NOT IN",
+    "IS JSON", "IS NOT JSON",
+    "+", "-", "*", "/", "||",
+    "SYSDATE", "SYSTIMESTAMP", "CURRENT_DATE", "CURRENT_TIMESTAMP", "LOCALTIMESTAMP",
+    "DBTIMEZONE", "SESSIONTIMEZONE", "USER", "UID", "ORA_INVOKING_USER", "ORA_INVOKING_USERID", "ROWNUM", "ROWID", "ORA_ROWSCN",
+    "(", ")", ","
+  ],
+  "functions": [
+    "LNNVL", "REGEXP_LIKE", "JSON_EXISTS",
+    "ABS", "CEIL", "FLOOR", "ROUND", "TRUNC", "MOD", "POWER", "SQRT", "EXP", "LN", "LOG", "SIGN", "REMAINDER",
+    "GREATEST", "LEAST", "BITAND", "WIDTH_BUCKET", "ATAN2", "ATAN", "COS", "COSH", "SIN", "SINH", "TAN", "TANH",
+    "LOWER", "UPPER", "INITCAP", "NLS_LOWER", "NLS_UPPER", "NLS_INITCAP",
+    "LENGTH", "LENGTHB", "LENGTHC", "LENGTH2", "LENGTH4", "INSTR", "INSTRB", "INSTRC", "INSTR2", "INSTR4",
+    "SUBSTR", "SUBSTRB", "SUBSTRC", "SUBSTR2", "SUBSTR4", "REPLACE", "TRANSLATE",
+    "TRIM", "LTRIM", "RTRIM", "LPAD", "RPAD", "CONCAT", "CHR", "NCHR", "ASCII", "ASCIISTR", "UNISTR",
+    "COMPOSE", "DECOMPOSE", "TO_MULTI_BYTE", "TO_SINGLE_BYTE", "SOUNDEX", "NLSSORT",
+    "REGEXP_COUNT", "REGEXP_INSTR", "REGEXP_REPLACE", "REGEXP_SUBSTR",
+    "TO_CHAR", "TO_NUMBER", "TO_DATE", "TO_TIMESTAMP", "TO_TIMESTAMP_TZ",
+    "NVL", "NVL2", "COALESCE", "NULLIF", "DECODE", "TO_BOOLEAN",
+    "ADD_MONTHS", "MONTHS_BETWEEN", "LAST_DAY", "NUMTODSINTERVAL", "NUMTOYMINTERVAL", "FROM_TZ", "SYS_EXTRACT_UTC",
+    "VSIZE", "ORA_HASH", "COLLATION", "RAWTOHEX", "DUMP", "TO_NCHAR",
+    "JSON_VALUE", "JSON_QUERY", "JSON_SERIALIZE", "STANDARD_HASH", "SYS_GUID"
+  ]
+}

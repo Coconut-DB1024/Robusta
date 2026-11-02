@@ -1,0 +1,28 @@
+{
+  "sql_vocabulary": [
+    "??",
+    "col",
+    "NULL", "TRUE", "FALSE",
+    "int", "float", "string", "date", "decimal", "double", "char", "varchar", "time", "timestamp", "hex", "bit",
+    "INTERVAL", "HOUR", "MINUTE", "SECOND", "DAY", "MONTH", "YEAR",
+    "AND", "&&", "OR", "||", "NOT", "!", "XOR",
+    ">", "<", "=", ">=", "<=", "!=", "<>", "<=>",
+    "IS", "IS NOT",
+    "LIKE", "NOT LIKE",
+    "REGEXP", "NOT REGEXP",
+    "IN", "NOT IN",
+    "BETWEEN", "NOT BETWEEN",
+    "+", "-", "*", "/", "%", "DIV", "MOD",
+    "|", "&", "<<", ">>", "^", "~",
+    "(", ")", ",",
+    "CASE", "WHEN", "THEN", "ELSE", "END"
+  ],
+  "functions": [
+    "LPAD", "RPAD", "COALESCE", "CONCAT", "CONCAT_WS", "SUBSTRING", "REPLACE",
+    "LOWER", "UPPER", "TRIM", "LENGTH", "CHAR_LENGTH", "INSTR", "LOCATE",
+    "ABS", "ROUND", "CEIL", "FLOOR", "SIGN", "POWER", "SQRT",
+    "IFNULL", "NULLIF", "IF",
+    "DATE_ADD", "DATE_SUB", "DATEDIFF", "FROM_UNIXTIME", "UNIX_TIMESTAMP",
+    "BIT_CLEAR", "BIT_SET", "BIT_COUNT", "CAST", "CONVERT"
+  ]
+}

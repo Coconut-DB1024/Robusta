@@ -1,0 +1,36 @@
+{
+  "sql_vocabulary": [
+    "??",
+    "col",
+    "NULL", "TRUE", "FALSE",
+    "COL_INT", "COL_FLOAT", "COL_STRING",
+    "VALUE_TYPICAL_INT", "VALUE_TYPICAL_FLOAT", "VALUE_TYPICAL_STRING",
+    "int", "float", "string", "date", "decimal", "char", "varchar", "time", "timestamp", "hex", "bit",
+    "tinyint", "smallint", "integer", "bigint", "real", "numeric", "smallmoney", "money",
+    "nvarchar", "text", "ntext", "smalldatetime", "datetime", "datetime2", "datetimeoffset",
+    "binary", "varbinary", "image", "rowversion", "uniqueidentifier",
+    "AND", "OR", "NOT",
+    "=", "<>", "!=", ">", ">=", "<", "<=", "!<", "!>",
+    "IS DISTINCT FROM", "IS NOT DISTINCT FROM",
+    "LIKE", "NOT LIKE", "IN", "NOT IN",
+    "BETWEEN", "NOT BETWEEN", "IS NULL", "IS NOT NULL",
+    "+", "-", "*", "/", "%", "&", "|", "^", "~", "<<", ">>",
+    "@@SPID", "@@TRANCOUNT", "@@VERSION",
+    "CURRENT_USER", "SESSION_USER", "SYSTEM_USER", "USER",
+    "(", ")", ","
+  ],
+  "functions": [
+    "ABS", "CEILING", "FLOOR", "SIGN", "SQRT", "SQUARE", "EXP", "LOG", "LOG10",
+    "POWER", "ROUND", "DEGREES", "RADIANS", "ACOS", "ASIN", "ATAN", "ATN2", "COS", "COT", "SIN", "TAN",
+    "BIT_COUNT", "GET_BIT", "SET_BIT", "LEFT_SHIFT", "RIGHT_SHIFT",
+    "LEN", "DATALENGTH", "ASCII", "UNICODE", "CHARINDEX", "PATINDEX", "DIFFERENCE",
+    "ISNUMERIC", "ISDATE", "ISJSON",
+    "DAY", "MONTH", "YEAR", "EOMONTH", "DATEFROMPARTS",
+    "ISNULL", "NULLIF", "COALESCE", "IIF", "GREATEST", "LEAST", "CHECKSUM", "BINARY_CHECKSUM", "CHOOSE",
+    "LOWER", "UPPER", "LTRIM", "RTRIM", "TRIM", "REVERSE", "SOUNDEX", "QUOTENAME", "NCHAR",
+    "LEFT", "RIGHT", "SUBSTRING", "REPLACE", "TRANSLATE", "REPLICATE", "SPACE", "STUFF",
+    "CONCAT", "CONCAT_WS", "STR", "PARSENAME",
+    "PI", "DB_ID", "XACT_STATE", "DB_NAME", "USER_NAME", "SUSER_NAME", "SUSER_SNAME",
+    "HOST_NAME", "APP_NAME", "ORIGINAL_LOGIN"
+  ]
+}
