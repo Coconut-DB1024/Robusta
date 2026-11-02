@@ -1,0 +1,80 @@
+col(a) >
+col(a) <
+col(a) =
+col(a) !=
+col(a) <=
+col(a) >=
+col(a) +
+col(a) -
+col(a) *
+col(a) /
+col(a) %
+col(a) &
+col(a) |
+col(a) ^
+col(a) <<
+col(a) >>
+> int(1)
+< int(1)
+= int(1)
+!= int(1)
++ int(1)
+- int(1)
+* int(1)
+/ int(1)
+col(a) AND int(1)
+col(a) OR int(1)
+col(a) XOR int(1)
+col(a) &&
+AND (col(a) > int(1))
+OR (col(a) > int(1))
+XOR (col(a) > int(1))
+NOT ()
+NOT AND (col(a) > int(1))
+(col(a) > int(1)) AND
+(col(a) > int(1)) OR
+(col(a) > int(1)) XOR
+col(a) BETWEEN int(1)
+col(a) BETWEEN AND int(3)
+col(a) BETWEEN int(1) AND
+BETWEEN col(a) int(1) AND int(3)
+col(a) NOT BETWEEN int(1)
+col(a) IN
+col(a) IN ()
+col(a) IN (,)
+col(a) IN (int(1),)
+col(a) IN (, int(1))
+IN (int(1), int(2))
+col(a) NOT IN
+col(a) NOT IN ()
+col(a) IS
+col(a) IS int(1)
+col(a) IS string('x')
+col(a) IS BETWEEN int(1) AND int(2)
+col(name) LIKE
+LIKE string('%x%')
+col(name) LIKE AND string('%x%')
+col(name) NOT LIKE
+col(name) REGEXP
+REGEXP string('abc')
+col(name) REGEXP AND string('abc')
+ROUND()
+ROUND(col(a), int(1), int(2))
+FLOOR()
+FLOOR(col(a), int(1))
+ABS()
+ABS(col(a), int(1))
+LENGTH()
+LENGTH(col(name), int(1))
+HOUR()
+HOUR(col(a), int(1))
+IF()
+IF(col(a) > int(1), int(1))
+IF(col(a) > int(1), int(1), int(0), int(2))
+UNKNOWN_FUNC(col(a)) > int(1)
+MISSING_FUNC(col(name)) = string('x')
+INVALID_DATE_FUNC(col(a)) < date('2020-01-01')
+col() > int(1)
+int() = col(a)
+float() > col(a)
+string() = col(name)

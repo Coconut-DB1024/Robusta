@@ -1,0 +1,104 @@
+((int(1) = int(1)) AND)
+((int(1) = int(1)) OR)
+(NOT ())
+(int(1) =)
+(int(1) <>)
+(int(1) !=)
+(int(1) >)
+(int(1) >=)
+(int(1) <)
+(int(1) <=)
+(int(1) !<)
+(int(1) !>)
+(int(1) IS DISTINCT FROM)
+(int(1) IS NOT DISTINCT FROM)
+(int(1) LIKE)
+(int(1) NOT LIKE)
+(int(1) IN (, int(2)))
+(int(1) NOT IN (, int(2)))
+(int(5) BETWEEN int(1) AND)
+(int(5) NOT BETWEEN int(1) AND)
+(IS NULL)
+(IS NOT NULL)
+(int(1) +)
+(int(1) -)
+(int(1) *)
+(int(1) /)
+(int(1) %)
+(int(1) &)
+(int(1) |)
+(int(1) ^)
+(~ ())
+(int(1) <<)
+(int(1) >>)
+ABS(, int(1)) IS NOT NULL
+CEILING(, int(1)) IS NOT NULL
+FLOOR(, int(1)) IS NOT NULL
+SIGN(, int(1)) IS NOT NULL
+SQRT(, int(1)) IS NOT NULL
+SQUARE(, int(1)) IS NOT NULL
+EXP(, int(1)) IS NOT NULL
+LOG(, int(1)) IS NOT NULL
+LOG10(, int(1)) IS NOT NULL
+POWER(, int(1)) IS NOT NULL
+ROUND(, int(1)) IS NOT NULL
+DEGREES(, int(1)) IS NOT NULL
+RADIANS(, int(1)) IS NOT NULL
+ACOS(, int(1)) IS NOT NULL
+ASIN(, int(1)) IS NOT NULL
+ATAN(, int(1)) IS NOT NULL
+ATN2(, int(1)) IS NOT NULL
+COS(, int(1)) IS NOT NULL
+COT(, int(1)) IS NOT NULL
+SIN(, int(1)) IS NOT NULL
+TAN(, int(1)) IS NOT NULL
+BIT_COUNT(, int(1)) IS NOT NULL
+GET_BIT(, int(1)) IS NOT NULL
+SET_BIT(, int(1)) IS NOT NULL
+LEFT_SHIFT(, int(1)) IS NOT NULL
+RIGHT_SHIFT(, int(1)) IS NOT NULL
+LEN(, int(1)) IS NOT NULL
+DATALENGTH(, int(1)) IS NOT NULL
+ASCII(, int(1)) IS NOT NULL
+UNICODE(, int(1)) IS NOT NULL
+CHARINDEX(, int(1)) IS NOT NULL
+PATINDEX(, int(1)) IS NOT NULL
+DIFFERENCE(, int(1)) IS NOT NULL
+ISNUMERIC(, int(1)) IS NOT NULL
+ISDATE(, int(1)) IS NOT NULL
+ISJSON(, int(1)) IS NOT NULL
+DAY(, int(1)) IS NOT NULL
+MONTH(, int(1)) IS NOT NULL
+YEAR(, int(1)) IS NOT NULL
+EOMONTH(, int(1)) IS NOT NULL
+DATEFROMPARTS(, int(1)) IS NOT NULL
+ISNULL(, int(1)) IS NOT NULL
+NULLIF(, int(1)) IS NOT NULL
+COALESCE(, int(1)) IS NOT NULL
+IIF(, int(1)) IS NOT NULL
+GREATEST(, int(1)) IS NOT NULL
+LEAST(, int(1)) IS NOT NULL
+CHECKSUM(, int(1)) IS NOT NULL
+BINARY_CHECKSUM(, int(1)) IS NOT NULL
+CHOOSE(, int(1)) IS NOT NULL
+LOWER(, int(1)) IS NOT NULL
+UPPER(, int(1)) IS NOT NULL
+LTRIM(, int(1)) IS NOT NULL
+RTRIM(, int(1)) IS NOT NULL
+TRIM(, int(1)) IS NOT NULL
+REVERSE(, int(1)) IS NOT NULL
+SOUNDEX(, int(1)) IS NOT NULL
+QUOTENAME(, int(1)) IS NOT NULL
+NCHAR(, int(1)) IS NOT NULL
+LEFT(, int(1)) IS NOT NULL
+RIGHT(, int(1)) IS NOT NULL
+SUBSTRING(, int(1)) IS NOT NULL
+REPLACE(, int(1)) IS NOT NULL
+TRANSLATE(, int(1)) IS NOT NULL
+REPLICATE(, int(1)) IS NOT NULL
+SPACE(, int(1)) IS NOT NULL
+STUFF(, int(1)) IS NOT NULL
+CONCAT(, int(1)) IS NOT NULL
+CONCAT_WS(, int(1)) IS NOT NULL
+STR(, int(1)) IS NOT NULL
+PARSENAME(, int(1)) IS NOT NULL

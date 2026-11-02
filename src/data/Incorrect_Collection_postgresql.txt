@@ -1,0 +1,105 @@
+col(i) >
+col(i) >=
+col(i) <
+col(i) <=
+col(i) =
+col(i) !=
+col(i) IS DISTINCT FROM
+col(i) IS NOT DISTINCT FROM
+AND (col(i) > int(1))
+OR (col(i) > int(1))
+(col(i) > int(1)) AND
+(col(i) > int(1)) OR
+NOT ()
+NOT AND (col(i) > int(1))
+col(s) LIKE
+col(s) ~
+col(s) ~*
+col(s) !~
+col(s) !~*
+col(s) SIMILAR TO
+col(i) IN ()
+col(i) NOT IN ()
+col(i) BETWEEN int(1)
+col(i) BETWEEN int(1) AND
+col(i) BETWEEN SYMMETRIC int(1)
+BETWEEN col(i) int(1) AND int(3)
+col(i) IS UNKNOWN int(1)
+col(i) IS NOT UNKNOWN int(1)
+col(i) IS TRUE int(1)
+col(i) IS FALSE int(1)
+col(i) +
+col(i) -
+col(i) *
+col(i) /
+col(i) %
+col(i) ^
+col(i) &
+col(i) |
+col(i) #
+col(i) <<
+col(i) >>
+col(s) ||
++ int(1)
+- int(1)
+~ string('abc')
+(((int(1) + int(2)) & int(1)) > int(0))
+(((int(3) - int(1)) & int(1)) > int(0))
+(((int(2) * int(3)) & int(1)) > int(0))
+(((int(6) / int(2)) & int(1)) > int(0))
+(((int(5) % int(2)) & int(1)) > int(0))
+(((int(2) ^ int(3)) & int(1)) > int(0))
+((int(1) & (int(1) + int(2))) > int(0))
+((int(1) & (int(3) - int(1))) > int(0))
+((int(1) & (int(2) * int(3))) > int(0))
+((int(1) & (int(6) / int(2))) > int(0))
+((int(1) & (int(5) % int(2))) > int(0))
+((int(1) & (int(2) ^ int(3))) > int(0))
+(((int(1) + int(2)) | int(1)) > int(0))
+(((int(3) - int(1)) | int(1)) > int(0))
+(((int(2) * int(3)) | int(1)) > int(0))
+(((int(6) / int(2)) | int(1)) > int(0))
+(((int(5) % int(2)) | int(1)) > int(0))
+(((int(2) ^ int(3)) | int(1)) > int(0))
+((int(1) | (int(1) + int(2))) > int(0))
+((int(1) | (int(3) - int(1))) > int(0))
+((int(1) | (int(2) * int(3))) > int(0))
+((int(1) | (int(6) / int(2))) > int(0))
+((int(1) | (int(5) % int(2))) > int(0))
+((int(1) | (int(2) ^ int(3))) > int(0))
+(((int(1) + int(2)) # int(1)) > int(0))
+(((int(3) - int(1)) # int(1)) > int(0))
+(((int(2) * int(3)) # int(1)) > int(0))
+(((int(6) / int(2)) # int(1)) > int(0))
+(((int(5) % int(2)) # int(1)) > int(0))
+(((int(2) ^ int(3)) # int(1)) > int(0))
+((int(1) # (int(1) + int(2))) > int(0))
+((int(1) # (int(3) - int(1))) > int(0))
+((int(1) # (int(2) * int(3))) > int(0))
+((int(1) # (int(6) / int(2))) > int(0))
+((int(1) # (int(5) % int(2))) > int(0))
+((int(1) # (int(2) ^ int(3))) > int(0))
+(((int(1) + int(2)) << int(1)) > int(0))
+(((int(3) - int(1)) << int(1)) > int(0))
+(((int(2) * int(3)) << int(1)) > int(0))
+(((int(6) / int(2)) << int(1)) > int(0))
+(((int(5) % int(2)) << int(1)) > int(0))
+(((int(2) ^ int(3)) << int(1)) > int(0))
+((int(1) << (int(1) + int(2))) > int(0))
+((int(1) << (int(3) - int(1))) > int(0))
+((int(1) << (int(2) * int(3))) > int(0))
+((int(1) << (int(6) / int(2))) > int(0))
+((int(1) << (int(5) % int(2))) > int(0))
+((int(1) << (int(2) ^ int(3))) > int(0))
+(((int(1) + int(2)) >> int(1)) > int(0))
+(((int(3) - int(1)) >> int(1)) > int(0))
+(((int(2) * int(3)) >> int(1)) > int(0))
+(((int(6) / int(2)) >> int(1)) > int(0))
+(((int(5) % int(2)) >> int(1)) > int(0))
+(((int(2) ^ int(3)) >> int(1)) > int(0))
+((int(1) >> (int(1) + int(2))) > int(0))
+((int(1) >> (int(3) - int(1))) > int(0))
+((int(1) >> (int(2) * int(3))) > int(0))
+((int(1) >> (int(6) / int(2))) > int(0))
+((int(1) >> (int(5) % int(2))) > int(0))
+((int(1) >> (int(2) ^ int(3))) > int(0))
