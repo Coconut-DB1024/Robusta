@@ -16,9 +16,9 @@ def get_project_root() -> Path:
 
 def _print_training_progress(completed, total):
     fraction = min(completed / total, 1.0) if total > 0 else 1.0
-    filled = int(fraction * 20)
-    bar = "#" * filled + "-" * (20 - filled)
-    print(f"[Encoder] 训练进度 [{bar}] {fraction * 100:.1f}%", flush=True)
+    filled = int(fraction * 40)
+    bar = "#" * filled + "-" * (40 - filled)
+    print(f"[{bar}] {fraction * 100:.2f}%", flush=True)
 
 
 def run_contrastive_learning(
