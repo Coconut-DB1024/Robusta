@@ -124,7 +124,7 @@ def run_contrastive_learning(
 
             completed_samples += input_ids.size(0)
             now = time.monotonic()
-            if now - last_progress_time >= 30.0 and completed_samples < total_samples:
+            if now - last_progress_time >= 10.0 and completed_samples < total_samples:
                 _print_training_progress(completed_samples, total_samples)
                 last_progress_time = now
 
