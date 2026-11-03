@@ -32,6 +32,7 @@ sys.path.append(project_root_path)
 from RL.config import PROJECT_ROOT, DB_CONFIG, STAGE3_CONFIG
 # 2. 复用原先的数据库执行器 (提供统一的 execute_query 接口，处理连接细节)
 from RL.db_executor import create_db_executor
+from RL.target_table import get_target_table
 # 3. 保持原有 WHERE 谓词实例化的随机数序列
 from BugFinding.tlp_random_compat import advance_instantiation_rng
 from pkg.stage3_runtime import (
@@ -436,10 +437,9 @@ class DBMetaDataLoader:
     def __init__(self):
         # 初始化一个字典，用于存储加载到的列信息，key为表名
         self.columns = {}
-        # Same target as Stage 2 and the catalog provider; no independent table config.
-        self.table_name = "test_wide_table"
-        self.table_sql = self.table_name
-        self.table_schema = None
+        self.table_name, self.table_schema, self.table_sql = get_target_table(
+            DB_CONFIG.db_type, DB_CONFIG
+        )
         # 实例化时立即执行加载逻辑，确保对象创建后即刻可用
         self._load_schema()
 
@@ -454,14 +454,15 @@ class DBMetaDataLoader:
         # autoconnect=True 表示初始化时自动建立数据库连接
         executor = create_db_executor(autoconnect=True)
 
+        self.table_name, self.table_schema, self.table_sql = get_target_table(
+            DB_CONFIG.db_type, getattr(executor, "config", DB_CONFIG)
+        )
         # 目标表名 (固定为我们之前初始化的大宽表，不从其他表读取)
         table_name = self.table_name
 
         # 执行查询，返回 DBQueryResult 对象
         try:
-            if _is_sqlserver_db():
-                self.table_schema = str(getattr(getattr(executor, "config", DB_CONFIG), "schema", "dbo") or "dbo")
-                self.table_sql = f"{_sqlserver_quote_identifier(self.table_schema)}.{_sqlserver_quote_identifier(table_name)}"
+            if self.table_schema is not None:
                 res = executor.list_columns(table_name, schema=self.table_schema)
             else:
                 res = executor.list_columns(table_name)
@@ -470,10 +471,11 @@ class DBMetaDataLoader:
             executor.close()
 
         # 检查查询是否成功 (使用 DBQueryResult 的 success 属性)
-        if not res.success:
-            print(f"[Warning] 表 {table_name} 不存在或查询失败！")
-            print(f"错误信息: {res.error}")
-            return
+        if not res.success or not res.rows:
+            raise RuntimeError(
+                f"Cannot load required table {self.table_sql}: "
+                f"{res.error or 'table missing or no readable columns'}."
+            )
 
         # 解析查询结果，准备存储列信息
         cols = []
@@ -498,8 +500,7 @@ class DBMetaDataLoader:
 
         # 将解析好的列列表保存到字典中，以表名为 Key
         self.columns[table_name] = cols
-        if _is_sqlserver_db():
-            self.columns[self.table_sql] = cols
+        self.columns[self.table_sql] = cols
         print(f"[SchemaLoader] 加载完成: {table_name} 包含 {len(cols)} 列。")
 
     def get_columns(self, table_name: str):
