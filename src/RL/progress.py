@@ -9,7 +9,7 @@ class EnvironmentProgress:
     """Report completion milestones without synchronizing worker execution."""
 
     _labels = {
-        "initialized": "[Parallel] 初始化进度",
+        "initialized": "[Parallel] Initialization progress",
         "bitmap_reloaded": "[CandidateBitmapEnv] reloaded candidate bitmap",
     }
 
