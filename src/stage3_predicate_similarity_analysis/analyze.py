@@ -431,9 +431,13 @@ def _create_lsh_database(path: Path) -> sqlite3.Connection:
     return connection
 
 
-def _print_progress(phase: str, current: int, total: Optional[int] = None) -> None:
-    suffix = f"/{total}" if total is not None else ""
-    print(f"[PredicateSimilarity] {phase}: {current}{suffix}", flush=True)
+def _print_progress(phase: str, current: int, total: int) -> None:
+    fraction = min(max(0, current) / total, 1.0) if total > 0 else 0.0
+    filled = int(fraction * 40)
+    bar = "#" * filled + "-" * (40 - filled)
+    # An unfinished phase must not round up to 100.00%.
+    percent = min(fraction * 100, 99.99) if current < total else fraction * 100
+    print(f"[PredicateSimilarity] {phase}: [{bar}] {percent:.2f}%", flush=True)
 
 
 def _build_index(
@@ -514,6 +518,11 @@ def _build_index_contents(
             ast_workers = int(config.ast_index_workers)
         print(f"[PredicateSimilarity] AST indexing workers: {ast_workers}; "
               f"batch size: {config.ast_index_batch_size}", flush=True)
+
+    progress_enabled = int(config.progress_interval_predicates) > 0
+    last_progress_log = time.monotonic()
+    if progress_enabled:
+        _print_progress("indexing", 0, analysis_target_count)
 
     # The parent alone owns source filtering, numbering, hashes and disk output.
     # SQL parsing is the expensive parallel step. A bounded queue collects its
@@ -643,9 +652,11 @@ def _build_index_contents(
                             pending_rows.clear()
                             predicates_since_flush = 0
 
-                    progress_interval = int(config.progress_interval_predicates)
-                    if progress_interval > 0 and len(offsets) % progress_interval == 0:
-                        _print_progress("indexing", len(offsets))
+                    if progress_enabled:
+                        now = time.monotonic()
+                        if now - last_progress_log >= 10.0 and len(offsets) < analysis_target_count:
+                            _print_progress("indexing", len(offsets), analysis_target_count)
+                            last_progress_log = now
 
             file_info["predicate_count"] = len(offsets) - file_start
             file_info["start_predicate_id"] = file_start if len(offsets) > file_start else None
@@ -693,6 +704,8 @@ def _build_index_contents(
         raise SimilarityAnalysisError("no non-empty predicates were found")
 
     ast_store = ast_builder.finish() if ast_builder is not None else None
+    if progress_enabled:
+        _print_progress("indexing", len(offsets), analysis_target_count)
 
     return {
         "shingle_path": shingle_path,
@@ -844,7 +857,11 @@ def _calculate_similarities(
         right = int(best_score_numerators[owner_id]) * denominator
         return left > right or (left == right and candidate_id < nearest)
 
+    progress_enabled = int(config.progress_interval_predicates) > 0
+    last_progress_log = time.monotonic()
     try:
+        if progress_enabled:
+            _print_progress("exact comparison", 0, predicate_count)
         if skip_ratio(top_skip_fraction) > 0:
             rank_selector = RankedCandidates(
                 top_skip_fraction,
@@ -991,15 +1008,20 @@ def _calculate_similarities(
                     nearest_ids[predicate_id] = candidate_id
                     match_sources[predicate_id] = source_code
 
-            progress_interval = int(config.progress_interval_predicates)
-            if progress_interval > 0 and (predicate_id + 1) % progress_interval == 0:
-                _print_progress("exact comparison", predicate_id + 1, predicate_count)
+            if progress_enabled:
+                now = time.monotonic()
+                if now - last_progress_log >= 10.0 and predicate_id + 1 < predicate_count:
+                    _print_progress("exact comparison", predicate_id + 1, predicate_count)
+                    last_progress_log = now
     finally:
         if rank_selector is not None:
             rank_selector.close()
         shingle_view.release()
         shingle_map.close()
         shingle_file.close()
+
+    if progress_enabled:
+        _print_progress("exact comparison", predicate_count, predicate_count)
 
     stats = {
         "predicate_count": predicate_count,
