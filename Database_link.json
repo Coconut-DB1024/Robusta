@@ -1,0 +1,13 @@
+{
+  "_comment_db_type": "Use one of these lowercase values: mysql/postgresql/oracle/sqlserver.",
+  "db_type": "postgresql",
+  "unix_socket": null,
+  "host": "",
+  "port": 0,
+  "user": "",
+  "password": "",
+  "_comment_database": "For Oracle, enter the service_name",
+  "database": "",
+  "connect_timeout": 5,
+  "query_timeout": 10
+}
