@@ -11,7 +11,7 @@
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, fields
 from pathlib import Path
 from typing import Optional, Literal
 
@@ -789,7 +789,7 @@ RL_ALGO_CONFIG = RLAlgoConfig()
 # ====================== 6. DBMS 配置 ======================
 
 @dataclass
-class DBConfig: # DBMS 连接配置 (本地模式)
+class DBConfig: # 配置结构；实际连接参数请填写 Robusta/Database_link.json。
     # "mysql" / "postgresql" / "tidb" 等，仅用于标识
     db_type: str = "postgresql"
 
@@ -813,7 +813,42 @@ class DBConfig: # DBMS 连接配置 (本地模式)
     # 单条 SQL 执行的超时时间（秒）
     query_timeout: int = 10
 
-DB_CONFIG = DBConfig()
+def _load_database_config() -> DBConfig:
+    config_path = PROJECT_ROOT.parent / "Database_link.json"
+    try:
+        with config_path.open("r", encoding="utf-8-sig") as f:
+            values = json.load(f)
+    except OSError as exc:
+        raise RuntimeError(f"Cannot read database configuration: {config_path}") from exc
+    except json.JSONDecodeError as exc:
+        raise ValueError(
+            f"Invalid JSON in {config_path}: line {exc.lineno}, column {exc.colno}"
+        ) from exc
+
+    if not isinstance(values, dict):
+        raise ValueError(f"{config_path} must contain a JSON object with DBConfig fields.")
+    # JSON stores the two field descriptions as metadata, not connection options.
+    values.pop("_comment_db_type", None)
+    values.pop("_comment_database", None)
+    expected_fields = {item.name for item in fields(DBConfig)}
+    missing = expected_fields - values.keys()
+    unknown = values.keys() - expected_fields
+    if missing or unknown:
+        raise ValueError(
+            f"Invalid fields in {config_path}: missing={sorted(missing)}, unknown={sorted(unknown)}"
+        )
+    for name in ("db_type", "host", "user", "password", "database"):
+        if not isinstance(values[name], str):
+            raise ValueError(f"{config_path}: {name} must be a JSON string.")
+    for name in ("port", "connect_timeout", "query_timeout"):
+        if type(values[name]) is not int:
+            raise ValueError(f"{config_path}: {name} must be a JSON integer.")
+    if values["unix_socket"] is not None and not isinstance(values["unix_socket"], str):
+        raise ValueError(f"{config_path}: unix_socket must be a JSON string or null.")
+    return DBConfig(**values)
+
+
+DB_CONFIG = _load_database_config()
 RL_ENV_CONFIG = RLEnvConfig()
 
 if __package__:
