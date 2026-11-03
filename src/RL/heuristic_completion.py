@@ -11,12 +11,15 @@ import json
 import os
 from RL.db_executor import BaseDBExecutor
 from RL.config import DB_CONFIG, PROJECT_ROOT
+from RL.target_table import get_target_table
 
 
 class HeuristicCompletionClient:
     def __init__(self, db_exec: BaseDBExecutor):
         self.db_exec = db_exec
-        self.table_name = ""
+        self.table_name, self.table_schema, self.table_sql = get_target_table(
+            self._current_db_type(), getattr(db_exec, "config", DB_CONFIG)
+        )
 
         # 1. 动态加载对应数据库的数据类型映射配置
         self.type_mapping = self._load_datatype_config()
@@ -76,38 +79,27 @@ class HeuristicCompletionClient:
                 return lowered[str(name).lower()]
         return default
 
-    def _list_tables(self):
-        return self.db_exec.list_tables()
-
     def _list_columns(self, table_name: str):
-        if self._current_db_type() == "sqlserver":
-            return self.db_exec.list_columns(self._quote_identifier(table_name), schema=self.table_schema)
+        if self.table_schema is not None:
+            return self.db_exec.list_columns(table_name, schema=self.table_schema)
         return self.db_exec.list_columns(table_name)
 
     def _load_schema(self):
         """利用 DB 执行器读取表和列属性，并根据 JSON 配置动态分桶"""
         if not self.db_exec.ping():
-            print("[Heuristic] 数据库连接失败，无法加载 Schema。")
-            return
+            raise RuntimeError(f"Cannot load required table {self.table_sql}: database connection failed.")
 
         if self._current_db_type() == "sqlserver":
             self._load_sqlserver_schema()
             return
 
-        res_tables = self._list_tables()
-        if not res_tables.success or not res_tables.rows:
-            print("[Heuristic] 当前数据库中没有表。")
-            return
-
-        # 现阶段仅有一张表，直接取第一张表
-        first_table_row = res_tables.rows[0]
-        self.table_name = self._row_value(first_table_row, "table_name", "TABLE_NAME")
-        if not self.table_name and isinstance(first_table_row, dict) and first_table_row:
-            self.table_name = list(first_table_row.values())[0]
-
+        # Read only the fixed experiment table, regardless of other tables.
         res_cols = self._list_columns(self.table_name)
         if not res_cols.success or not res_cols.rows:
-            return
+            raise RuntimeError(
+                f"Cannot load required table {self.table_sql}: "
+                f"{res_cols.error or 'table missing or no readable columns'}."
+            )
 
         for row in res_cols.rows:
             cname = self._row_value(row, "Field", "FIELD", "column_name", "COLUMN_NAME")
@@ -224,14 +216,13 @@ class HeuristicCompletionClient:
         return "__unknown__"
 
     def _load_sqlserver_schema(self):
-        # 与 BugFinding.sql_generator 的当前目标表一致；schema 使用执行器配置。
-        self.table_schema = str(getattr(getattr(self.db_exec, "config", DB_CONFIG), "schema", "dbo") or "dbo")
-        table_name = "test_wide_table"
-        result = self._list_columns(table_name)
+        result = self._list_columns(self.table_name)
         self._sqlserver_columns = {}
         if not result.success or not result.rows:
-            return
-        self.table_name = table_name
+            raise RuntimeError(
+                f"Cannot load required table {self.table_sql}: "
+                f"{result.error or 'table missing or no readable columns'}."
+            )
         for row in result.rows:
             name = self._row_value(row, "Field", "column_name")
             if not name or self._row_value(row, "is_hidden", default=False):
@@ -387,7 +378,7 @@ class HeuristicCompletionClient:
                 expression = expression.this
             condition = isinstance(expression, (exp.Predicate, exp.And, exp.Or, exp.Not))
         where_pred = clean_pred if condition else f"({clean_pred}\n) IS NOT NULL"
-        table = f"{self._quote_identifier(self.table_schema)}.{self._quote_identifier(self.table_name)}"
+        table = self.table_sql
         return f"SELECT TOP (1) 1 FROM {table} WHERE {where_pred};"
 
     def complete_sql(self, predicate: str, expected_return_type=None) -> str:
@@ -439,7 +430,7 @@ class HeuristicCompletionClient:
         clean_pred = curr_sql
 
         # 5. 【极速执行保护】使用 SELECT 1 和 LIMIT 1，我们只关心语法对不对，不关心真实数据！
-        table = self.table_name if self.table_name else "test_table"
+        table = self.table_sql
 
         # 如果清理后的谓词是空的，或者全是不合法符号，直接抛出异常走兜底
         if not clean_pred or len(clean_pred.strip()) < 2:
@@ -454,8 +445,8 @@ class HeuristicCompletionClient:
         if self._is_oracle():
             # Oracle 12c+/AI26 支持 FETCH FIRST；python-oracledb 不接受尾部分号。
             return (
-                f"SELECT 1 FROM {self._quote_identifier(table)} "
+                f"SELECT 1 FROM {table} "
                 f"WHERE {where_pred} FETCH FIRST 1 ROW ONLY"
             )
-        sql = f"SELECT 1 FROM {self._quote_identifier(table)} WHERE {where_pred} LIMIT 1;"
+        sql = f"SELECT 1 FROM {table} WHERE {where_pred} LIMIT 1;"
         return sql

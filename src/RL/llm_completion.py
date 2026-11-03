@@ -1,9 +1,9 @@
 """
 作用：
-- 从当前 MySQL 数据库中读取表结构（表名 + 列名 + 类型）
+- 从当前数据库中读取固定 test_wide_table 的结构（表名 + 列名 + 类型）
 - 将「谓词模板 + 表结构」交给本地 LLM（支持 HTTP API 或 本地加载 transformers 模型）
 - 让 LLM 直接补全为一个 **完整的 SQL 查询语句**：
-    SELECT * FROM <某个表> WHERE <补全后的谓词>;
+    SELECT * FROM test_wide_table WHERE <补全后的谓词>;
 """
 
 from __future__ import annotations
@@ -16,47 +16,37 @@ import requests
 from concurrent.futures import ThreadPoolExecutor # 【新增】用于并发请求
 import os
 
-from RL.config import LLM_CONFIG
+from RL.config import DB_CONFIG, LLM_CONFIG
 from RL.db_executor import BaseDBExecutor, create_db_executor
+from RL.target_table import get_target_table
 
 
 # 从当前数据库读取表结构，并转成文本给 LLM 参考
 def get_database_schema_text(executor: BaseDBExecutor) -> str:
+    table, schema, table_sql = get_target_table(
+        getattr(executor, "db_type", DB_CONFIG.db_type),
+        getattr(executor, "config", DB_CONFIG),
+    )
     # 先 ping 一下，确保连接可用
     if not executor.ping():
-        return "当前数据库连接失败，无法获取表结构。"
+        raise RuntimeError(f"Cannot load required table {table_sql}: database connection failed.")
 
-    # 查询所有表名
-    res_tables = executor.list_tables()
+    res_cols = (
+        executor.list_columns(table, schema=schema)
+        if schema is not None else executor.list_columns(table)
+    )
+    if not res_cols.success or not res_cols.rows:
+        raise RuntimeError(
+            f"Cannot load required table {table_sql}: "
+            f"{res_cols.error or 'table missing or no readable columns'}."
+        )
 
-    if not res_tables.success or not res_tables.rows:
-        return "当前数据库中没有表，或表列表查询失败。"
-
-    table_names = []
-    for row in res_tables.rows:
-        if not row:
-            continue
-        first_val = list(row.values())[0]
-        if isinstance(first_val, str):
-            table_names.append(first_val)
-
-    if not table_names:
-        return "当前数据库中没有可用的表。"
-
-    lines = ["当前数据库中的表结构如下："]
-
-    for table in table_names:
-        lines.append(f"- 表 {table}:")
-        # 查询该表的列信息
-        res_cols = executor.list_columns(table)
-        if not res_cols.success or not res_cols.rows:
-            lines.append("    (无法获取列信息)")
-            continue
-
-        for col in res_cols.rows:
-            col_name = col.get("Field", "?")
-            col_type = col.get("Type", "?")
-            lines.append(f"    - {col_name} {col_type}")
+    lines = ["实验仅使用以下目标表：", f"- 表 {table_sql}:"]
+    for col in res_cols.rows:
+        values = {str(key).lower(): value for key, value in col.items()}
+        col_name = values.get("field", values.get("column_name", "?"))
+        col_type = values.get("type", values.get("data_type", "?"))
+        lines.append(f"    - {col_name} {col_type}")
 
     return "\n".join(lines)
 
@@ -171,11 +161,12 @@ class LLMCompletionClient:
         schema_text: str,
     ) -> str:
         # ---------------------------------------------------------
-        # Prompt 构造逻辑 (完全保留你原来的设计)
+        # Prompt 使用与元数据读取相同的固定实验表。
         # ---------------------------------------------------------
+        _, _, target_sql = get_target_table(DB_CONFIG.db_type, DB_CONFIG)
         system_prompt = (
             "你是一个呆板的 SQL 模板填充工具。你的任务是将模板转换为 SQL。\n"
-            "原则 1：请根据提供的 Schema，**必须使用 Schema 中真实存在的表名**来编写 SELECT 语句 (例如 SELECT * FROM 真实表名 WHERE ...)。\n"
+            f"原则 1：SELECT 语句只能查询 {target_sql}，必须保留该表标识中的 schema 和引号。\n"
             "原则 2：保持谓词的逻辑结构（运算符、嵌套关系、常量值）不变。\n"
             "原则 3：对于 col(X)，请检查 X 是否在 Schema 中。\n"
             "       - 如果 X 存在：必须保留 X。\n"
@@ -194,74 +185,74 @@ class LLMCompletionClient:
 
 --- 范例 1 (提取表名 + 处理存在的列) ---
 Schema: 
-- 表 employees:
+- 表 {target_sql}:
     - age int
     - name varchar
 模板: col(age) > int(10)
-思考: Schema 中表名为 employees。列 age 存在。int(10) -> 10。
-输出: SELECT * FROM employees WHERE age > 10;
+思考: 目标表为 {target_sql}。列 age 存在。int(10) -> 10。
+输出: SELECT * FROM {target_sql} WHERE age > 10;
 
 --- 范例 2 (列名不存在，需要映射) ---
 Schema: 
-- 表 payments:
+- 表 {target_sql}:
     - balance decimal
     - id int
 模板: col(salary) > int(5000)
-思考: Schema 中表名为 payments。表里没有 salary，但 balance 也是金额，语义接近。替换为 balance。int(5000) -> 5000。
-输出: SELECT * FROM payments WHERE balance > 5000;
+思考: 目标表为 {target_sql}。表里没有 salary，但 balance 也是金额，语义接近。替换为 balance。int(5000) -> 5000。
+输出: SELECT * FROM {target_sql} WHERE balance > 5000;
 
 --- 范例 3 (处理 ?? 占位符) ---
 Schema: 
-- 表 students:
+- 表 {target_sql}:
     - score int
 模板: col(score) > ??
-思考: Schema 中表名为 students。?? 需要被替换。score 是 int，??需要补一个合理的整数。
-输出: SELECT * FROM students WHERE score > 60;
+思考: 目标表为 {target_sql}。?? 需要被替换。score 是 int，??需要补一个合理的整数。
+输出: SELECT * FROM {target_sql} WHERE score > 60;
 
 --- 范例 4 (复杂结构保持) ---
 Schema: 
-- 表 logs:
+- 表 {target_sql}:
     - level int
     - msg text
 模板: (col(level) > int(1) AND col(msg) LIKE string('%error%'))
-思考: 表名 logs。列都存在。保持 AND 结构。
-输出: SELECT * FROM logs WHERE level > 1 AND msg LIKE '%error%';
+思考: 目标表为 {target_sql}。列都存在。保持 AND 结构。
+输出: SELECT * FROM {target_sql} WHERE level > 1 AND msg LIKE '%error%';
 
 --- 范例 5 (不存在的列 + ?? 占位符) ---
 Schema: 
-- 表 products:
+- 表 {target_sql}:
     - stock int
     - product_name varchar
 模板: col(count) > ??
-思考: Schema 中表名为 products。表里没有 count，但 stock 也是数量类型，语义接近。将 count 替换为 stock。而 stock 为 int，?? 需要补一个合理的整数。
-输出: SELECT * FROM products WHERE stock > 0;
+思考: 目标表为 {target_sql}。表里没有 count，但 stock 也是数量类型，语义接近。将 count 替换为 stock。而 stock 为 int，?? 需要补一个合理的整数。
+输出: SELECT * FROM {target_sql} WHERE stock > 0;
 
 --- 范例 6 (左值占位符 + 跨列名映射) ---
 Schema: 
-- 表 users:
+- 表 {target_sql}:
     - salary decimal
     - age int
 模板: ?? > int(50)
-思考: Schema 中表名为 users。在右边为一个数值类型，因此在左边 ?? 需要一个数值列。所以可以从 Schema 中选择 salary。int(50) -> 50。
-输出: SELECT * FROM users WHERE salary > 50;
+思考: 目标表为 {target_sql}。在右边为一个数值类型，因此在左边 ?? 需要一个数值列。所以可以从 Schema 中选择 salary。int(50) -> 50。
+输出: SELECT * FROM {target_sql} WHERE salary > 50;
 
 --- 范例 7 (严重语法错误与操作符堆叠) ---
 Schema: 
-- 表 employees:
+- 表 {target_sql}:
     - salary int
     - employee_name varchar
 模板: col(salary) - > int(10) OR !
-思考: Schema 中表名为 employees。模板中存在明显的操作符堆叠（- >）和悬空的逻辑符（!），属于畸形语法。按照规则，不应尝试修复语法错误，只需剥离类型外壳：col(salary) -> salary，int(10) -> 10。原封不动地保留错误结构即可。
-输出: SELECT * FROM employees WHERE salary - > 10 OR !;
+思考: 目标表为 {target_sql}。模板中存在明显的操作符堆叠（- >）和悬空的逻辑符（!），属于畸形语法。按照规则，不应尝试修复语法错误，只需剥离类型外壳：col(salary) -> salary，int(10) -> 10。原封不动地保留错误结构即可。
+输出: SELECT * FROM {target_sql} WHERE salary - > 10 OR !;
 
 --- 范例 8 (括号不匹配与结构未闭合) ---
 Schema: 
-- 表 orders:
+- 表 {target_sql}:
     - status int
     - user_id int
 模板: ((col(status) = int(1) AND ?? ||
-思考: Schema 中表名为 orders。模板存在左括号未闭合的问题，且以 || 结尾，结构严重畸形。我们仅需剥离外壳（col(status) -> status, int(1) -> 1），并将 ?? 替换为 Schema 中存在的列（例如 user_id）。绝对不要擅自补全右括号或删除尾部的 ||，必须保留原始错误以触发数据库的 Syntax Error。
-输出: SELECT * FROM orders WHERE ((status = 1 AND user_id ||;
+思考: 目标表为 {target_sql}。模板存在左括号未闭合的问题，且以 || 结尾，结构严重畸形。我们仅需剥离外壳（col(status) -> status, int(1) -> 1），并将 ?? 替换为 Schema 中存在的列（例如 user_id）。绝对不要擅自补全右括号或删除尾部的 ||，必须保留原始错误以触发数据库的 Syntax Error。
+输出: SELECT * FROM {target_sql} WHERE ((status = 1 AND user_id ||;
 
 --- 范例结束 ---
 
@@ -273,7 +264,7 @@ Schema:
 1. 最终结果中**绝对不能**包含 `col(...)`, `int(...)` 等类型名包装。
 2. 最终结果中**绝对不能**包含 `??`，必须替换完。
 3. 如果 `col(X)` 中的 X 在表中不存在，**必须**找出类型最相似的列名将其替换。
-4. 必须确保 `FROM` 后面的表名是上面 Schema 里真正有的表。
+4. `FROM` 后必须使用固定目标表 {target_sql}，不得选择其他表。
 
 直接输出最终的 SQL 语句：
 """
