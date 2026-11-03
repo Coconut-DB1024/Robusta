@@ -41,6 +41,18 @@ def _archive_results(project_dir, result_files, previous_states, similarity_root
 
     data_dir = project_dir / "data"
     data_dir.mkdir(parents=True, exist_ok=True)
+    data_root = data_dir.resolve()
+    if data_root != project_dir.resolve() / "data":
+        raise RuntimeError("Refusing to clear a data directory outside the project.")
+    for old_output in data_dir.iterdir():
+        if old_output.name.casefold() == "readme.md":
+            continue
+        if old_output.is_symlink() or not old_output.is_dir():
+            old_output.unlink()
+        else:
+            if old_output.resolve().parent != data_root:
+                raise RuntimeError(f"Refusing to clear an output outside data: {old_output}")
+            shutil.rmtree(old_output)
     run_name = datetime.now().strftime("run_%Y%m%d_%H%M%S_%f")
     archive_dir = data_dir / run_name
     archive_dir.mkdir()
