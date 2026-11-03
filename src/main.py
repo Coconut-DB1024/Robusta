@@ -597,6 +597,7 @@ def run_BugFinding(
             "cases_loaded": scan_report.get("cases_loaded", finder.total_cases_loaded),
             "cases_run": finder.total_cases_run,
             "cases_validated": finder.total_cases_validated,
+            "cases_satisfiable": finder.total_cases_satisfiable,
             "cases_skipped": finder.total_cases_skipped,
             "sql_errors": finder.total_sql_errors,
             "query_timeouts": finder.total_query_timeouts,
@@ -752,6 +753,17 @@ def _write_stage3_signature_feedback(
     return output_path, payload
 
 
+def _print_stage3_validation_rates(generated_count, tlp_report):
+    """Report execution coverage and satisfiability among executable predicates."""
+    generated = int(generated_count or 0)
+    executable = int(tlp_report.get("cases_validated", 0) or 0)
+    satisfiable = int(tlp_report.get("cases_satisfiable", 0) or 0)
+    executability_rate = f"{100.0 * executable / generated:.2f}%" if generated else "N/A"
+    satisfiability_rate = f"{100.0 * satisfiable / executable:.2f}%" if executable else "N/A"
+    print(f"[Stage3] Executability rate: {executability_rate} ({executable}/{generated} generated predicates)", flush=True)
+    print(f"[Stage3] Satisfiability rate: {satisfiability_rate} ({satisfiable}/{executable} executable predicates)", flush=True)
+
+
 def run_stage3():
     from RL.config import DB_CONFIG, STAGE3_CONFIG
     from pkg.stage3_runtime import (
@@ -794,6 +806,10 @@ def run_stage3():
             ) or {}
         else:
             print("[Stage3] 谓词生成未成功提交，本轮不扫描旧输出文件。")
+        _print_stage3_validation_rates(
+            sampling_report.get("total_generated", 0),
+            bug_report.get("tlp", {}) or {},
+        )
         print(
             "[Stage3] Oracle worker failure; the fixed-depth round is incomplete."
             if isinstance(bug_report, dict) and bug_report.get("worker_failure")
@@ -949,6 +965,7 @@ def run_stage3():
         "cases_loaded": 0,
         "cases_run": 0,
         "cases_validated": 0,
+        "cases_satisfiable": 0,
         "cases_skipped": 0,
         "sql_errors": 0,
         "query_timeouts": 0,
@@ -1267,6 +1284,7 @@ def run_stage3():
         f"untested={cumulative_untested}, "
         f"coverage={tested_coverage_percentage:.2f}%"
     )
+    _print_stage3_validation_rates(cumulative_generated, cumulative_tlp)
     if metrics_recorder.oracle_fault_exclusion:
         print(f"[Stage3] Oracle excluded={cumulative_tlp['oracle_excluded_cases']}, "
               f"generated_raw={cumulative_generated}, elapsed_raw={elapsed:.2f}s, "
@@ -2003,7 +2021,7 @@ if __name__ == "__main__":
         print(
             f"[Timer] Exiting after Stage 1. Total Time: {datetime.timedelta(seconds=int(global_end_time - global_start_time))}")
         if mode == "recycle_pre_rl":
-            print("[Stage 6D] recycle_pre_rl finished. Updated transformer/VAE is ready for HNSW rebuild.")
+            print("[Stage 6D] recycle_pre_rl finished. Updated transformer is ready for HNSW rebuild.")
         print(f"{'=' * 50}")
         sys.exit(0)
     if mode in ["run_all", "post_rl", "rl_cycle"]:
