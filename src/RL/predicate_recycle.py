@@ -1264,7 +1264,7 @@ def main() -> None:
 
     for idx, cand in enumerate(candidates[:10], start=1):
         print(
-            f"[{idx}] score={cand.score:.2f} "
+            f"[{idx}] "
             f"category={cand.category} "
             f"new_edges={cand.new_edge_count} "
             f"new_ops={cand.new_operator_count} "
