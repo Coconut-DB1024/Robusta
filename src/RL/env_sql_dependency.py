@@ -42,6 +42,7 @@ class SpaceLabel(str, Enum):
 from RL.db_executor import BaseDBExecutor, DBQueryResult, create_db_executor
 from RL.heuristic_completion import HeuristicCompletionClient # 【修改】引入极速启发式替换模块
 from RL.reward_scheme import compute_reward
+from RL.progress import EnvironmentProgress, EnvironmentReloadError
 from RL.predicate_structure import PredicateStructureAnalyzer
 from RL.graph_runtime_stats import get_default_runtime_stats
 from RL import candidate_bitmap as candidate_bitmap_tools
@@ -158,11 +159,14 @@ class SqlDependencyEnv(gym.Env):#
         reservation_lock: Optional[Any] = None,
         candidate_shared_state: Optional[CandidateSharedState] = None,
         enumeration_cycle_index: int = 1,
+        environment_progress: Optional[EnvironmentProgress] = None,
     ) -> None:
         super().__init__()
         # worker位置用于PPO分片或枚举模式的无锁批次分配；不改变公共构造流程。
         self.worker_count = max(1, int(worker_count))
         self.worker_rank = int(worker_rank) % self.worker_count
+        self._environment_progress = environment_progress or EnvironmentProgress()
+        self._progress_worker_rank = self.worker_rank if environment_progress is not None else 0
         self.shared_queue = shared_queue  # 【新增】保存队列实例
         self.candidate_shared_state = candidate_shared_state
         self.candidate_bitmap_enumeration_enabled = bool(
@@ -316,6 +320,7 @@ class SqlDependencyEnv(gym.Env):#
             "Total_Steps": 0
         }
         # ---------------------------------
+        self._environment_progress.completed("initialized", self._progress_worker_rank)
 
     # 构造观测向量
 
@@ -744,31 +749,13 @@ class SqlDependencyEnv(gym.Env):#
             self.candidate_bitmap_probe_template_cache_order.clear()
             self.candidate_bitmap_master_enqueued_edges.clear()
 
-            print(
-                f"[CandidateBitmapEnv] reloaded candidate bitmap: "
-                f"edges={len(self.candidate_bitmap_edge_records)}, "
-                f"available={int(bitmaps.get('available_initial_bitmap', np.zeros(n)).sum())}, "
-                f"missing={int(bitmaps.get('missing_candidate_bitmap', np.zeros(n)).sum())}",
-                flush=True,
+            self._environment_progress.completed(
+                "bitmap_reloaded", self._progress_worker_rank
             )
         except Exception as exc:
-            print(f"[CandidateBitmapEnv] reload failed: {exc}", flush=True)
-            if not self.candidate_bitmap_edge_records:
-                self.candidate_bitmap_edge_records = []
-                self.candidate_bitmap_bitmaps = {}
-                self.candidate_bitmap_formal_node_ids = set()
-                self.candidate_bitmap_formal_graph_data = {}
-                self.candidate_bitmap_required_slot_count_cache = {}
-                self.candidate_bitmap_support_rank_cache = {}
-                self.candidate_bitmap_inner_ready_cache = {}
-                self.candidate_bitmap_exploration_done = np.zeros((0,), dtype=np.uint8)
-                self.candidate_bitmap_probing = np.zeros((0,), dtype=np.uint8)
-                self.candidate_bitmap_candidate_union_indices = np.zeros((0,), dtype=np.int32)
-                self.candidate_bitmap_unfinished_indices = np.zeros((0,), dtype=np.int32)
-                self.candidate_bitmap_edge_id_to_index = {}
-                self.candidate_edge_neighbor_indices = np.full((0, 0), -1, dtype=np.int32)
-                self.candidate_edge_neighbor_distances = np.full((0, 0), np.inf, dtype=np.float32)
-                self.candidate_edge_hnsw_tendencies = np.full((0,), 0.5, dtype=np.float32)
+            message = f"[CandidateBitmapEnv] worker={self.worker_rank} reload failed: {type(exc).__name__}: {exc}"
+            print(message, flush=True)
+            raise EnvironmentReloadError(message) from exc
 
     def _candidate_bitmap_level_value(self, level: str) -> float:
         text = str(level or "").lower()
@@ -3458,6 +3445,8 @@ class SqlDependencyEnv(gym.Env):#
             if isinstance(predicate_meta, dict):
                 safe_closure_used = bool(predicate_meta.get("safe_closure_used", False))
 
+        except EnvironmentReloadError:
+            raise
         except Exception as exc:
             construct_error = str(exc)
 

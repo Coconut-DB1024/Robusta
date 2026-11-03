@@ -45,9 +45,9 @@ from RL.progress import get_rl_progress_total_steps
 # ==================== [Active candidate bitmap master processor] ====================
 
 def master_data_processor(shared_queue, graph_queue, io_batch_size, global_correct_txt_path):
-    """轻量事件转发器：active candidate bitmap 不加载 VAE、不写 Va/Vb。"""
+    """将验证成功的候选边事件和进度消息转发给图谱管理器。"""
     print(
-        "[Master Worker] 轻量事件转发器已启动（不使用旧 VAE/向量空间）。",
+        "[Master Worker] 候选边事件转发器已启动。",
         flush=True,
     )
     while True:
@@ -78,7 +78,7 @@ def master_data_processor(shared_queue, graph_queue, io_batch_size, global_corre
                     graph_queue.put(
                         payload if isinstance(payload, dict) else {"predicate": predicate}
                     )
-                # b 事件只属于旧 Va/Vb 收集逻辑；active candidate bitmap 不落盘。
+                # 失败事件不进入正式知识图。
                 continue
 
             # 兼容旧版直接发送的 Correct 字符串，保留图谱消息通道。
@@ -208,13 +208,33 @@ def _run_predicate_recycle_after_training(trigger_reason: str = "training_end") 
         traceback.print_exc()
 
 def run_training():
+    """Run training; abort its child processes if startup or execution fails."""
+    import multiprocessing as mp
+
+    existing_children = set(mp.active_children())
+    try:
+        return _run_training()
+    except Exception:
+        # Failed workers may leave peers and pipeline consumers waiting on IPC.
+        # Only stop children created by this invocation, then propagate the error.
+        children = [p for p in mp.active_children() if p not in existing_children]
+        for process in children:
+            if process.is_alive():
+                process.terminate()
+        for process in children:
+            process.join(timeout=5)
+            if process.is_alive():
+                process.kill()
+                process.join(timeout=5)
+        raise
+
+
+def _run_training():
     """
     PPO 训练主入口函数。
     【设计核心】：所有的重型导入（Torch, SB3, Environment）都延迟到这个函数内部。
     """
-    # 当前版本不再在 RL 主进程中强制锁定 CUDA_VISIBLE_DEVICES。
-    # SB3 PPO 的策略网络设备由 RL_ALGO_CONFIG.sb3_device 控制；
-    # candidate_bitmap 环境本身不再依赖 LLM 多卡补全。
+    # SB3 PPO 的策略网络设备由 RL_ALGO_CONFIG.sb3_device 控制。
     print(f"[Main Process] SB3 policy device = {RL_ALGO_CONFIG.sb3_device}")
     enumeration_enabled = bool(
         getattr(RL_ENV_CONFIG, "candidate_bitmap_enumeration_enabled", False)
@@ -291,7 +311,7 @@ def run_training():
     import multiprocessing as mp
 
     # 使用 Manager().Queue() 保证在 SubprocVecEnv 中可序列化传递。
-    # active candidate_bitmap 中 master 只转发事件，不运行 VAE 编码。
+    # master 转发候选边事件，由图谱管理器统一处理。
     mp_manager = mp.Manager()
     shared_queue = mp_manager.Queue()  # Worker -> 轻量事件转发器
     graph_queue = mp_manager.Queue()  # 事件转发器 -> PKG 图谱管理器
@@ -380,7 +400,6 @@ def run_training():
             # 【局部导入】仅在此处导入环境类
             from RL.env_sql_dependency import SqlDependencyEnv
 
-            # 这一步会在 GPU 0 加载 LLM，占用大量显存
             test_env = SqlDependencyEnv()
             check_env(test_env, warn=True)
             test_env.close()
@@ -398,16 +417,22 @@ def run_training():
         except Exception as e:
             print(f"\n[Env Check] FAILED: {e}")
             print("请检查 gymnasium 版本或 env_sql_dependency.py 中的 reset/step 返回值格式。")
+            raise
     else:
         print("[Env Check] Skipped by RL_ENV_CONFIG.enable_env_compliance_check=False.")
 
-    # ==================== [多GPU并行环境配置] ====================
+    # ==================== [多进程环境配置] ====================
     target_n_envs = RL_ALGO_CONFIG.n_envs
     print(f"\n[Parallel] Launching {target_n_envs} environments with SubprocVecEnv (spawn)...")
 
     # 从 env_runner 导入工厂函数
     # 这里的 env_runner 是我们之前创建的那个纯净文件
     from RL.env_runner import make_env_isolated_with_reservation
+    from RL.progress import EnvironmentProgress
+
+    environment_progress = EnvironmentProgress(
+        target_n_envs, state=mp_manager.dict(), lock=mp_manager.Lock()
+    )
 
     # 使用 SubprocVecEnv 启动多进程环境
     vec_env = SubprocVecEnv(
@@ -421,6 +446,7 @@ def run_training():
                 shared_edge_reservation_lock,
                 candidate_shared_state,
                 enumeration_cycle_index,
+                environment_progress=environment_progress,
             )
             for i in range(target_n_envs)
         ],
@@ -543,6 +569,7 @@ def run_training():
 
     # 9. 开始训练
     print("\n[PPO] Start Learning...")
+    training_failed = False
     try:
         model.learn(
             total_timesteps=RL_ALGO_CONFIG.total_timesteps,
@@ -553,53 +580,57 @@ def run_training():
     except KeyboardInterrupt:
         print("\n[PPO] Training interrupted manually.")
     except Exception as e:
+        training_failed = True
         print(f"\n[PPO] Training Error: {e}")
         import traceback
         traceback.print_exc()
+        raise
     finally:
-        # 10. 保存模型并关闭环境
-        model.save(final_model_path)
-        print(f"[PPO] Model saved to {final_model_path}")
+        # Fatal failures are cleaned up by run_training; do not run recycling.
+        if not training_failed:
+            # 10. 保存模型并关闭环境
+            model.save(final_model_path)
+            print(f"[PPO] Model saved to {final_model_path}")
 
-        vec_env.close()
+            vec_env.close()
 
-        # --- 【通知并关闭流水线进程】 ---
-        print("[Main Process] Sending DONE signal to Pipeline...")
-        shared_queue.put("DONE")
+            # --- 【通知并关闭流水线进程】 ---
+            print("[Main Process] Sending DONE signal to Pipeline...")
+            shared_queue.put("DONE")
 
-        master_data_p.join()
-        if master_data_p.is_alive():
-            print("[Main Process] Warning: Master Data Process 卡死，强制终止...")
-            master_data_p.terminate()
+            master_data_p.join()
+            if master_data_p.is_alive():
+                print("[Main Process] Warning: Master Data Process 卡死，强制终止...")
+                master_data_p.terminate()
 
-        master_graph_p.join()
-        if master_graph_p.is_alive():
-            print("[Main Process] Warning: Master Graph Process 卡死，强制终止...")
-            master_graph_p.terminate()
+            master_graph_p.join()
+            if master_graph_p.is_alive():
+                print("[Main Process] Warning: Master Graph Process 卡死，强制终止...")
+                master_graph_p.terminate()
 
-        print("[Main Process] All background processes closed.")
-        try:
-            mp_manager.shutdown()
-        except Exception as manager_exc:
-            print(f"[Main Process] Shared reservation manager shutdown warning: {manager_exc}")
-        _finalize_joint_signature_evidence()
-        # ----------------------------------------
+            print("[Main Process] All background processes closed.")
+            try:
+                mp_manager.shutdown()
+            except Exception as manager_exc:
+                print(f"[Main Process] Shared reservation manager shutdown warning: {manager_exc}")
+            _finalize_joint_signature_evidence()
+            # ----------------------------------------
 
-        # ================== 阶段 6C：训练结束后半自动回炉 ==================
-        # 注意：
-        #   1. 此处只调用 predicate_recycle.py；
-        #   2. 默认只筛选候选并执行 dry-run；
-        #   3. 不自动触发第一阶段重新训练；
-        #   4. 不重建 HNSW。
-        recycle_triggered_by_callback = (
-            recycle_trigger_callback is not None
-            and getattr(recycle_trigger_callback, "has_triggered", False)
-        )
+            # ================== 阶段 6C：训练结束后半自动回炉 ==================
+            # 注意：
+            #   1. 此处只调用 predicate_recycle.py；
+            #   2. 默认只筛选候选并执行 dry-run；
+            #   3. 不自动触发第一阶段重新训练；
+            #   4. 不重建 HNSW。
+            recycle_triggered_by_callback = (
+                recycle_trigger_callback is not None
+                and getattr(recycle_trigger_callback, "has_triggered", False)
+            )
 
-        trigger_reason = "periodic_stop" if recycle_triggered_by_callback else "training_end"
+            trigger_reason = "periodic_stop" if recycle_triggered_by_callback else "training_end"
 
-        _run_predicate_recycle_after_training(trigger_reason=trigger_reason)
-        # ==================================================================
+            _run_predicate_recycle_after_training(trigger_reason=trigger_reason)
+            # ==================================================================
 
 # 程序入口
 if __name__ == "__main__":

@@ -6,6 +6,7 @@ from stable_baselines3.common.callbacks import BaseCallback
 from stable_baselines3.common.logger import HumanOutputFormat
 from RL.config import RL_ALGO_CONFIG, RL_ENV_CONFIG, RECYCLE_CONFIG
 from RL import candidate_bitmap as candidate_bitmap_tools
+from RL.progress import EnvironmentReloadError
 from RL.progress import print_rl_progress
 
 
@@ -445,9 +446,12 @@ class CandidateBitmapUpdateCallback(BaseCallback):
                     if self.verbose > 0:
                         print_rl_progress(self.num_timesteps)
                 except Exception as sync_exc:
-                    if self.verbose > 0:
-                        print(f"[CandidateBitmap Callback Warning] worker reload failed: {sync_exc}", flush=True)
+                    raise EnvironmentReloadError(
+                        f"Worker bitmap reload failed: {type(sync_exc).__name__}: {sync_exc}"
+                    ) from sync_exc
 
+        except EnvironmentReloadError:
+            raise
         except Exception as exc:
             if self.verbose > 0:
                 print(f"[CandidateBitmap Callback Error] bitmap update failed: {exc}", flush=True)
@@ -536,8 +540,7 @@ class CandidateBitmapProgressCallback(BaseCallback):
     - progress_log_enabled=False：不发送消息，也不生成进度 CSV；
     - progress_log_interval_steps 是 SB3 汇总所有并行环境后的全局步数间隔。
 
-    它不保存 Va/Vb/Vc，不同步旧 HNSW/UCB，也不参与 PPO 选边、奖励、
-    candidate bitmap 更新或正式图写入。
+    它不参与 PPO 选边、奖励、candidate bitmap 更新或正式图写入。
     """
 
     def __init__(
