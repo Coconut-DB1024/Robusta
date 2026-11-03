@@ -2,16 +2,15 @@
 全局配置文件：
 - 路径相关（项目根目录、Encoder 模型文件等）
 - 强化学习环境参数
-- Actor-Critic 算法参数（默认 PPO，可切换为 A2C）
+- PPO 算法参数
 - HNSW 相关配置复用（仅复用 HNSW 的空间与 ef 等参数）
 - 消融实验开关配置
-- DBMS / LLM 配置
+- DBMS 配置
 """
 
 from __future__ import annotations
 
 import json
-import os
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional, Literal
@@ -24,7 +23,7 @@ from typing import Optional, Literal
 STAGE2_MODE: Literal[
     "base", "enumeration", "representation", "organization", "ppo",
     "representation_organization", "representation_ppo", "organization_ppo", "full",
-] = "full"
+] = "base"
 
 # HNSW 相关配置复用
 
@@ -54,7 +53,7 @@ PROJECT_ROOT: Path = Path(__file__).resolve().parents[1]
 # RL 目录本身
 RL_DIR: Path = PROJECT_ROOT / "RL"
 
-# 存放三集合原始文本的 data 目录
+# 存放原始谓词文本的 data 目录
 DATA_DIR: Path = PROJECT_ROOT / "data"
 
 
@@ -95,7 +94,7 @@ CANDIDATE_PROBE_VALIDATION_REPORT_PATH: Path = CANDIDATE_BITMAP_DIR / "probe_val
 CANDIDATE_BITMAP_UPDATE_LOG_PATH: Path = CANDIDATE_BITMAP_DIR / "candidate_bitmap_update_log.jsonl"
 CANDIDATE_BITMAP_UPDATE_REPORT_PATH: Path = CANDIDATE_BITMAP_DIR / "candidate_bitmap_update_report.json"
 
-# 候选边组织模块输出。与旧的 Va/Vb HNSW 目录隔离，避免两套索引互相覆盖。
+# 候选边表示、HNSW 近邻与结构熵的输出路径。
 CANDIDATE_EDGE_VECTORS_PATH: Path = CANDIDATE_BITMAP_DIR / "candidate_edge_vectors.npy"
 CANDIDATE_EDGE_HNSW_INDEX_PATH: Path = CANDIDATE_BITMAP_DIR / "candidate_edge_hnsw.bin"
 CANDIDATE_EDGE_NEIGHBORS_PATH: Path = CANDIDATE_BITMAP_DIR / "candidate_edge_neighbors.npz"
@@ -274,7 +273,7 @@ CANDIDATE_BITMAP_CONFIG = CandidateBitmapConfig()
 # ====================== 3. 强化学习环境配置 ======================
 
 @dataclass
-class RLEnvConfig: #RL 环境的高层参数：一个 episode = 一个 trajectory,一条 trajectory 内可以多步，每步选一个谓词向量并执行
+class RLEnvConfig: # 每步选择一条候选边，构造谓词并验证 SQL。
 
     # 一条 trajectory 中最多允许多少步（多少个谓词）
     max_steps_per_trajectory: int = 15
@@ -568,7 +567,7 @@ class RLEnvConfig: #RL 环境的高层参数：一个 episode = 一个 trajector
 
 
     # 候选排序时加入的小扰动，避免完全固定顺序导致 PPO 只学会总选第 0 个。
-    mutation_pool_priority_jitter: float = 0.02
+    candidate_pool_priority_jitter: float = 0.02
 
 
     # 正式训练默认不执行 check_env，避免 check_env 真实 step 造成训练前副作用。
@@ -670,12 +669,6 @@ class RLEnvConfig: #RL 环境的高层参数：一个 episode = 一个 trajector
     # =========================================================
     # ==================================================================
 
-    # 是否在 reward 中加入“多样性奖励”（比如探索新区域）
-    use_diversity_bonus: bool = False
-
-    # 多样性奖励的权重（若启用）
-    diversity_bonus_weight: float = 0.2
-
     # ================== 【RuntimeStats 并发写入控制】 ==================
     # 是否允许每个 env worker 在 step 中直接写运行时统计文件。
     #
@@ -727,10 +720,10 @@ class RLEnvConfig: #RL 环境的高层参数：一个 episode = 一个 trajector
 # ====================== 4. Actor-Critic 算法配置（Stable-Baselines3） ======================
 
 @dataclass
-class RLAlgoConfig: #使用 Stable-Baselines3 的 Actor-Critic 算法（A2C 或 PPO）时的超参数
+class RLAlgoConfig: # Stable-Baselines3 PPO 的训练参数。
 
-    # 算法选择：目前考虑 "A2C" 或 "PPO"，暂时选择使用 PPO（更稳定），如需改为 A2C，将 algo_name 改为 "A2C" 即可
-    algo_name: Literal["A2C", "PPO"] = "PPO" #
+    # 训练器固定使用 PPO；该字段仅用于显示算法名称。
+    algo_name: Literal["PPO"] = "PPO"
 
     # 学习率
     learning_rate: float = 3e-4
@@ -738,10 +731,10 @@ class RLAlgoConfig: #使用 Stable-Baselines3 的 Actor-Critic 算法（A2C 或 
     # 折扣因子 gamma
     gamma: float = 0.99
 
-    # 每次 rollout 的步数（A2C/PPO 共用参数）
+    # 每次 rollout 的步数
     n_steps: int = 128
 
-    # PPO 专用的一些参数（如果用 A2C，可以忽略 batch_size/n_epochs/clip_range）
+    # PPO 更新参数
     batch_size: int = 64
     n_epochs: int = 4
     clip_range: float = 0.2
@@ -789,19 +782,11 @@ class RLAlgoConfig: #使用 Stable-Baselines3 的 Actor-Critic 算法（A2C 或 
 
 RL_ALGO_CONFIG = RLAlgoConfig()
 
-# ====================== 5. 消融实验配置（开关） ======================
-
-@dataclass
-class AblationConfig: #为后续做消融实验预留的开关
-
-    use_actor_custom_objective: bool = True #使用自定义的 Actor 学习目标/使用 SB3 默认的 policy gradient 目标（对比基线）
-    use_critic_custom_objective: bool = True #使用 Critic 学习目标/使用 SB3 默认的 value function 损失
-    log_extra_metrics: bool = True #在训练过程中记录额外的中间量（sigma_a/b/c, 重复动作比例等）/只记录最基本的 reward / loss
 
 
-ABLATION_CONFIG = AblationConfig()
 
-# ====================== 6. DBMS / LLM 配置 ======================
+
+# ====================== 6. DBMS 配置 ======================
 
 @dataclass
 class DBConfig: # DBMS 连接配置 (本地模式)
@@ -1255,56 +1240,7 @@ def load_db_coverage_profile(force_reload: bool = False) -> dict:
     return _DB_COVERAGE_PROFILE_CACHE
 
 
-"""
-class DBConfig: #DBMS 连接配置占位
-    # "mysql" / "postgresql" / "tidb" 等，仅用于标识
-    db_type: str = "mysql"
 
-    # 【关键修改】动态获取 Unix Socket 路径 (由 Slurm 脚本设置)
-    # 如果环境变量没设置(比如本地调试)，默认为 None
-    unix_socket: Optional[str] = os.environ.get("MY_DB_SOCKET")
-
-    # 【修改】禁用 TCP 连接，改用 Socket
-    host: Optional[str] = None
-    port: int = 0
-
-    # 用户名和密码
-    user: str = ""
-    password: str = ""  # Socket 连接通常无需密码
-
-    # 【修改】默认数据库名 (必须与 Slurm 脚本里的 "CREATE DATABASE test_db;" 一致)
-    database: str = ""
-
-    # 连接超时时间（秒）
-    connect_timeout: int = 5
-
-    # 单条 SQL 执行的超时时间（秒）
-    query_timeout: int = 10
-
-DB_CONFIG = DBConfig()
-"""
-@dataclass
-class LLMConfig:
-    # 【修改】provider 改为 "vllm_server"，明确我们是用 Server 模式
-    provider: str = "vllm_server"
-
-    # 【修改】模型路径依然保留（用于 Slurm 脚本启动 Server），但在 Client 端代码里用不到了
-    model_name: str = "/public/home/lkq/lkq/Predicate_Operator_Classification-iter1/models/Qwen/Qwen2.5-7B-Instruct"
-
-    # 【关键修改】优先读取 Slurm 脚本传进来的端口，否则回退到 8000
-    _env_port = os.environ.get("LLM_API_PORT")
-    if _env_port:
-        api_base: str = f"http://localhost:{_env_port}"
-    else:
-        api_base: str = "http://localhost:8000"
-
-    # 【新增】API Key，vLLM 默认是 "EMPTY"
-    api_key: str = "EMPTY"
-
-    temperature: float = 0.1  # 建议调低，SQL 补全需要精确
-    max_tokens: int = 512  # SQL 语句通常不需要太长
-
-LLM_CONFIG = LLMConfig()
 
 
 # ====================== 8. Master-Worker & 监控配置 ======================
@@ -1577,140 +1513,3 @@ class AutoCycleConfig:
 AUTO_CYCLE_CONFIG = AutoCycleConfig()
 # ====================================================================
 
-"""
-# ====================== 7. 便于调试的信息打印 ======================
-
-def print_config_summary() -> None: #简单打印一下关键配置，方便在主程序中检查。
-    print("=== RL Config Summary ===")
-    print(f"PROJECT_ROOT       : {PROJECT_ROOT}")
-    print(f"DATA_DIR           : {DATA_DIR}")
-    print(f"OUTPUT_DIR         : {OUTPUT_DIR}")
-    print(f"CODET5_DIR         : {CODET5_DIR}")
-    print("--- RL Env ---")
-    print(f"max_steps_per_traj : {RL_ENV_CONFIG.max_steps_per_trajectory}")
-    print("init_correct_txt   :", RL_ENV_CONFIG.init_correct_predicates_path)
-    print(f"HNSW_SPACE / ef    : {HNSW_SPACE} / {HNSW_EF_SEARCH}")
-    print("--- RL Algo ---")
-    print(f"algo_name          : {RL_ALGO_CONFIG.algo_name}")
-    print(f"total_timesteps    : {RL_ALGO_CONFIG.total_timesteps}")
-    print("--- Ablation ---")
-    print(f"use_actor_custom   : {ABLATION_CONFIG.use_actor_custom_objective}")
-    print(f"use_critic_custom  : {ABLATION_CONFIG.use_critic_custom_objective}")
-    print("--- DB ---")
-    print(f"db_type@host:port  : {DB_CONFIG.db_type}@{DB_CONFIG.host}:{DB_CONFIG.port}")
-    print("=========================")
-
-    print("\n--- Simple MySQL Connection Test ---")
-    try:
-        import pymysql
-
-        conn = pymysql.connect(
-            host=DB_CONFIG.host,
-            port=DB_CONFIG.port,
-            user=DB_CONFIG.user,
-            password=DB_CONFIG.password,
-            database=DB_CONFIG.database,
-            connect_timeout=DB_CONFIG.connect_timeout,
-            charset="utf8mb4",
-        )
-        conn.close()
-        print("MySQL Connection Test: SUCCESS ✓")
-    except Exception as e:
-        print("MySQL Connection Test: FAILED ✗")
-        print("Error:", e)
-    print("=========================")
-
-    # ---------- LLM（LM Studio 本地 API）简单连通性测试 ----------
-    print("\n--- Simple LLM (LM Studio) Connection Test ---")
-    try:
-        import requests  # 需要: pip install requests
-
-        if LLM_CONFIG.api_base is None:
-            print("LLM Test: SKIPPED (LLM_CONFIG.api_base is None)")
-        else:
-            # LM Studio 的 OpenAI 兼容端点一般是: http://127.0.0.1:1234/v1/chat/completions
-            url = f"{LLM_CONFIG.api_base}/v1/chat/completions"
-
-            payload = {
-                "model": LLM_CONFIG.model_name,
-                "messages": [
-                    {
-                        "role": "system",
-                        "content": "你是一个测试用助手，只需要简单回答。"
-                    },
-                    {
-                        "role": "user",
-                        "content": "你好，请简单回复一句：再次测试成功，欢迎使用。"
-                    },
-                ],
-                "temperature": LLM_CONFIG.temperature,
-                "max_tokens": LLM_CONFIG.max_tokens,
-            }
-
-            headers = {}
-            if LLM_CONFIG.api_key:
-                headers["Authorization"] = f"Bearer {LLM_CONFIG.api_key}"
-
-            resp = requests.post(url, json=payload, headers=headers, timeout=25)
-
-            if resp.status_code == 200:
-                data = resp.json()
-                try:
-                    content = data["choices"][0]["message"]["content"] or ""
-                except Exception:
-                    content = str(data)
-
-                # -------- 处理 DeepSeek R1 风格的 <think>... </think> --------
-                cleaned = content
-
-                # 如果既有 <think> 又有 </think>，优先用成对标签截断
-                if "<think>" in cleaned and "</think>" in cleaned:
-                    # 取 </think> 后面的内容作为“对用户可见”的回复
-                    cleaned = cleaned.split("</think>", 1)[1].strip()
-
-                # 如果只有 <think> 没有 </think>（很少见），做一个兜底处理：
-                elif cleaned.lstrip().startswith("<think>"):
-                    lines = cleaned.splitlines()
-                    new_lines = []
-                    in_think = False
-                    finished_think = False
-                    for line in lines:
-                        s = line.strip()
-                        if not in_think and s.startswith("<think"):
-                            in_think = True
-                            continue
-                        if in_think:
-                            # 遇到第一段空行就认为“思考段结束”，后面的才是答案
-                            if s == "":
-                                in_think = False
-                                finished_think = True
-                            continue
-                        if finished_think:
-                            new_lines.append(line)
-                    if new_lines:
-                        cleaned = "\n".join(new_lines).strip()
-
-                print("LLM Test: SUCCESS ✓")
-                # 只打印清洗后的第一行，避免很长
-                if cleaned.strip():
-                    first_line = cleaned.strip().splitlines()[0]
-                else:
-                    first_line = content.strip().splitlines()[0] if content.strip() else ""
-                print("LLM reply:", first_line[:80])
-            else:
-                print("LLM Test: FAILED ✗ (HTTP status:", resp.status_code, ")")
-                # 打印一点 body 方便调试
-                text_preview = resp.text[:200].replace("\n", " ")
-                print("Response body:", text_preview)
-
-    except ImportError:
-        print("LLM Test: SKIPPED (requests not installed). Run: pip install requests")
-    except Exception as e:
-        print("LLM Test: FAILED ✗")
-        print("Error:", e)
-
-    print("=========================")
-
-if __name__ == "__main__":# 直接运行 config.py ，打印配置检查一下路径是否正确
-    print_config_summary()
-"""

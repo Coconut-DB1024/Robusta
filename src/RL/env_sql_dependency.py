@@ -11,7 +11,6 @@ import json
 import hashlib
 import re
 import numpy as np
-# import torch  # <--- 【新增】导入 torch，用于后续手动清理显存
 # 【修改 1】：导入 sqlglot 库，用于专业的 SQL 语法解析
 # 请确保环境中已安装：pip install sqlglot
 import sqlglot
@@ -40,14 +39,7 @@ class SpaceLabel(str, Enum):
     B_INCORRECT = "b"
 
 
-@dataclass
-class SigmaPair:
-    sigma_a: float
-    sigma_b: float
-
-
 from RL.db_executor import BaseDBExecutor, DBQueryResult, create_db_executor
-#from RL.llm_completion import LLMCompletionClient, get_database_schema_text
 from RL.heuristic_completion import HeuristicCompletionClient # 【修改】引入极速启发式替换模块
 from RL.reward_scheme import compute_reward
 from RL.predicate_structure import PredicateStructureAnalyzer
@@ -117,7 +109,7 @@ def _check_predicate_syntax_simple(predicate_str: str, dialect: str = "mysql") -
     except Exception:
         return False, 0.0
 
-# 执行结果 -> Va / Vb / Vc 分类的简单规则
+# 禁止进入 SQL 验证的占位符。
 _FORBIDDEN_PLACEHOLDER_RE = re.compile(
     r"(\?\?|\bHOLE(?:_[A-Z0-9_]+)?\b)",
     re.IGNORECASE,
@@ -131,12 +123,12 @@ def _count_forbidden_placeholders(text: str) -> int:
 
 
 @dataclass
-class SqlOutcome: # 用于记录一次 SQL 执行在“语义三集合”上的归类。
-    label: SpaceLabel          # A_CORRECT / B_UNCERTAIN / C_INCORRECT
+class SqlOutcome: # 记录 SQL 执行成功或失败的分类。
+    label: SpaceLabel          # A_CORRECT / B_INCORRECT
     reason: str                # 简单说明
 
 
-def classify_sql_outcome(result: DBQueryResult) -> SqlOutcome: # 根据 DBExecutor 返回的 DBQueryResult，将一次 SQL 执行结果归类为 Correct / Uncertain / Incorrect
+def classify_sql_outcome(result: DBQueryResult) -> SqlOutcome: # 根据 DBQueryResult 的执行状态分类。
     # 执行失败的情况
     if not result.success:
         return SqlOutcome(
@@ -159,7 +151,6 @@ class SqlDependencyEnv(gym.Env):#
         self,
         max_steps_per_episode: Optional[int] = None,
         db_executor: Optional[BaseDBExecutor] = None,
-        #llm_client: Optional[LLMCompletionClient] = None,
         worker_rank: int = 0,
         worker_count: int = 1,
         shared_queue: Optional[Any] = None,  # 【新增】接收跨进程通信队列
@@ -222,15 +213,7 @@ class SqlDependencyEnv(gym.Env):#
         if not hasattr(self.db_exec, "ping"):
             self.db_exec.ping = lambda: False
 
-        """
-        # LLM 客户端
-        self.llm_client: LLMCompletionClient = llm_client or LLMCompletionClient()
-
-        # 读取一次数据库 schema，作为后续 LLM 补全的上下文
-        self.schema_text: str = get_database_schema_text(self.db_exec)
-        """
-
-        # 【修改】启发式替换客户端（彻底替代 LLM）
+        # 将类型标记谓词补全为可执行 SQL。
         self.heuristic_client = HeuristicCompletionClient(self.db_exec)
 
         # 【本地局域图谱校验器】
@@ -312,7 +295,7 @@ class SqlDependencyEnv(gym.Env):#
         # current_step 是 episode 内步数，会随 reset() 归零；
         self.env_total_steps: int = 0
         # ======================================================================
-        self.mutation_rng = np.random.default_rng(
+        self.candidate_rng = np.random.default_rng(
             int(RL_ALGO_CONFIG.seed) + (os.getpid() % 100000)
         )
 
@@ -323,33 +306,16 @@ class SqlDependencyEnv(gym.Env):#
 
         # Episode 内部状态
         self.current_step: int = 0           # 当前步编号（从 0 开始）
-        self.prev_reward: float = 0.0  # 上一步的 reward（用于 obs[3]）
         self.last_reward: float = 0.0        # 上一次 step 的 reward
-        self.last_sigmas: SigmaPair = SigmaPair(0.0, 0.0)  # 上一步的 sigma
-        self.curr_level = 0
-        self.curr_cluster = 0
-        self.stagnation_count = 0
-        self.level_stagnation_count = 0  # 监控整个 Level 的全局停滞情况
-        self.last_diversity: float = 0.0     # 上一步的多样性得分
-        self.last_used_uncertain: bool = False
-        self.last_is_repeated: bool = False
-        self.last_forced_non_novel: bool = False
         # --- 【新增：性能分析计时器】 ---
         self.profiling_stats = {
-            "T_Vec_Select": 0.0,
-            "T_Decode": 0.0,
             "T_Syntax_Check": 0.0,
-            "T_LLM": 0.0,
+            "T_Heuristic_Completion": 0.0,
             "T_DB_Exec": 0.0,
             "T_Reward": 0.0,
             "Total_Steps": 0
         }
         # ---------------------------------
-        # --- 【语法错误日志路径】 ---
-        # 获取当前运行目录 (即 RL 文件夹)
-        current_dir = os.path.dirname(os.path.abspath(__file__))
-        self.error_log_path = os.path.join(current_dir, f"syntax_errors_pid_{os.getpid()}.log")
-        # ----------------------------------
 
     # 构造观测向量
 
@@ -2168,9 +2134,9 @@ class SqlDependencyEnv(gym.Env):#
 
         score += self._candidate_bitmap_probe_variant_exhausted_priority_penalty(edge_id)
 
-        jitter = float(getattr(RL_ENV_CONFIG, "mutation_pool_priority_jitter", 0.02))
+        jitter = float(getattr(RL_ENV_CONFIG, "candidate_pool_priority_jitter", 0.02))
         if jitter > 0:
-            score += float(self.mutation_rng.normal(0.0, jitter))
+            score += float(self.candidate_rng.normal(0.0, jitter))
 
         return float(score)
 
@@ -2269,7 +2235,7 @@ class SqlDependencyEnv(gym.Env):#
                 if str(self.candidate_bitmap_edge_records[int(idx)].get("edge_id", ""))
                 not in excluded
             ])
-            if STAGE2_MODE == "base" and float(self.mutation_rng.random()) < 0.65:
+            if STAGE2_MODE == "base" and float(self.candidate_rng.random()) < 0.65:
                 done = np.asarray(self.candidate_bitmap_exploration_done, dtype=bool).copy()
                 for edge_id in self.candidate_bitmap_success_edges:
                     edge_index = self.candidate_bitmap_edge_id_to_index.get(edge_id, -1)
@@ -2280,7 +2246,7 @@ class SqlDependencyEnv(gym.Env):#
                     indices = finished_indices
             sample_count = min(pool_size, len(indices))
             if sample_count > 0:
-                sampled_indices = self.mutation_rng.choice(
+                sampled_indices = self.candidate_rng.choice(
                     np.asarray(indices, dtype=np.int64),
                     size=sample_count,
                     replace=False,
@@ -2442,7 +2408,7 @@ class SqlDependencyEnv(gym.Env):#
         remaining_indices = [idx for idx in indices if idx not in selected_indices]
         random_sample_count = min(random_pool_count, len(remaining_indices))
         if random_sample_count > 0:
-            sampled_random_indices = self.mutation_rng.choice(
+            sampled_random_indices = self.candidate_rng.choice(
                 np.asarray(remaining_indices, dtype=np.int64),
                 size=random_sample_count,
                 replace=False,
@@ -2503,7 +2469,7 @@ class SqlDependencyEnv(gym.Env):#
 
         # 打乱 64 个位置，避免评分候选和随机候选形成固定位置偏差。
         if len(selected_items) > 1:
-            order = self.mutation_rng.permutation(len(selected_items)).tolist()
+            order = self.candidate_rng.permutation(len(selected_items)).tolist()
             selected_items = [selected_items[int(pos)] for pos in order]
 
         selected = [item[2] for item in selected_items[:pool_size]]
@@ -2823,7 +2789,7 @@ class SqlDependencyEnv(gym.Env):#
 
         # 纯随机 base 的64条候选和最终64选1都保持均匀随机，不读取任何评分引导开关。
         if bool(getattr(RL_ENV_CONFIG, "candidate_bitmap_random_pool_enabled", False)):
-            executed_action_index = int(self.mutation_rng.choice(valid_indices_array))
+            executed_action_index = int(self.candidate_rng.choice(valid_indices_array))
             return policy_action_index, executed_action_index, "random"
 
         representation_active = bool(
@@ -2842,7 +2808,7 @@ class SqlDependencyEnv(gym.Env):#
 
         # 所有指导信号关闭时保留均匀随机兜底。
         if not representation_active and not organization_active:
-            executed_action_index = int(self.mutation_rng.choice(valid_indices_array))
+            executed_action_index = int(self.candidate_rng.choice(valid_indices_array))
             return policy_action_index, executed_action_index, "random"
 
         try:
@@ -2860,8 +2826,8 @@ class SqlDependencyEnv(gym.Env):#
         guided_probability = float(np.clip(guided_probability, 0.0, 1.0))
 
         # 引导模式仍保留均匀随机探索，避免候选长期集中在少数高分边。
-        if float(self.mutation_rng.random()) >= guided_probability:
-            executed_action_index = int(self.mutation_rng.choice(valid_indices_array))
+        if float(self.candidate_rng.random()) >= guided_probability:
+            executed_action_index = int(self.candidate_rng.choice(valid_indices_array))
             return policy_action_index, executed_action_index, "guided_random"
 
         try:
@@ -2904,12 +2870,12 @@ class SqlDependencyEnv(gym.Env):#
 
             probabilities = weights / weight_sum
             executed_action_index = int(
-                self.mutation_rng.choice(valid_indices_array, p=probabilities)
+                self.candidate_rng.choice(valid_indices_array, p=probabilities)
             )
             return policy_action_index, executed_action_index, "guided_softmax"
         except Exception:
             # 同分、NaN、非法温度或 softmax 异常均退回当前64条中的均匀随机。
-            executed_action_index = int(self.mutation_rng.choice(valid_indices_array))
+            executed_action_index = int(self.candidate_rng.choice(valid_indices_array))
             return policy_action_index, executed_action_index, "guided_random"
 
     def _candidate_bitmap_runtime_paths(self, edge_index: int) -> Dict[str, Path]:
@@ -3164,15 +3130,7 @@ class SqlDependencyEnv(gym.Env):#
         super().reset(seed=seed)
 
         self.current_step = 0
-        self.prev_reward = 0.0
         self.last_reward = 0.0
-        self.last_sigmas = SigmaPair(0.0, 0.0)
-        self.last_diversity = 0.0
-        self.stagnation_count = 0  # <---重置停滞计时
-        self.level_stagnation_count = 0  # <---重置停滞计时
-        self.last_used_uncertain = False
-        self.last_is_repeated = False
-        self.last_forced_non_novel = False
 
         obs = self._build_obs()
         info: Dict[str, Any] = {
@@ -3204,7 +3162,6 @@ class SqlDependencyEnv(gym.Env):#
             reservation_claimed,
         ) = self._candidate_bitmap_select_and_reserve_edge(action_index, selected_edge)
 
-        sigmas = SigmaPair(0.0, 0.0)
 
         if selected_edge is None:
             reservation_conflict_skip = bool(
@@ -3231,9 +3188,7 @@ class SqlDependencyEnv(gym.Env):#
                     else "empty candidate bitmap edge pool"
                 )
             )
-            self.prev_reward = float(self.last_reward)
             self.last_reward = penalty
-            self.last_sigmas = sigmas
 
             obs = self._build_obs()
             info = {
@@ -3539,10 +3494,7 @@ class SqlDependencyEnv(gym.Env):#
                 ),
                 candidate_bitmap_safe_closure_used=False,
             )
-            self.prev_reward = float(self.last_reward)
             self.last_reward = penalty
-            self.last_sigmas = sigmas
-            self.last_is_repeated = bool(is_repeated)
             if not construct_environment_failure:
                 self.candidate_bitmap_failed_edges.add(edge_id)
 
@@ -3641,10 +3593,7 @@ class SqlDependencyEnv(gym.Env):#
             self.current_step += 1
             self.env_total_steps += 1
             self.profiling_stats["Total_Steps"] += 1
-            self.prev_reward = float(self.last_reward)
             self.last_reward = float(fast_penalty)
-            self.last_sigmas = sigmas
-            self.last_is_repeated = bool(is_repeated)
             self.candidate_bitmap_failed_edges.add(edge_id)
 
             obs = self._build_obs()
@@ -3708,7 +3657,7 @@ class SqlDependencyEnv(gym.Env):#
 
         completed_sql: Optional[str] = None
         heuristic_error: Optional[str] = None
-        t_llm_start = time.time()
+        t_completion_start = time.time()
         try:
             completed_sql = self.heuristic_client.complete_sql(
                 predicate_template,
@@ -3718,8 +3667,8 @@ class SqlDependencyEnv(gym.Env):#
             completed_sql = None
             heuristic_error = str(exc)
             print(f"[CandidateBitmapEnv] heuristic completion failed: {exc}", flush=True)
-        t_llm_end = time.time()
-        self.profiling_stats["T_LLM"] += (t_llm_end - t_llm_start)
+        t_completion_end = time.time()
+        self.profiling_stats["T_Heuristic_Completion"] += (t_completion_end - t_completion_start)
 
         t_db_start = time.time()
         if completed_sql is not None:
@@ -3942,17 +3891,11 @@ class SqlDependencyEnv(gym.Env):#
             structure_operator_count=structure_operator_count,
             new_operator_count=new_operator_count,
             low_freq_operator_count=low_freq_operator_count,
-            sigma_a=sigmas.sigma_a,
-            sigma_b=sigmas.sigma_b,
             coverage_mode="candidate_bitmap",
             fixed_base_structure=True,
             fixed_base_new_edges=local_new_edges,
             frontier_new_edges=0,
             frontier_new_nodes=0,
-            mutation_operator_similarity=0.0,
-            mutation_kind_success_rate=0.5,
-            mutation_local_failed=bool(edge_id in self.candidate_bitmap_failed_edges),
-            mutation_local_success=bool(edge_id in self.candidate_bitmap_success_edges),
             frontier_mode=bool(self.frontier_mode_active),
             frontier_predicted_new_edges=1,
             frontier_actual_new_edges=int(local_new_edges),
@@ -4010,13 +3953,6 @@ class SqlDependencyEnv(gym.Env):#
             runtime_stats_info = {"runtime_stats_error": str(exc)}
 
         success_signal = 1.0 if target_edge_new_signal else 0.0
-        if success_signal > 0.0:
-            self.stagnation_count = 0
-            self.level_stagnation_count = 0
-        else:
-            self.stagnation_count += 1
-            self.level_stagnation_count += 1
-
         self._update_frontier_state(
             db_success=bool(db_result.success),
             parse_success=bool(parse_success),
@@ -4027,10 +3963,7 @@ class SqlDependencyEnv(gym.Env):#
         self.current_step += 1
         self.env_total_steps += 1
         self.profiling_stats["Total_Steps"] += 1
-        self.prev_reward = float(self.last_reward)
         self.last_reward = float(reward)
-        self.last_sigmas = sigmas
-        self.last_is_repeated = bool(is_repeated)
 
         terminated: bool = self.current_step >= self.max_steps
         truncated: bool = False
@@ -4038,8 +3971,6 @@ class SqlDependencyEnv(gym.Env):#
 
         info: Dict[str, Any] = {
             "reward_info": reward_info,
-            "sigma_a": sigmas.sigma_a,
-            "sigma_b": sigmas.sigma_b,
             "is_repeated_action": is_repeated,
             "predicate_template": predicate_template,
             "completed_sql": completed_sql,
@@ -4055,10 +3986,6 @@ class SqlDependencyEnv(gym.Env):#
             "db_rowcount": db_result.rowcount,
             "db_execution_time": db_result.execution_time,
             "db_warning_count": db_result.warning_count,
-            "base_space_label": "candidate_bitmap",
-            "base_index_in_space": int(action_index),
-            "curr_level": self.curr_level,
-            "curr_cluster": self.curr_cluster,
             "success_signal": float(success_signal),
             "coverage_mode": "candidate_bitmap",
             "fixed_base_structure": True,
@@ -4147,27 +4074,15 @@ class SqlDependencyEnv(gym.Env):#
             return
         print(
             f"[Render] step={self.current_step}, "
-            f"sigma=({self.last_sigmas.sigma_a:.3f}, "
-            f"{self.last_sigmas.sigma_b:.3f}, "
-            #f"{self.last_sigmas.sigma_c:.3f}), "
             f"last_reward={self.last_reward:.3f}"
         )
-
-    # ==================== [供 Callback 远程调用的辅助方法] ====================
-    # ===========================================================================
-
-    # ==================== [供 Callback 拉取 UCB 数据的接口] ====================
-    # ===========================================================================
-
-    # ==================== [接收 Master 广播的同步接口] ====================
-    # ===========================================================================
 
     def close(self) -> None: # 关闭 DBExecutor
         # --- 【新增：将性能统计数据写入 txt 文档】 ---
         try:
             steps = self.profiling_stats["Total_Steps"]
             if steps > 0:
-                # 【修正】直接用 PID 作为标识，不再依赖 WORKER_GPU_ID
+                # 每个工作进程独立保存性能统计。
                 pid = os.getpid()
                 worker_id = str(pid)
 
@@ -4187,22 +4102,18 @@ class SqlDependencyEnv(gym.Env):#
                 # 写入统计报告
                 with open(txt_filename, "w", encoding="utf-8") as f:
                     f.write(f"=== 强化学习环境性能统计报告 ===\n")
-                    f.write(f"Worker GPU ID: {worker_id} | Process ID: {pid}\n")
+                    f.write(f"Worker PID: {worker_id} | Process ID: {pid}\n")
                     f.write(f"总运行步数 (Total Steps): {steps}\n\n")
 
                     f.write("--- 1. 各阶段总耗时 ---\n")
-                    f.write(f"选出向量总耗时:     {self.profiling_stats['T_Vec_Select']:.3f} 秒\n")  # <---【新增】
-                    f.write(f"VAE 解码总耗时:     {self.profiling_stats['T_Decode']:.3f} 秒\n")
                     f.write(f"语法检查总耗时:     {self.profiling_stats['T_Syntax_Check']:.3f} 秒\n")
-                    f.write(f"LLM 补全总耗时:     {self.profiling_stats['T_LLM']:.3f} 秒\n")
+                    f.write(f"启发式补全总耗时:     {self.profiling_stats['T_Heuristic_Completion']:.3f} 秒\n")
                     f.write(f"数据库执行总耗时:   {self.profiling_stats['T_DB_Exec']:.3f} 秒\n")
                     f.write(f"奖励计算总耗时:     {self.profiling_stats['T_Reward']:.3f} 秒\n\n")
 
                     f.write("--- 2. 生成单个谓词的平均耗时 ---\n")
-                    f.write(f"平均 选出向量耗时:   {(self.profiling_stats['T_Vec_Select'] / steps):.4f} 秒/次\n")  # <---【新增】
-                    f.write(f"平均 VAE 解码耗时:   {(self.profiling_stats['T_Decode'] / steps):.4f} 秒/次\n")
                     f.write(f"平均 语法检查耗时:   {(self.profiling_stats['T_Syntax_Check'] / steps):.4f} 秒/次\n")
-                    f.write(f"平均 LLM 补全耗时:   {(self.profiling_stats['T_LLM'] / steps):.4f} 秒/次\n")
+                    f.write(f"平均 启发式补全耗时:   {(self.profiling_stats['T_Heuristic_Completion'] / steps):.4f} 秒/次\n")
                     f.write(f"平均 数据库执行耗时: {(self.profiling_stats['T_DB_Exec'] / steps):.4f} 秒/次\n")
                     f.write(f"平均 奖励计算耗时:   {(self.profiling_stats['T_Reward'] / steps):.4f} 秒/次\n")
         except Exception as e:
