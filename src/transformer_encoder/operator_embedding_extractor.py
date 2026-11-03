@@ -737,7 +737,6 @@ def run_extraction(
     print(f"  operator similarity : {output_similarity_file}")
     print(f"  metadata            : {output_metadata_file}")
     print(f"[operator_embedding_extractor] 算子数量: {metadata['num_operators']}")
-    print(f"[operator_embedding_extractor] 算子计数: {metadata['operator_counts']}")
 
     return {
         "prototypes": prototypes,
