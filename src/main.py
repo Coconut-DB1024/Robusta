@@ -760,11 +760,28 @@ def _print_stage3_validation_rates(generated_count, tlp_report):
     satisfiable = int(tlp_report.get("cases_satisfiable", 0) or 0)
     executability_rate = f"{100.0 * executable / generated:.2f}%" if generated else "N/A"
     satisfiability_rate = f"{100.0 * satisfiable / executable:.2f}%" if executable else "N/A"
-    print(f"[Stage3] Executability rate: {executability_rate} ({executable}/{generated} generated predicates)", flush=True)
-    print(f"[Stage3] Satisfiability rate: {satisfiability_rate} ({satisfiable}/{executable} executable predicates)", flush=True)
+    lines = (
+        f"[Stage3] Executability rate: {executability_rate} ({executable}/{generated} generated predicates)",
+        f"[Stage3] Satisfiability rate: {satisfiability_rate} ({satisfiable}/{executable} executable predicates)",
+    )
+    for line in lines:
+        print(line, flush=True)
+    return lines
 
 
 def run_stage3():
+    from pathlib import Path
+    from BugFinding.validation_report import SatisfiablePredicateReport
+
+    report_path = (
+        Path(__file__).resolve().parent / "BugFinding" / "generated_test_cases"
+        / "satisfiable_predicates.txt"
+    )
+    with SatisfiablePredicateReport(report_path) as predicate_report:
+        return _run_stage3(predicate_report)
+
+
+def _run_stage3(predicate_report):
     from RL.config import DB_CONFIG, STAGE3_CONFIG
     from pkg.stage3_runtime import (
         Stage3MetricsRecorder,
@@ -806,10 +823,14 @@ def run_stage3():
             ) or {}
         else:
             print("[Stage3] 谓词生成未成功提交，本轮不扫描旧输出文件。")
-        _print_stage3_validation_rates(
+        rate_lines = _print_stage3_validation_rates(
             sampling_report.get("total_generated", 0),
             bug_report.get("tlp", {}) or {},
         )
+        predicate_report.append_cardinality_results(
+            (bug_report.get("tlp_scan", {}) or {}).get("cardinality_results_path")
+        )
+        predicate_report.finish(rate_lines)
         print(
             "[Stage3] Oracle worker failure; the fixed-depth round is incomplete."
             if isinstance(bug_report, dict) and bug_report.get("worker_failure")
@@ -1221,6 +1242,7 @@ def run_stage3():
             if isinstance(bug_report, dict)
             else {}
         )
+        predicate_report.append_cardinality_results(scan_report.get("cardinality_results_path"))
         validation_status_path = scan_report.get("validation_status_path")
         if validation_status_path:
             round_manifest["validation_status_path"] = validation_status_path
@@ -1284,7 +1306,8 @@ def run_stage3():
         f"untested={cumulative_untested}, "
         f"coverage={tested_coverage_percentage:.2f}%"
     )
-    _print_stage3_validation_rates(cumulative_generated, cumulative_tlp)
+    rate_lines = _print_stage3_validation_rates(cumulative_generated, cumulative_tlp)
+    predicate_report.finish(rate_lines)
     if metrics_recorder.oracle_fault_exclusion:
         print(f"[Stage3] Oracle excluded={cumulative_tlp['oracle_excluded_cases']}, "
               f"generated_raw={cumulative_generated}, elapsed_raw={elapsed:.2f}s, "
