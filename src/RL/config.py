@@ -23,7 +23,7 @@ from typing import Optional, Literal
 STAGE2_MODE: Literal[
     "base", "enumeration", "representation", "organization", "ppo",
     "representation_organization", "representation_ppo", "organization_ppo", "full",
-] = "base"
+] = "full"
 
 # HNSW 相关配置复用
 
@@ -804,7 +804,7 @@ class DBConfig: # DBMS 连接配置 (本地模式)
     user: str = ""
     password: str = ""
 
-    # 数据库名；Oracle 填写 service_name。
+    # 实际的数据库名
     database: str = ""
 
     # 连接超时时间（秒）
