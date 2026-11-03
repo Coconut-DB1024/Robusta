@@ -2269,7 +2269,7 @@ class SqlDependencyEnv(gym.Env):#
                 if str(self.candidate_bitmap_edge_records[int(idx)].get("edge_id", ""))
                 not in excluded
             ])
-            if STAGE2_MODE == "base" and float(self.mutation_rng.random()) < 0.75:
+            if STAGE2_MODE == "base" and float(self.mutation_rng.random()) < 0.65:
                 done = np.asarray(self.candidate_bitmap_exploration_done, dtype=bool).copy()
                 for edge_id in self.candidate_bitmap_success_edges:
                     edge_index = self.candidate_bitmap_edge_id_to_index.get(edge_id, -1)
