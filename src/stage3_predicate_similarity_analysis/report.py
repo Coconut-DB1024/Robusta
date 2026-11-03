@@ -3,6 +3,7 @@ from __future__ import annotations
 import csv
 import gzip
 import json
+import math
 import mmap
 import os
 from pathlib import Path
@@ -81,6 +82,8 @@ def write_similarity_reports(
     rank_ratio = skip_ratio(analysis_stats.get("top_skip_fraction", 0))
     scored_predicate_count = 0
     average_score_sum = 0.0
+    running_mean = 0.0
+    squared_deviation_sum = 0.0
 
     details_path = run_dir / "predicate_similarity_details.jsonl.gz"
     hash_file = open(predicate_hash_path, "rb")
@@ -118,6 +121,11 @@ def write_similarity_reports(
                     distribution[bucket] += 1
                     scored_predicate_count += 1
                     average_score_sum += float(similarity)
+                    # Welford accumulation keeps population variance stable
+                    # without storing scores or rounding individual values.
+                    delta = float(similarity) - running_mean
+                    running_mean += delta / scored_predicate_count
+                    squared_deviation_sum += delta * (float(similarity) - running_mean)
 
                 record = {
                     **_locator(
@@ -224,6 +232,10 @@ def write_similarity_reports(
             average_score_sum / scored_predicate_count
             if scored_predicate_count else None
         ),
+        "similarity_standard_deviation": (
+            math.sqrt(max(0.0, squared_deviation_sum / scored_predicate_count))
+            if scored_predicate_count else None
+        ),
         "similarity_mode": "ast_ted",
     })
     atomic_json_dump(summary, run_dir / "summary.json")
@@ -289,6 +301,21 @@ def write_similarity_reports(
     with open(run_dir / "report.md", "w", encoding="utf-8", newline="\n") as handle:
         handle.write("\n".join(report_lines))
 
+    statistics_path = run_dir.parent / f"{run_dir.name}.txt"
+    partial_path = statistics_path.with_name(statistics_path.name + ".partial")
+    try:
+        with open(partial_path, "w", encoding="utf-8", newline="\n") as handle:
+            for label, key in (
+                ("Average similarity", "average_similarity"),
+                ("Standard deviation", "similarity_standard_deviation"),
+            ):
+                value = summary[key]
+                formatted = f"{value:.6f}" if value is not None else "N/A"
+                handle.write(f"{label}: {formatted}\n")
+        os.replace(partial_path, statistics_path)
+    finally:
+        partial_path.unlink(missing_ok=True)
+
     return {
         "summary": summary,
         "output_files": [
@@ -297,5 +324,6 @@ def write_similarity_reports(
             "summary.json",
             "report.md",
             "examples_by_bucket.json",
+            f"../{statistics_path.name}",
         ],
     }
