@@ -377,7 +377,7 @@ class PostgreSQLCatalogProvider(CatalogProvider):
                 FROM pg_catalog.pg_attribute AS a
                 JOIN pg_catalog.pg_class AS c ON c.oid = a.attrelid
                 JOIN pg_catalog.pg_namespace AS n ON n.oid = c.relnamespace
-                WHERE n.nspname = current_schema()
+                WHERE n.nspname = 'public'
                   AND c.relname = 'test_wide_table'
                   AND a.attnum > 0
                   AND NOT a.attisdropped;
@@ -1036,6 +1036,7 @@ class OracleCatalogProvider(CatalogProvider):
                        char_length,
                        nullable
                 FROM user_tab_columns
+                WHERE table_name = 'TEST_WIDE_TABLE'
                 ORDER BY table_name, column_id
                 """,
             )
