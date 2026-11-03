@@ -231,7 +231,7 @@ def run_stratified_tlp(*, predicate_files, layers, signature_spans_by_file, dead
         phase_timings=dict(tlp_generation_seconds=source.elapsed_seconds,
                            database_validation_seconds=validation_seconds),
         tlp_generation=generation, tlp_scan=scan, stratified_layers=source.layers,
-        tlp={key: scan.get(key, 0) for key in ("cases_loaded", "cases_run", "cases_validated",
+        tlp={key: scan.get(key, 0) for key in ("cases_loaded", "cases_run", "cases_validated", "cases_satisfiable",
              "cases_skipped", "sql_errors", "query_timeouts", "bugs") +
              (("oracle_excluded_cases", "oracle_excluded_wall_seconds", "oracle_fault_path",
                "oracle_worker_restarts", "cases_loaded_raw", "success_rate", "cases_per_second")

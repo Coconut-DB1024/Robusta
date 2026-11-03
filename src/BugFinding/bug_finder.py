@@ -918,6 +918,7 @@ class TLPBugFinder:
         self.total_cases_loaded = 0       # 从 SQL 文件中加载了多少组测试
         self.total_cases_run = 0          # worker/main 实际处理了多少组测试，包含成功和跳过
         self.total_cases_validated = 0    # 4 条 validation 都成功执行的组数
+        self.total_cases_satisfiable = 0  # 成功验证且至少一个 TLP 分区的匹配行数大于 0
         self.total_cases_skipped = 0      # 因 SQL error 跳过的组数
         self.total_sql_errors = 0         # SQL error 总数
         self.total_validation_errors = 0  # validation SELECT error 数
@@ -981,6 +982,13 @@ class TLPBugFinder:
             / "pkg"
             / "generated_sqls"
             / f"stage3_validation_status_{time.time_ns()}_{os.getpid()}.json.gz"
+        )
+
+    def _record_validated_case(self, counts):
+        """Count executable predicates and nonempty TRUE/FALSE/NULL partitions."""
+        self.total_cases_validated += 1
+        self.total_cases_satisfiable += int(
+            any(int(counts.get(role, 0)) >= 1 for role in ("true", "false", "null"))
         )
 
     def _record_cardinality_result(self, file_name, case_idx, tlp_mode, counts, sqls):
@@ -1899,7 +1907,7 @@ class TLPBugFinder:
             self._inc_mode_stat(tlp_mode, "bugs")
             self.report_bug(file_name, idx, group, counts)
 
-        self.total_cases_validated += 1
+        self._record_validated_case({"true": val_true, "false": val_false, "null": val_null})
         self._inc_mode_stat(tlp_mode, "validated")
         if _normalized_db_type() == "sqlserver":
             self._observe_signature_result(file_name, idx, success=True)
@@ -2102,7 +2110,7 @@ class TLPBugFinder:
                         self._record_overflow_retry(
                             payload[5] if len(payload) > 5 else None
                         )
-                        self.total_cases_validated += 1
+                        self._record_validated_case(counts)
                         self._inc_mode_stat(bug_mode, "validated")
                         self._inc_mode_stat(bug_mode, "bugs")
                         self._observe_signature_result(
@@ -2125,7 +2133,9 @@ class TLPBugFinder:
                             if isinstance(payload, dict)
                             else None
                         )
-                        self.total_cases_validated += 1
+                        self._record_validated_case(
+                            payload.get("counts", {}) if isinstance(payload, dict) else {}
+                        )
                         self._inc_mode_stat(payload_mode, "validated")
                         self._observe_signature_result(
                             payload.get("file") if isinstance(payload, dict) else None,
@@ -2315,6 +2325,7 @@ class TLPBugFinder:
             "cases_loaded": self.total_cases_loaded,
             "cases_run": self.total_cases_run,
             "cases_validated": self.total_cases_validated,
+            "cases_satisfiable": self.total_cases_satisfiable,
             "cases_skipped": self.total_cases_skipped,
             "sql_errors": self.total_sql_errors,
             "query_timeouts": self.total_query_timeouts,
