@@ -100,6 +100,16 @@ def _merge_sampling_timings(target, source):
         )
 
 
+def _print_sampling_progress(completed_roots, total_roots):
+    """Report completed roots only; this does not count or generate predicates."""
+    fraction = completed_roots / total_roots if total_roots > 0 else 1.0
+    filled = min(40, int(fraction * 40))
+    bar = "#" * filled + "-" * (40 - filled)
+    # Do not round an unfinished run up to 100.00%.
+    percent = min(fraction * 100, 99.99) if completed_roots < total_roots else 100.0
+    print(f"  [Sampling] [{bar}] {percent:.2f}%", flush=True)
+
+
 @contextmanager
 def _open_predicate_writer(
     output_path,
@@ -1807,7 +1817,6 @@ class PredicateSampler:
                 )
             ),
         )
-        last_progress_log = 0.0
         signature_spans = []
         signature_catalog = {}
         component_tracker = self._new_component_feedback_tracker(
@@ -1888,6 +1897,20 @@ class PredicateSampler:
             return
 
         # 遍历图谱中的每一个布尔节点 (对应论文: for all t in boolean tokens)
+        total_progress_roots = sum(
+            1 for root_id in boolean_roots
+            if nodes.get(root_id) and nodes[root_id].get("count", 0) != 0
+        )
+        completed_roots = 0
+        last_sampling_progress_log = time.monotonic()
+
+        def log_sampling_progress(now, *, force=False):
+            nonlocal last_sampling_progress_log
+            if force or now - last_sampling_progress_log >= 15.0:
+                _print_sampling_progress(completed_roots, total_progress_roots)
+                last_sampling_progress_log = now
+
+        log_sampling_progress(last_sampling_progress_log, force=True)
         for root_id in boolean_roots:
             # 获取 Root 节点对象
             root_node = nodes.get(root_id)
@@ -1909,25 +1932,10 @@ class PredicateSampler:
             )
             signature_catalog.setdefault(signature_key, signature_detail)
             root_start_case = generated_count + 1
-            evidence_factor = self._evidence_density_factor(
-                root_node,
-                node_id=root_id,
-            )
             fixed_step = self._calculate_fixed_step(
                 total_count,
                 node=root_node,
                 node_id=root_id,
-            )
-            evidence_text = (
-                f", Evidence Factor: {evidence_factor:.3f}"
-                if abs(evidence_factor - 1.0) > 1e-9
-                else ""
-            )
-            print(
-                f"  [Sampling] Root: {root_id}, "
-                f"Count: {self._format_count_for_log(total_count)}, "
-                f"Fixed Step: {format_large_int(fixed_step)}"
-                f"{evidence_text}"
             )
 
             # --- Stepwise Sampling 核心循环 ---
@@ -2024,20 +2032,7 @@ class PredicateSampler:
                         and generated_count % progress_interval == 0
                     ):
                         progress_callback(generated_count)
-                    if (
-                        progress_interval > 0
-                        and generated_count % progress_interval == 0
-                        and (
-                            last_progress_log == 0.0
-                            or now - last_progress_log >= progress_min_seconds
-                        )
-                    ):
-                        current_time = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
-                        print(
-                            f"  [Progress] Time: {current_time}, "
-                            f"Generated predicates so far: {generated_count}"
-                        )
-                        last_progress_log = now
+                    log_sampling_progress(now)
 
                 # 更新当前索引。本节点内始终使用同一个固定步长。
                 current_index += fixed_step
@@ -2052,8 +2047,14 @@ class PredicateSampler:
             if not self.last_sample_metadata["round_complete"]:
                 break
 
+            completed_roots += 1
+            if completed_roots < total_progress_roots:
+                log_sampling_progress(time.monotonic())
+
         self._flush_component_feedback_block(component_tracker, generated_count)
         self.last_sample_metadata["generated_count"] = generated_count
+        if total_progress_roots > 0:
+            log_sampling_progress(time.monotonic(), force=True)
 
     def sample_file(self, dag_data, deadline=None):
         """兼容旧调用：将流式采样结果收集为列表。主流程使用 iter_file 避免物化。"""
