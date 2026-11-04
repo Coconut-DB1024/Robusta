@@ -10,8 +10,7 @@ import random
 import json
 import os
 from RL.db_executor import BaseDBExecutor
-from RL.config import DB_CONFIG, PROJECT_ROOT
-from RL.target_table import get_target_table
+from RL.config import DB_CONFIG, PROJECT_ROOT, get_target_table
 
 
 class HeuristicCompletionClient:

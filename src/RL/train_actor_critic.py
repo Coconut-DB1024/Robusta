@@ -379,6 +379,8 @@ def _run_training():
     # 4. 打印训练信息
     print("=== RL Training Setup ===")
     print(f"Algorithm: {RL_ALGO_CONFIG.algo_name}")
+    if RL_ALGO_CONFIG.experiment_name.endswith(("_WCL", "_Pruning")):
+        print(f"Experiment: {RL_ALGO_CONFIG.experiment_name}")
     print(f"Device: {RL_ALGO_CONFIG.sb3_device}")
     print(f"Total Timesteps: {RL_ALGO_CONFIG.total_timesteps}")
 

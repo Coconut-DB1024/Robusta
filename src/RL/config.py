@@ -13,17 +13,61 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass, field, fields
 from pathlib import Path
-from typing import Optional, Literal
+from typing import Any, Optional, Literal, Tuple
 
 # 第二阶段统一模式；下方表示学习、组织、PPO、候选池和枚举字段由此自动设置。
 # representation / organization / ppo 分别表示仅启用对应的选边机制。
 # 双机制使用 representation_organization / representation_ppo / organization_ppo。
+# 别名：WCL = organization（仅 HNSW/熵）；Pruning = representation_organization（表示学习 + HNSW/熵）。
 # base 使用纯随机选边；enumeration 使用现有枚举流程；full 启用全部三项。
-# 实验名称也由模式自动生成。
+# 实验名称也由模式自动生成；选择别名时，日志和输出名称保留 WCL / Pruning。
 STAGE2_MODE: Literal[
     "base", "enumeration", "representation", "organization", "ppo",
     "representation_organization", "representation_ppo", "organization_ppo", "full",
-] = "base"
+    "WCL", "Pruning",
+] = "full"
+
+_MODE_COMPONENTS = {
+    "base": (False, False, False),
+    "enumeration": (False, False, False),
+    "representation": (True, False, False),
+    "organization": (False, True, False),
+    "ppo": (False, False, True),
+    "representation_organization": (True, True, False),
+    "representation_ppo": (True, False, True),
+    "organization_ppo": (False, True, True),
+    "full": (True, True, True),
+}
+_MODE_ALIASES = {
+    "wcl": ("organization", "WCL"),
+    "pruning": ("representation_organization", "Pruning"),
+}
+
+
+def _apply_stage2_mode(mode, *, candidate_config, env_config, algo_config, db_type):
+    """Preserve selection controls while retaining aliases in experiment names."""
+    requested = str(mode or "").strip().lower()
+    normalized, display_name = _MODE_ALIASES.get(requested, (requested, requested))
+    if normalized not in _MODE_COMPONENTS:
+        raise ValueError(
+            f"Unsupported STAGE2_MODE {mode!r}; choose one of "
+            + ", ".join((*_MODE_COMPONENTS, *_MODE_ALIASES))
+        )
+
+    representation, organization, ppo = _MODE_COMPONENTS[normalized]
+    candidate_config.candidate_representation_guidance_enabled = representation
+    candidate_config.candidate_organization_enabled = organization
+    candidate_config.candidate_hnsw_enabled = organization
+    candidate_config.candidate_entropy_enabled = organization
+    env_config.candidate_bitmap_ppo_selection_enabled = ppo
+    env_config.candidate_bitmap_random_pool_enabled = (
+        not (representation or organization) and normalized != "enumeration"
+    )
+    env_config.candidate_bitmap_enumeration_enabled = normalized == "enumeration"
+    algo_config.experiment_name = f"{str(db_type).strip().lower()}_{display_name}"
+    # Downstream mode checks continue to use the original canonical names.
+    return normalized
+
 
 # HNSW 相关配置复用
 
@@ -788,6 +832,24 @@ RL_ALGO_CONFIG = RLAlgoConfig()
 
 # ====================== 6. DBMS 配置 ======================
 
+TABLE_NAME = "test_wide_table"
+
+
+def get_target_table(db_type: str, config: Any = None) -> Tuple[str, Optional[str], str]:
+    """Return the catalog name, schema, and SQL identifier for the test table."""
+    db_type = str(db_type or "").lower().strip()
+    if db_type in {"postgresql", "postgres", "pg"}:
+        return TABLE_NAME, "public", '"public"."test_wide_table"'
+    if db_type in {"oracle", "oracledb", "oracle_ai26"}:
+        # Oracle's initializer creates an unquoted name, stored in uppercase.
+        return TABLE_NAME.upper(), None, '"TEST_WIDE_TABLE"'
+    if db_type == "sqlserver":
+        schema = str(getattr(config, "schema", "dbo") or "dbo")
+        quoted_schema = "[" + schema.replace("]", "]]") + "]"
+        return TABLE_NAME, schema, f"{quoted_schema}.[test_wide_table]"
+    return TABLE_NAME, None, "`test_wide_table`"
+
+
 @dataclass
 class DBConfig: # 配置结构；实际连接参数请填写 Robusta/configuration.json。
     # "mysql" / "postgresql" / "tidb" 等，仅用于标识
@@ -885,11 +947,6 @@ def _load_stage3_sampling_step() -> float:
 
 DB_CONFIG = _load_database_config()
 RL_ENV_CONFIG = RLEnvConfig()
-
-if __package__:
-    from .stage2_mode import apply_stage2_mode as _apply_stage2_mode
-else:
-    from stage2_mode import apply_stage2_mode as _apply_stage2_mode
 
 STAGE2_MODE = _apply_stage2_mode(
     STAGE2_MODE,
