@@ -2,6 +2,7 @@
 **Getting Started**
 
 First, configure the database connection settings in `configuration.json`.
+
 Install the required dependencies using:
 
 ```bash
