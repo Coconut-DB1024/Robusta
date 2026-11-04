@@ -1,15 +1,19 @@
 # Robusta
 
 - `data/`: Stores experiment results archived by the root launcher.
-- `exp/`: Intended for scripts used to launch the project.
 - `src/`: Contains the project source code and supporting resources.
 
-Currently, configure the database connection in `Database_link.json`, then run `python main.py` from the `Robusta` root directory to start the complete experiment. After a successful run, `Robusta/data/` contains two result files: `satisfiable_predicates.txt` contains the satisfiable TLP variants without the two rate lines, and `experiment_summary.txt` contains the final RL graph node/edge counts, executability and satisfiability rates, mean similarity, standard deviation, and predicate generation speeds for similarity <=40% and <=80%. Previous outputs in `data/` are replaced; `data/readme.md` and the original outputs in `src/` are retained. If current Stage-3 outputs are missing, the launcher keeps the previous results. Console output is flushed promptly; redirect it to a file if a console log is needed.
+Currently, configure the database connection in `Database_link.json`, then run `python main.py` from the `Robusta` root directory to start the complete experiment. After a successful run, `Robusta/data/` contains two result files: `satisfiable_predicates.txt` contains the satisfiable TLP variants without the two rate lines, and `experiment_summary.txt` contains the final RL graph node/edge counts, executability and satisfiability rates, mean similarity, standard deviation, and predicate generation speeds for similarity <=40% and <=80%. Previous outputs in `data/` are replaced; If current outputs are missing, the launcher keeps the previous results. 
 
-Run `download_codet5_small.py` to download the required [CodeT5-small model](https://huggingface.co/Salesforce/codet5-small) from Hugging Face into `src/codet5-small/`. From the `Robusta` directory, install the dependencies if needed, then run:
+First, install the project dependencies from `requirements.txt`. From the `Robusta` directory, run:
 
 ```bash
-python -m pip install "torch>=2.6" "transformers==4.57.1" "tokenizers==0.22.1" "safetensors==0.6.2"
+python -m pip install -r requirements.txt
+```
+
+Then run `download_codet5_small.py` to download the required [CodeT5-small model](https://huggingface.co/Salesforce/codet5-small) from Hugging Face into `src/codet5-small/`:
+
+```bash
 python download_codet5_small.py
 ```
 
