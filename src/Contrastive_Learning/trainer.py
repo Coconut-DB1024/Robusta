@@ -43,12 +43,10 @@ def run_contrastive_learning(
     encoder_state_path = model_dir / "encoder_state.pt"
 
     print("========== Encoder-only WeightedSupConLoss 阶段开始 ==========")
-    print(f"使用的聚类结果目录: {cluster_dir}")
     print(f"使用的 CodeT5 Encoder 目录: {model_dir}")
     print(f"Encoder checkpoint: {encoder_state_path}")
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
-    print(f"使用设备: {device}")
 
     if str(project_root) not in sys.path:
         sys.path.append(str(project_root))
@@ -62,7 +60,6 @@ def run_contrastive_learning(
     tokenizer = model.tokenizer
 
     if encoder_state_path.exists():
-        print(f"[信息] 加载上一轮 Encoder checkpoint: {encoder_state_path}")
         state_dict = torch.load(encoder_state_path, map_location=device)
         model.load_encoder_state_dict(state_dict)
     else:
@@ -87,8 +84,6 @@ def run_contrastive_learning(
         batch_sampler=batch_sampler,
         collate_fn=dataset.collate_fn,
     )
-
-    print(f"数据集大小: {len(dataset)} 个样本")
 
     # 只更新 Encoder（其中包含 T5 的共享输入 embedding）。
     encoder_parameters = model.base_model.get_encoder().parameters()
