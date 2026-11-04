@@ -874,6 +874,9 @@ def _run_stage3(predicate_report):
             ),
             "phase_timings": {
                 "predicate_sampling_seconds": float(sampling_report.get("sampling_elapsed_seconds", 0.0) or 0.0),
+                "tlp_generation_seconds": float(
+                    (bug_report.get("phase_timings", {}) or {}).get("tlp_generation_seconds", 0.0) or 0.0
+                ),
                 "database_validation_seconds": float(tlp_scan.get("elapsed_seconds", 0.0) or 0.0),
                 **sampling_phase_timings,
             },
@@ -1454,7 +1457,6 @@ def run_stage3_predicate_similarity_post_analysis(stage3_report=None):
             project_root=os.path.dirname(os.path.abspath(__file__)),
             stage3_report=stage3_report,
         )
-        print(f"[PredicateSimilarity] report directory: {result['run_dir']}")
         return result
     except Exception as exc:
         print(f"[PredicateSimilarity] analysis failed: {exc}")
@@ -1467,7 +1469,8 @@ def _run_subprocess_step(step_name: str, cmd: list, cwd: str, stop_on_failure: b
     print(f"\n{'=' * 80}")
     print(f"[AutoCycle] START STEP: {step_name}")
     print(f"[AutoCycle] CMD: {' '.join(str(x) for x in cmd)}")
-    print(f"{'=' * 80}")
+    print(f"{'=' * 80}", flush=True)
+    sys.stderr.flush()
 
     env = os.environ.copy()
     env["PYTHONUNBUFFERED"] = "1"
@@ -1493,7 +1496,7 @@ def _run_subprocess_step(step_name: str, cmd: list, cwd: str, stop_on_failure: b
 
         return False
 
-    print(f"[AutoCycle] STEP FINISHED: {step_name}")
+    print(f"[AutoCycle] STEP FINISHED: {step_name}", flush=True)
     return True
 
 
