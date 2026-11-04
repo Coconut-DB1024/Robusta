@@ -485,7 +485,7 @@ def run_BugFinding(
 
     from RL.config import STAGE3_CONFIG
 
-    print(">>> Stage3: WHERE-TLP")
+    print(">>> Stage3: TLP-Mode")
 
     if stratified_layers_by_file:
         from BugFinding.stratified_stream import run_stratified_tlp
