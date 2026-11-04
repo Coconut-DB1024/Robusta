@@ -29,10 +29,9 @@ project_root_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(project_root_path)
 
 # 1. 复用原先的数据库配置 (从中获取 db_type, host 等关键信息)
-from RL.config import PROJECT_ROOT, DB_CONFIG, STAGE3_CONFIG
+from RL.config import PROJECT_ROOT, DB_CONFIG, STAGE3_CONFIG, get_target_table
 # 2. 复用原先的数据库执行器 (提供统一的 execute_query 接口，处理连接细节)
 from RL.db_executor import create_db_executor
-from RL.target_table import get_target_table
 # 3. 保持原有 WHERE 谓词实例化的随机数序列
 from BugFinding.tlp_random_compat import advance_instantiation_rng
 from pkg.stage3_runtime import (
