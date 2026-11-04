@@ -165,10 +165,6 @@ def _run_predicate_recycle_after_training(trigger_reason: str = "training_end") 
         for cand in candidates:
             category_counts[cand.category] = category_counts.get(cand.category, 0) + 1
 
-        print(f"[Recycle] Candidate output: {output_path}")
-        print(f"[Recycle] Candidate count: {len(candidates)}")
-        print(f"[Recycle] Category counts: {category_counts}")
-
         # 默认策略：
         #   recycle_apply_after_training=False
         #   recycle_dry_run_after_training=True
@@ -193,15 +189,6 @@ def _run_predicate_recycle_after_training(trigger_reason: str = "training_end") 
             dry_run=dry_run,
             create_backup=RECYCLE_CONFIG.recycle_create_backup,
         )
-
-        print("[Recycle] Apply stage finished.")
-        print(f"[Recycle] Applied count: {apply_result.applied_count}")
-        print(f"[Recycle] Skipped duplicates: {apply_result.skipped_duplicate_count}")
-        print(f"[Recycle] Skipped invalid: {apply_result.skipped_invalid_count}")
-        print(f"[Recycle] Dry run: {apply_result.dry_run}")
-        print(f"[Recycle] Predicate txt: {apply_result.predicate_txt_path}")
-        print(f"[Recycle] Backup: {apply_result.backup_path}")
-        print(f"[Recycle] Apply log: {apply_result.apply_log_path}")
 
     except Exception as e:
         print(f"[Recycle Warning] Stage 6C failed, but training shutdown will continue: {e}")
