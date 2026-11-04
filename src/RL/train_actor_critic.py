@@ -609,7 +609,6 @@ def _run_training():
                 print("[Main Process] Warning: Master Graph Process 卡死，强制终止...")
                 master_graph_p.terminate()
 
-            print("[Main Process] All background processes closed.")
             try:
                 mp_manager.shutdown()
             except Exception as manager_exc:

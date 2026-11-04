@@ -1110,7 +1110,7 @@ def global_graph_manager(queue, batch_size, correct_txt_path, progress_total_ste
     try:
         # 【关键修改】：强制将 Path 对象转换为字符串 str()，防止第三方构建器内部报错
         builder.save_to_json(str(graph_path))
-        print(f"[Master Process] 退出。全局图谱已保存至: {graph_path}", flush=True)
+        print("[Master Process] Exiting. Global knowledge graph saved.", flush=True)
     except Exception as e:
         import traceback
         print(f"[Master Process 致命错误] 保存全局大图时发生异常，未能成功写入磁盘: {e}", flush=True)
