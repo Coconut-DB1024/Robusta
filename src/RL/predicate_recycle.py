@@ -1246,6 +1246,9 @@ def main() -> None:
     parser = build_arg_parser()
     args = parser.parse_args()
 
+    print("=== Predicate Recycle Stage 6 ===", flush=True)
+    print("Recycling predicates...", flush=True)
+
     recycler = PredicateRecycler(
         predicate_txt_path=Path(args.predicate_txt),
         output_path=Path(args.output),
@@ -1258,22 +1261,7 @@ def main() -> None:
         require_new_contribution=not bool(args.allow_no_new_contribution),
     )
 
-    print("=== Predicate Recycle Stage 6A ===")
-    print(f"Output: {output_path}")
-    print(f"Candidates: {len(candidates)}")
-
-    for idx, cand in enumerate(candidates[:10], start=1):
-        print(
-            f"[{idx}] "
-            f"category={cand.category} "
-            f"new_edges={cand.new_edge_count} "
-            f"new_ops={cand.new_operator_count} "
-            f"low_freq_ops={cand.low_freq_operator_count} "
-            f"predicate={cand.predicate}"
-        )
-
     if bool(args.apply):
-        print("\n=== Predicate Recycle Stage 6B Apply ===")
         apply_result = recycler.apply_candidates_to_predicate_txt(
             candidates,
             apply_top_k=int(args.apply_top_k),
@@ -1286,13 +1274,7 @@ def main() -> None:
             create_backup=not bool(args.no_backup),
         )
 
-        print(f"Applied: {apply_result.applied_count}")
-        print(f"Skipped duplicates: {apply_result.skipped_duplicate_count}")
-        print(f"Skipped invalid: {apply_result.skipped_invalid_count}")
-        print(f"Dry run: {apply_result.dry_run}")
-        print(f"Predicate txt: {apply_result.predicate_txt_path}")
-        print(f"Backup: {apply_result.backup_path}")
-        print(f"Apply log: {apply_result.apply_log_path}")
+    print("==================================================", flush=True)
 
 
 if __name__ == "__main__":
