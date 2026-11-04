@@ -23,7 +23,7 @@ from typing import Optional, Literal
 STAGE2_MODE: Literal[
     "base", "enumeration", "representation", "organization", "ppo",
     "representation_organization", "representation_ppo", "organization_ppo", "full",
-] = "full"
+] = "base"
 
 # HNSW 相关配置复用
 
@@ -789,7 +789,7 @@ RL_ALGO_CONFIG = RLAlgoConfig()
 # ====================== 6. DBMS 配置 ======================
 
 @dataclass
-class DBConfig: # 配置结构；实际连接参数请填写 Robusta/Database_link.json。
+class DBConfig: # 配置结构；实际连接参数请填写 Robusta/configuration.json。
     # "mysql" / "postgresql" / "tidb" 等，仅用于标识
     db_type: str = "postgresql"
 
@@ -813,23 +813,43 @@ class DBConfig: # 配置结构；实际连接参数请填写 Robusta/Database_li
     # 单条 SQL 执行的超时时间（秒）
     query_timeout: int = 10
 
-def _load_database_config() -> DBConfig:
-    config_path = PROJECT_ROOT.parent / "Database_link.json"
+CONFIGURATION_PATH = PROJECT_ROOT.parent / "configuration.json"
+
+
+def _read_experiment_configuration():
+    config_path = CONFIGURATION_PATH
     try:
-        with config_path.open("r", encoding="utf-8-sig") as f:
-            values = json.load(f)
+        text = config_path.read_text(encoding="utf-8-sig")
+        if not text.strip():
+            return None
+        values = json.loads(text)
+    except FileNotFoundError:
+        return None
     except OSError as exc:
-        raise RuntimeError(f"Cannot read database configuration: {config_path}") from exc
+        raise RuntimeError(f"Cannot read experiment configuration: {config_path}") from exc
     except json.JSONDecodeError as exc:
         raise ValueError(
             f"Invalid JSON in {config_path}: line {exc.lineno}, column {exc.colno}"
         ) from exc
 
     if not isinstance(values, dict):
-        raise ValueError(f"{config_path} must contain a JSON object with DBConfig fields.")
-    # JSON stores the two field descriptions as metadata, not connection options.
+        raise ValueError(f"{config_path} must contain a JSON object.")
+    return values
+
+
+_EXPERIMENT_CONFIGURATION = _read_experiment_configuration()
+
+
+def _load_database_config() -> DBConfig:
+    if _EXPERIMENT_CONFIGURATION is None:
+        return DBConfig()
+    config_path = CONFIGURATION_PATH
+    values = dict(_EXPERIMENT_CONFIGURATION)
+    # Field descriptions and the Stage-3 step are not database connection options.
     values.pop("_comment_db_type", None)
     values.pop("_comment_database", None)
+    values.pop("_comment_step", None)
+    values.pop("step", None)
     expected_fields = {item.name for item in fields(DBConfig)}
     missing = expected_fields - values.keys()
     unknown = values.keys() - expected_fields
@@ -846,6 +866,21 @@ def _load_database_config() -> DBConfig:
     if values["unix_socket"] is not None and not isinstance(values["unix_socket"], str):
         raise ValueError(f"{config_path}: unix_socket must be a JSON string or null.")
     return DBConfig(**values)
+
+
+def _load_stage3_sampling_step() -> float:
+    value = (_EXPERIMENT_CONFIGURATION or {}).get("step")
+    if value is None or (isinstance(value, str) and not value.strip()):
+        return 64.0
+    if type(value) not in (int, float):
+        raise ValueError(f"{CONFIGURATION_PATH}: step must be a positive finite JSON number.")
+    try:
+        step = float(value)
+    except OverflowError:
+        raise ValueError(f"{CONFIGURATION_PATH}: step must be a positive finite JSON number.") from None
+    if not 0.0 < step < float("inf"):
+        raise ValueError(f"{CONFIGURATION_PATH}: step must be a positive finite JSON number.")
+    return step
 
 
 DB_CONFIG = _load_database_config()
@@ -921,7 +956,8 @@ class Stage3Config:
     # signature-span metadata and keeps long-run bookkeeping/I/O inexpensive.
     stage3_random_root_block_size: int = 32768
 
-    stage3_sampling_step: float = 64.0
+    # Prefer configuration.json; missing or blank step defaults to 64.
+    stage3_sampling_step: float = _load_stage3_sampling_step()
 
     # 精确组合计数对象的估算内存安全预算，单位 MB；小于等于 0 表示关闭保护。
     # 只在尚未产生本轮谓词前防止超深 DAG 的 Python 大整数耗尽内存，
