@@ -19,7 +19,7 @@ Alternatively, you can download `codet5-small.zip` from GitHub Releases and extr
 Once the environment is configured, run the following command from the Robusta root directory to start the complete end-to-end workflow:
 
 ```bash
-python main.py
+python exp/full_experiment/main.py
 ```
 
 After execution, the experimental results will be saved in the `data/` directory.
