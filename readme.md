@@ -17,4 +17,4 @@ Then run `download_codet5_small.py` to download the required [CodeT5-small model
 python download_codet5_small.py
 ```
 
-The script uses a fixed model revision and verifies SHA-256 checksums to reproduce the project's original eight model files, including `model.safetensors`. The download location is relative to the script, regardless of the working directory. Existing matching files are kept, and temporary download files are cleaned up automatically.
+Alternatively, you can download codet5-small.zip from GitHub Releases and extract it into the root directory of the Robusta project.
