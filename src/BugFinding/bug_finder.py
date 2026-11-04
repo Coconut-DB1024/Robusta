@@ -2236,58 +2236,13 @@ class TLPBugFinder:
         self.log(f"SQL Error  : {self.total_sql_errors} 条")
         self.log(f"  - validation error: {self.total_validation_errors} 条")
         self.log(f"  - query timeout   : {self.total_query_timeouts} 条")
-        self.log(
-            f"资源参数限幅 SQL: {self.resource_bounded_sqls} 条 "
-            f"(参数位={self.resource_bounded_arguments}, "
-            f"样例={self.resource_bound_samples_written}/{self.resource_bound_sample_limit})"
-        )
-        self.log(
-            "MySQL numeric overflow retry: "
-            f"attempts={self.overflow_retry_attempts}, "
-            f"successes={self.overflow_retry_successes}, "
-            f"failures={max(0, self.overflow_retry_attempts - self.overflow_retry_successes)}"
-        )
-        if self.resource_bound_function_counts:
-            self.log(
-                "  - bounded functions: "
-                + ", ".join(
-                    f"{name}={count}"
-                    for name, count in sorted(self.resource_bound_function_counts.items())
-                )
-            )
         self.log(f"截止时间停止 : {self.stopped_by_deadline}")
         self.log(f"发现 Bug 数: {self.total_bugs_found} 个")
         self.log(
             f"Bug 详细报告写入: {self.bug_samples_written}/{self.bug_sample_limit} 条，"
             f"省略现场: {self.bug_samples_dropped} 条"
         )
-        self.log(f"SQL error 样例写入: {self.error_samples_written}/{self.error_sample_limit} 条")
-
-        if self.mode_stats:
-            self.log("按 TLP mode 汇总:")
-            for mode, stats in sorted(self.mode_stats.items()):
-                self.log(
-                    f"  - {mode}: "
-                    f"loaded={stats.get('loaded', 0)}, "
-                    f"processed={stats.get('processed', 0)}, "
-                    f"validated={stats.get('validated', 0)}, "
-                    f"skipped={stats.get('skipped', 0)}, "
-                    f"sql_errors={stats.get('sql_errors', 0)}, "
-                    f"query_timeouts={stats.get('query_timeouts', 0)}, "
-                    f"bugs={stats.get('bugs', 0)}"
-                )
-
-        if self.error_samples_written > 0:
-            self.log(f"SQL error 样例请查看: {self.error_sample_file}")
         error_summary_path = self._write_error_summary()
-        if error_summary_path:
-            self.log(f"完整 SQL error 统计请查看: {error_summary_path}")
-        if self.cardinality_predicates_written:
-            self.log(
-                f"Predicate cardinalities: {self.cardinality_results_path} "
-                f"(predicates={self.cardinality_predicates_written}, "
-                f"values={self.cardinality_predicates_written * 3})"
-            )
 
         self.log("==================================================")
 
