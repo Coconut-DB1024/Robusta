@@ -16,6 +16,8 @@ import threading
 import time
 import uuid
 
+from RL.runtime_logging import report_joint_signature_flush_failure
+
 
 EVIDENCE_FILE_NAME = "joint_signatures.json"
 _MAX_COMBINATIONS_PER_AST_NODE = 64
@@ -694,13 +696,13 @@ class JointSignatureEvidenceStore:
                 return
             except TimeoutError as exc:
                 if attempt >= 2:
-                    print(f"[RuntimeStats Warning] final joint signature flush failed: {exc}")
+                    report_joint_signature_flush_failure(exc, final=True)
                     return
                 # Worker-specific jitter avoids every process retrying the one
                 # bounded JSON lock at exactly the same instant.
                 time.sleep(0.10 * (attempt + 1) + 0.005 * (os.getpid() % 20))
             except Exception as exc:
-                print(f"[RuntimeStats Warning] final joint signature flush failed: {exc}")
+                report_joint_signature_flush_failure(exc, final=True)
                 return
 
     def _observe(

@@ -32,6 +32,7 @@ from RL.predicate_structure import (
 )
 from RL.graph_runtime_stats import get_default_runtime_stats
 from RL.progress import print_rl_progress
+from RL.runtime_logging import report_joint_signature_flush_failure
 
 import re  # 【新增】引入正则表达式模块
 from RL.config import (
@@ -1103,7 +1104,7 @@ def global_graph_manager(queue, batch_size, correct_txt_path, progress_total_ste
     try:
         runtime_stats.flush_joint_signature_evidence()
     except Exception as e:
-        print(f"[RuntimeStats Warning] final joint signature flush failed: {e}", flush=True)
+        report_joint_signature_flush_failure(e, final=True)
 
     # 将全局唯一大图保存为 JSON，第三阶段可以直接读取这个大图，跳过 parse 阶段！
     try:

@@ -37,6 +37,7 @@ from RL.config import (
     RECYCLE_CONFIG,
 )
 from RL.progress import get_rl_progress_total_steps
+from RL.runtime_logging import runtime_warning_scope
 
 # 【重要提醒】
 # 此时此刻，绝对不要导入 RL.env_sql_dependency, stable_baselines3, torch 等库。
@@ -207,6 +208,7 @@ def _run_predicate_recycle_after_training(trigger_reason: str = "training_end") 
         import traceback
         traceback.print_exc()
 
+@runtime_warning_scope()
 def run_training():
     """Run training; abort its child processes if startup or execution fails."""
     import multiprocessing as mp
@@ -590,7 +592,6 @@ def _run_training():
         if not training_failed:
             # 10. 保存模型并关闭环境
             model.save(final_model_path)
-            print(f"[PPO] Model saved to {final_model_path}")
 
             vec_env.close()
 

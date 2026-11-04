@@ -43,6 +43,7 @@ from RL.db_executor import BaseDBExecutor, DBQueryResult, create_db_executor
 from RL.heuristic_completion import HeuristicCompletionClient # 【修改】引入极速启发式替换模块
 from RL.reward_scheme import compute_reward
 from RL.progress import EnvironmentProgress, EnvironmentReloadError
+from RL.runtime_logging import report_joint_signature_flush_failure
 from RL.predicate_structure import PredicateStructureAnalyzer
 from RL.graph_runtime_stats import get_default_runtime_stats
 from RL import candidate_bitmap as candidate_bitmap_tools
@@ -4111,7 +4112,7 @@ class SqlDependencyEnv(gym.Env):#
         try:
             self.runtime_stats.flush_joint_signature_evidence()
         except Exception as e:
-            print(f"[RuntimeStats Warning] joint signature flush failed: {e}")
+            report_joint_signature_flush_failure(e)
         try:
             if self.db_exec is not None:
                 self.db_exec.close()
