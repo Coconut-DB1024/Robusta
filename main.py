@@ -25,7 +25,10 @@ _SOURCE_OUTPUT_DIRECTORIES = (
     "RL/time_collect",
     "stage3_predicate_similarity_analysis/outputs",
 )
-_SOURCE_OUTPUT_FILES = ("RL/ppo_sql_model.zip",)
+_SOURCE_OUTPUT_FILES = (
+    "codet5-small/encoder_state.pt",
+    "RL/ppo_sql_model.zip",
+)
 
 
 def _reset_source_outputs(project_dir):
@@ -191,6 +194,13 @@ def _archive_results(project_dir, previous_states, similarity_root, previous_run
 def main() -> int:
     project_dir = Path(__file__).resolve().parent
     source_dir = project_dir / "src"
+    if not (source_dir / "codet5-small").is_dir():
+        print(
+            "Transformer model is missing. Execution paused. "
+            "Please run download_codet5_small.py to download the transformer model.",
+            flush=True,
+        )
+        return 1
     _reset_source_outputs(project_dir)
     tracked_files = [
         source_dir / "pkg/generated_sqls/stage3_run_status.json",
