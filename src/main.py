@@ -7,6 +7,8 @@ import re
 import time
 import datetime
 
+from RL.runtime_logging import runtime_warning_scope
+
 os.environ["OMP_NUM_THREADS"] = "1"
 
 if __name__ == '__main__':
@@ -1612,6 +1614,7 @@ def _resolve_auto_cycle_recycle_schedule(cycle_idx: int):
     }
 
 
+@runtime_warning_scope()
 def run_auto_cycle(num_cycles_override=None):
     from RL.config import (
         AUTO_CYCLE_CONFIG,
