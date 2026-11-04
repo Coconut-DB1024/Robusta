@@ -257,11 +257,6 @@ def counter(deadline=None, input_files=None):
                 if r in counted_data['nodes']:
                     total_possibilities += counted_data['nodes'][r]['count']
 
-            print(
-                f"Processed {file_name}. Total combinations in roots: "
-                f"{_format_count_for_log(total_possibilities)}"
-            )
-
             # 超大整数使用可逆十六进制字符串保存，绕过十进制 4300 位限制。
             # 数值本身仍然完全精确，采样阶段会恢复为 Python int。
             encode_counts_in_place(counted_data, deadline=deadline)
@@ -308,7 +303,7 @@ def counter(deadline=None, input_files=None):
                 "count_stats": subtree_counter.last_count_stats,
             }
 
-    print("All counting tasks completed.")  # 任务完成提示
+    print("Counting tasks completed.")  # 任务完成提示
     return {
         "success": True,
         "round_complete": True,

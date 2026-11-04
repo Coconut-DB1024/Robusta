@@ -3166,12 +3166,7 @@ def sampler(
             file_size = os.path.getsize(output_path)
             elapsed = max(time.monotonic() - sampling_start, 1e-9)
             storage_ratio = file_size / max(file_text_bytes, 1)
-            print(
-                f"Generated {file_generated} SQLs from {file_name}. "
-                f"Saved to {output_name} (stored_bytes={file_size}, "
-                f"text_bytes={file_text_bytes}, storage_ratio={storage_ratio:.4f}, "
-                f"{file_generated / elapsed:.2f} predicates/s)"
-            )
+            print(f"Generated {file_generated} SQLs from {file_name}.")
             total_generated += file_generated
             total_text_bytes += file_text_bytes
             total_text_characters += file_text_characters
@@ -3193,7 +3188,6 @@ def sampler(
                     sampler.last_sampling_timings,
                 )
 
-    print(f"All done. Total SQLs generated: {total_generated}")
     if reserve_enabled:
         reserve_status.update(
             estimate_downstream_reserve(

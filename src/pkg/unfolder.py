@@ -175,8 +175,6 @@ class DagUnfolder:
             if not nodes_to_remove:
                 break
 
-            print(f"  [Pruning] Removing {len(nodes_to_remove)} dead nodes (incomplete parameters)...")
-
             # 2. 从字典中删除死节点
             for nid in nodes_to_remove:
                 del nodes[nid]
@@ -292,14 +290,6 @@ def unfolder(max_depth=None, deadline=None):
                     time.monotonic() - projection_started
                 )
             projection_reports.append(projection_report)
-            print(
-                "  [TypeProjection] "
-                f"status={projection_report.get('status')}, "
-                f"nodes={projection_report.get('original_nodes')}->"
-                f"{projection_report.get('projected_nodes')}, "
-                f"edges={projection_report.get('original_edges')}->"
-                f"{projection_report.get('projected_edges')}"
-            )
 
             # 展开
             expansion_started = time.monotonic()
@@ -316,8 +306,6 @@ def unfolder(max_depth=None, deadline=None):
 
             if root_count == 0:
                 print(f"  Warning: {file_name} resulted in an empty DAG (no valid roots after pruning).")
-            else:
-                print(f"  Success! Generated DAG with {node_count} nodes and {root_count} roots.")
 
             # 先写 .partial，成功关闭后再替换正式 DAG，防止异常留下半截文件。
             output_started = time.monotonic()
