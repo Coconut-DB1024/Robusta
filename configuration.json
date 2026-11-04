@@ -10,6 +10,6 @@
   "database": "database_predicate",
   "connect_timeout": 5,
   "query_timeout": 10,
-  "_comment_step": "Stage-3 sampling step. Recommended values: 256, 64, 16, 4. Defaults to 64 if omitted or blank.",
+  "_comment_step": "Stage-3 sampling step. Recommended values: 256, 64, 16, 4.",
   "step": 64
 }
