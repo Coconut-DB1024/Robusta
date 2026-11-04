@@ -1,6 +1,7 @@
 """CodeT5 encoder used by predicate encoding and contrastive learning."""
 
 import json
+import logging
 import os
 from typing import Any, Dict, Optional, Tuple
 
@@ -9,6 +10,15 @@ import torch.nn as nn
 from transformers import AutoModelForSeq2SeqLM, AutoTokenizer
 
 from RL.config import DB_CONFIG
+
+
+class _EmbeddingResizeLogFilter(logging.Filter):
+    """Hide only the informational embedding-initialization notice."""
+
+    def filter(self, record):
+        return not record.getMessage().startswith(
+            "The new embeddings will be initialized from a multivariate normal distribution"
+        )
 
 
 def _resolve_masking_rules_path(db_type: Optional[str] = None) -> str:
@@ -69,16 +79,20 @@ class CodeT5Encoder(nn.Module):
             with open(vocabulary_path, "r", encoding="utf-8") as handle:
                 rules = json.load(handle)
             custom_tokens = rules.get("sql_vocabulary", []) + rules.get("functions", [])
-            num_added = self.tokenizer.add_tokens(custom_tokens)
-            if num_added > 0:
-                print(f"[CodeT5Encoder] Added {num_added} SQL vocabulary tokens.")
+            self.tokenizer.add_tokens(custom_tokens)
         else:
             print(f"[CodeT5Encoder] SQL vocabulary configuration not found: {vocabulary_path}")
 
         # Keep the same pretrained loader and embedding resize operation so
         # existing weights, added-token initialization and RNG behavior match.
         pretrained_model = AutoModelForSeq2SeqLM.from_pretrained(model_name_or_path)
-        pretrained_model.resize_token_embeddings(len(self.tokenizer))
+        resize_logger = logging.getLogger("transformers.modeling_utils")
+        resize_log_filter = _EmbeddingResizeLogFilter()
+        resize_logger.addFilter(resize_log_filter)
+        try:
+            pretrained_model.resize_token_embeddings(len(self.tokenizer))
+        finally:
+            resize_logger.removeFilter(resize_log_filter)
         self.hidden_size = pretrained_model.config.d_model
         self.base_model = _EncoderBackbone(pretrained_model)
         del pretrained_model

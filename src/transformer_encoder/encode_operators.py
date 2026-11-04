@@ -67,7 +67,6 @@ def run_encoding():
     tokenizer = model.tokenizer
     with open(INPUT_FILE, "r", encoding="utf-8") as f:
         lines = [line.strip() for line in f if line.strip()]
-    print(f"[信息] 共读取到 {len(lines)} 行谓词。")
 
     all_sent_embeddings: List[np.ndarray] = []
     for start in range(0, len(lines), ENCODE_BATCH_SIZE):
@@ -88,9 +87,6 @@ def run_encoding():
             for row in pooled
         )
 
-        if start == 0 and len(pooled) > 0:
-            print(f"[调试] Encoder pooled 向量形状: {tuple(pooled.shape)}")
-
     if len(all_sent_embeddings) != len(lines):
         raise RuntimeError(
             f"编码结果数量 {len(all_sent_embeddings)} 与谓词行数 {len(lines)} 不一致。"
@@ -104,5 +100,3 @@ def run_encoding():
 
     os.makedirs(os.path.dirname(OUTPUT_SENT_EMB_FILE), exist_ok=True)
     np.save(OUTPUT_SENT_EMB_FILE, sent_embeddings_matrix)
-    print(f"[信息] 已保存 Encoder pooled 向量: {os.path.abspath(OUTPUT_SENT_EMB_FILE)}")
-    print(f"[信息] 输出形状: {sent_embeddings_matrix.shape}（N, 512）")
