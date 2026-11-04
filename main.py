@@ -10,6 +10,52 @@ import sys
 import tempfile
 
 
+_SOURCE_OUTPUT_DIRECTORIES = (
+    "output",
+    "output_cluster",
+    "BugFinding/bug_reports",
+    "BugFinding/generated_test_cases",
+    "data/cluster_final_output",
+    "pkg/counted_graph",
+    "pkg/generated_sqls",
+    "pkg/knowledge_graph",
+    "pkg/unfolded_graph",
+    "RL/checkpoints",
+    "RL/rl_logs",
+    "RL/time_collect",
+    "stage3_predicate_similarity_analysis/outputs",
+)
+_SOURCE_OUTPUT_FILES = ("RL/ppo_sql_model.zip",)
+
+
+def _reset_source_outputs(project_dir):
+    """Reset only the named outputs, once before starting the experiment."""
+    source_dir = Path(project_dir).resolve() / "src"
+    if source_dir.resolve() != source_dir:
+        raise RuntimeError(f"Refusing to clear outputs through a redirected src directory: {source_dir}")
+    if not (source_dir / "main.py").is_file():
+        raise FileNotFoundError(f"Experiment entry point not found: {source_dir / 'main.py'}")
+
+    directories = [source_dir / name for name in _SOURCE_OUTPUT_DIRECTORIES]
+    files = [source_dir / name for name in _SOURCE_OUTPUT_FILES]
+    # Validate every absolute target before deleting anything. Symlinks and
+    # junctions must not redirect cleanup to model files, inputs or another tree.
+    for path in directories + files:
+        if path.resolve() != path or not path.is_relative_to(source_dir):
+            raise RuntimeError(f"Refusing to clear a redirected output path: {path}")
+        if path.exists():
+            expected_type = path.is_dir() if path in directories else path.is_file()
+            if not expected_type:
+                raise RuntimeError(f"Unexpected output path type: {path}")
+
+    for directory in directories:
+        if directory.exists():
+            shutil.rmtree(directory)
+        directory.mkdir(parents=True, exist_ok=True)
+    for path in files:
+        path.unlink(missing_ok=True)
+
+
 def _file_state(path):
     if not path.is_file():
         return None
@@ -145,6 +191,7 @@ def _archive_results(project_dir, previous_states, similarity_root, previous_run
 def main() -> int:
     project_dir = Path(__file__).resolve().parent
     source_dir = project_dir / "src"
+    _reset_source_outputs(project_dir)
     tracked_files = [
         source_dir / "pkg/generated_sqls/stage3_run_status.json",
         source_dir / "BugFinding/generated_test_cases/satisfiable_predicates.txt",
