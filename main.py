@@ -29,6 +29,63 @@ _SOURCE_OUTPUT_FILES = (
     "codet5-small/encoder_state.pt",
     "RL/ppo_sql_model.zip",
 )
+_MODEL_FILES = (
+    "config.json",
+    "generation_config.json",
+    "merges.txt",
+    "model.safetensors",
+    "special_tokens_map.json",
+    "tokenizer.json",
+    "tokenizer_config.json",
+    "vocab.json",
+)
+_MODEL_DOWNLOAD_HELP = (
+    "Please run download_codet5_small.py to download the transformer model or "
+    "download codet5-small.zip from GitHub Releases and extract it into the "
+    "root directory of the Robusta project."
+)
+
+
+def _model_files_complete(directory):
+    """Check the eight required filenames without inspecting file contents."""
+    return directory.is_dir() and all((directory / name).is_file() for name in _MODEL_FILES)
+
+
+def _prepare_transformer(project_dir):
+    project_dir = Path(project_dir).resolve()
+    source_dir = project_dir / "src"
+    runtime_model = source_dir / "codet5-small"
+    root_model = project_dir / "codet5-small"
+    if _model_files_complete(runtime_model):
+        return True
+    if not _model_files_complete(root_model):
+        if not runtime_model.exists() and not root_model.exists():
+            problem = "Transformer model is missing. Execution paused."
+        else:
+            problem = "Transformer model files are incomplete. Exiting."
+        print(f"{problem} {_MODEL_DOWNLOAD_HELP}", flush=True)
+        return False
+
+    # Keep replacement and temporary cleanup inside the actual src directory.
+    if source_dir.resolve() != source_dir or runtime_model.resolve() != runtime_model:
+        raise RuntimeError(f"Refusing to replace a redirected model directory: {runtime_model}")
+    with tempfile.TemporaryDirectory(prefix=".codet5-copy-", dir=source_dir) as temporary:
+        staging_dir = Path(temporary)
+        copied_model = staging_dir / "model"
+        previous_model = staging_dir / "previous"
+        shutil.copytree(root_model, copied_model)
+        if not _model_files_complete(copied_model):
+            raise RuntimeError(f"Transformer model files are incomplete. Exiting. {_MODEL_DOWNLOAD_HELP}")
+        # Preserve the previous copy until the complete new copy is installed.
+        if runtime_model.exists():
+            runtime_model.replace(previous_model)
+        try:
+            copied_model.replace(runtime_model)
+        except BaseException:
+            if previous_model.exists():
+                previous_model.replace(runtime_model)
+            raise
+    return True
 
 
 def _reset_source_outputs(project_dir):
@@ -194,12 +251,7 @@ def _archive_results(project_dir, previous_states, similarity_root, previous_run
 def main() -> int:
     project_dir = Path(__file__).resolve().parent
     source_dir = project_dir / "src"
-    if not (source_dir / "codet5-small").is_dir():
-        print(
-            "Transformer model is missing. Execution paused. "
-            "Please run download_codet5_small.py to download the transformer model.",
-            flush=True,
-        )
+    if not _prepare_transformer(project_dir):
         return 1
     _reset_source_outputs(project_dir)
     tracked_files = [

@@ -8,7 +8,7 @@ from urllib.request import Request, urlopen
 
 MODEL_ID = "Salesforce/codet5-small"
 REVISION = "b1ee9570c289f21b5922b9c768a1ce12957bf968"
-MODEL_DIR = Path(__file__).resolve().parent / "src" / "codet5-small"
+MODEL_DIR = Path(__file__).resolve().parent / "codet5-small"
 INSTALL_COMMAND = (
     'python -m pip install "torch>=2.6" "transformers==4.57.1" '
     '"tokenizers==0.22.1" "safetensors==0.6.2"'
@@ -53,26 +53,6 @@ def normalized_text(path):
     return data.replace(b"\n", b"\r\n") if path.name in CRLF_FILES else data
 
 
-def output_sha256(path):
-    if path.name == "model.safetensors":
-        return file_sha256(path)
-    return hashlib.sha256(normalized_text(path)).hexdigest()
-
-
-def missing_files(destination):
-    missing = []
-    for name, expected in OUTPUT_HASHES.items():
-        path = destination / name
-        if not path.exists():
-            missing.append(name)
-        elif not path.is_file() or output_sha256(path) != expected:
-            raise RuntimeError(
-                f"Existing file differs from the verified model: {path}\n"
-                "Move it aside before downloading; it will not be overwritten."
-            )
-    return missing
-
-
 def load_dependencies():
     try:
         from packaging.version import Version
@@ -108,11 +88,11 @@ def download_file(name, destination):
 
 
 def download_model(destination=MODEL_DIR):
-    destination = Path(destination).resolve()
-    missing = missing_files(destination)
-    if not missing:
-        print(f"All 8 model files are already present and verified: {destination}")
-        return
+    destination = Path(destination).absolute()
+    if destination.resolve() != destination:
+        raise RuntimeError(f"Refusing to replace a redirected model directory: {destination}")
+    if destination.exists() and not destination.is_dir():
+        raise RuntimeError(f"Model destination is not a directory: {destination}")
 
     tokenizer_class, model_class = load_dependencies()
     destination.parent.mkdir(parents=True, exist_ok=True)
@@ -139,10 +119,16 @@ def download_model(destination=MODEL_DIR):
             if file_sha256(output / name) != expected:
                 raise RuntimeError(f"Generated file failed SHA-256 verification: {name}")
 
-        missing = missing_files(destination)
-        destination.mkdir(parents=True, exist_ok=True)
-        for name in missing:
-            (output / name).replace(destination / name)
+        # Replace the old directory only after the full download is verified.
+        previous = Path(temporary) / "previous"
+        if destination.exists():
+            destination.replace(previous)
+        try:
+            output.replace(destination)
+        except BaseException:
+            if previous.exists():
+                previous.replace(destination)
+            raise
 
     print(f"All 8 model files have been verified and saved to: {destination}")
 
