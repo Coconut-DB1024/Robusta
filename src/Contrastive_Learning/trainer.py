@@ -128,5 +128,4 @@ def run_contrastive_learning(
 
     os.makedirs(model_dir, exist_ok=True)
     torch.save(model.encoder_state_dict(), encoder_state_path)
-    print(f"已保存 Encoder checkpoint（未覆盖基础 CodeT5）: {encoder_state_path}")
     print("========== Encoder-only WeightedSupConLoss 阶段完成 ==========")
