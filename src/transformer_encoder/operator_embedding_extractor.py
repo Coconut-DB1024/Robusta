@@ -453,7 +453,6 @@ def load_model(model_dir: str, state_path: str, device: torch.device) -> CodeT5E
     )
 
     if os.path.exists(state_path):
-        print(f"[operator_embedding_extractor] 加载 Encoder 权重: {state_path}")
         state_dict = torch.load(state_path, map_location=device)
         model.load_encoder_state_dict(state_dict)
     else:
@@ -698,10 +697,7 @@ def run_extraction(
     else:
         device = torch.device(device_name)
 
-    print(f"[operator_embedding_extractor] 使用设备: {device}")
-
     predicates = load_predicates(predicate_file)
-    print(f"[operator_embedding_extractor] 读取谓词数量: {len(predicates)}")
 
     model = load_model(
         model_dir=model_dir,
@@ -731,12 +727,6 @@ def run_extraction(
     save_json(output_prototypes_file, prototypes)
     save_json(output_similarity_file, similarity)
     save_json(output_metadata_file, metadata)
-
-    print("[operator_embedding_extractor] 已保存:")
-    print(f"  operator prototypes : {output_prototypes_file}")
-    print(f"  operator similarity : {output_similarity_file}")
-    print(f"  metadata            : {output_metadata_file}")
-    print(f"[operator_embedding_extractor] 算子数量: {metadata['num_operators']}")
 
     return {
         "prototypes": prototypes,
