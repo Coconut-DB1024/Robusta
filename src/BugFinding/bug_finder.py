@@ -1918,8 +1918,6 @@ class TLPBugFinder:
         """
         self.start_time = time.time()
         self.log(f"=== 开始运行 TLP Bug Finder ===")
-        self.log(f"输入目录: {INPUT_DIR}")
-        self.log(f"输出目录: {REPORT_DIR}")
         self.log(f"批次大小: {VALIDATION_BATCH_SIZE}")
         self.log(f"并发 worker 数: {MAX_WORKERS}")
         self.log(f"单条 SQL 超时: {self.query_timeout} 秒")
@@ -1944,15 +1942,6 @@ class TLPBugFinder:
                 f"REPLICATE结果上限={self.repeat_output_max_chars} chars, "
                 f"LEFT/RIGHT/SUBSTRING/SPACE=0..{self.string_length_max}; "
                 "保留 NULL，REPLICATE/SPACE 负参数仍返回 NULL)"
-            )
-        else:
-            self.log(
-                "危险长度参数限幅: "
-                f"{self.resource_argument_bounding_enabled} "
-                f"(REPEAT=0..{self.repeat_count_max}, "
-                f"REPEAT目标预算={self.repeat_output_max_chars} chars, "
-                f"LPAD/RPAD/SUBSTR=0..{self.string_length_max}, "
-                f"LEFT/RIGHT=-{self.string_length_max}..{self.string_length_max})"
             )
 
         # 1. 扫描所有旧 .sql 或无损压缩 .sql.gz 文件。
@@ -1979,11 +1968,7 @@ class TLPBugFinder:
         compressed_count = sum(
             1 for path in files if str(path).lower().endswith(".sql.gz")
         )
-        self.log(
-            f"发现 {len(files)} 个测试文件，准备开始扫描... "
-            f"(gzip={compressed_count}, plain_sql={len(files) - compressed_count}, "
-            f"duplicate_formats_skipped={len(candidate_files) - len(files)})"
-        )
+        self.log(f"发现 {len(files)} 个测试文件，准备开始扫描...")
 
         # 2. 流式遍历每个文件。每次只保留当前批次和一个前瞻任务，避免 all_tasks 全量驻留。
         def iter_tasks():
@@ -2021,7 +2006,7 @@ class TLPBugFinder:
                     yield (file_name, case_idx, group, file_tlp_mode)
 
         task_iter = iter_tasks()
-        self.log("开始流式加载测试组并按批次并发验证（不建立全量任务列表）...")
+        self.log("开始流式加载测试组并按批次并发验证...")
 
         pool = (
             OracleValidationPool(

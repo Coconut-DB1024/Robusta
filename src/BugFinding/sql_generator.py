@@ -618,8 +618,6 @@ class SmartInstantiator:
                 self.operator_map = dict(ORACLE_OPERATOR_MAP)
                 source_type = "Oracle Stage-3 built-in profile"
 
-            print(f"[Instantiator] 运算符配置加载完成。来源: [{source_type}]")
-            print(f"[Instantiator] 支持的类型分类: {list(self.operator_map.keys())}")
             return
 
         # 1. 尝试加载专用配置
@@ -652,11 +650,6 @@ class SmartInstantiator:
                 "DATETIME": ["=", ">", "<", ">=", "<=", "!="],
                 "JSON": ["="] # JSON 通常作为字符串处理，用 = 比较
             }
-
-        # 打印最终使用的配置来源，方便用户确认
-        print(f"[Instantiator] 运算符配置加载完成。来源: [{source_type}]")
-        # 打印一下加载到的 Key，确认内容
-        print(f"[Instantiator] 支持的类型分类: {list(self.operator_map.keys())}")
 
     def _guess_operator_type(self, predicate: str) -> str:
         """
@@ -1120,16 +1113,6 @@ class TestCaseGenerator:
                 ),
             ),
         )
-        print(f"[Generator] TLP mode: {self.tlp_mode}")
-        print(
-            "[Generator] Test-case storage: "
-            f"{'gzip' if self.compress_test_cases else 'plain SQL'}"
-            + (
-                f" (level={self.test_case_compression_level})"
-                if self.compress_test_cases
-                else ""
-            )
-        )
 
     def build_stratified_case(self, raw_predicate):
         """限时分层支线逐组构造；与 process_files 的四条 SELECT 及文本格式一致。"""
@@ -1190,7 +1173,6 @@ class TestCaseGenerator:
             file_name = os.path.basename(file_path)
             logical_source_name = _logical_predicate_name(file_path)
             partial_path = None
-            print(f"  -> 正在处理文件: {file_name}")
 
             try:
                 check_deadline(deadline, "TLP test-case generation")
@@ -1289,14 +1271,6 @@ class TestCaseGenerator:
                 file_size = output_path.stat().st_size
                 elapsed = max(time.monotonic() - generation_start, 1e-9)
                 storage_ratio = file_size / max(file_text_characters, 1)
-                print(
-                    f"     [Success] 已生成: {output_name}; "
-                    f"predicates={file_predicates}, stored_bytes={file_size}, "
-                    f"text_characters={file_text_characters}, "
-                    f"storage_ratio={storage_ratio:.4f}, "
-                    f"rate={total_predicates / elapsed:.2f} predicates/s, "
-                    f"complete={file_complete}"
-                )
                 if not file_complete:
                     break
 
