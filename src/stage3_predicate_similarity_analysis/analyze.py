@@ -1309,8 +1309,7 @@ def run_analysis(
         })
         atomic_json_dump(manifest, manifest_path)
         print(
-            f"[PredicateSimilarity] completed: predicates={predicate_count}, "
-            f"output={run_dir}",
+            f"[PredicateSimilarity] completed: predicates={predicate_count}",
             flush=True,
         )
         return {

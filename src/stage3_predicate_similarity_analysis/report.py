@@ -84,6 +84,7 @@ def write_similarity_reports(
     average_score_sum = 0.0
     running_mean = 0.0
     squared_deviation_sum = 0.0
+    threshold_counts = {40: 0, 80: 0}
 
     details_path = run_dir / "predicate_similarity_details.jsonl.gz"
     hash_file = open(predicate_hash_path, "rb")
@@ -126,6 +127,9 @@ def write_similarity_reports(
                     delta = float(similarity) - running_mean
                     running_mean += delta / scored_predicate_count
                     squared_deviation_sum += delta * (float(similarity) - running_mean)
+                    for percent in threshold_counts:
+                        if similarity <= percent / 100.0:
+                            threshold_counts[percent] += 1
 
                 record = {
                     **_locator(
@@ -237,6 +241,13 @@ def write_similarity_reports(
             if scored_predicate_count else None
         ),
         "similarity_mode": "ast_ted",
+        "similarity_thresholds": {
+            f"at_most_{percent}_percent": {
+                "count": count,
+                "fraction": count / scored_predicate_count if scored_predicate_count else None,
+            }
+            for percent, count in threshold_counts.items()
+        },
     })
     atomic_json_dump(summary, run_dir / "summary.json")
     atomic_json_dump(example_locators, run_dir / "examples_by_bucket.json")
