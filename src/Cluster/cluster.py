@@ -143,4 +143,4 @@ def clustering(
     with open(os.path.join(final_output_dir, "cluster_meta.json"), "w", encoding="utf-8") as f:
         json.dump(meta, f, indent=2)
 
-    print(f"[INFO] 第{iteration+1}轮聚类完成，结果保存在： '{final_output_dir}'.")
+    print(f"[INFO] 第{iteration+1}轮聚类完成")
