@@ -3,7 +3,7 @@
 - `data/`: Stores experiment results archived by the root launcher.
 - `src/`: Contains the project source code and supporting resources.
 
-Currently, configure the database connection in `Database_link.json`, then run `python main.py` from the `Robusta` root directory to start the complete experiment. After a successful run, `Robusta/data/` contains two result files: `satisfiable_predicates.txt` contains the satisfiable TLP variants without the two rate lines, and `experiment_summary.txt` contains the final RL graph node/edge counts, executability and satisfiability rates, mean similarity, standard deviation, and predicate generation speeds for similarity <=40% and <=80%. Previous outputs in `data/` are replaced; If current outputs are missing, the launcher keeps the previous results. 
+Currently, configure the database connection in `configuration.json`, then run `python main.py` from the `Robusta` root directory to start the complete experiment. After a successful run, `Robusta/data/` contains two result files: `satisfiable_predicates.txt` contains the satisfiable TLP variants without the two rate lines, and `experiment_summary.txt` contains the final RL graph node/edge counts, executability and satisfiability rates, mean similarity, standard deviation, and predicate generation speeds for similarity <=40% and <=80%. Previous outputs in `data/` are replaced; If current outputs are missing, the launcher keeps the previous results. 
 
 First, install the project dependencies from `requirements.txt`. From the `Robusta` directory, run:
 
