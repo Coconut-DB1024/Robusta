@@ -1,13 +1,21 @@
-This directory stores experiment launch scripts.
+This directory contains scripts for running the experiments in Robusta. All commands should be executed from the Robusta root directory.
 
-`full_experiment/main.py` launches the complete experiment using the existing project configuration. From the `Robusta` root directory, run:
+**Full Experiment**
+
+Run the complete end-to-end workflow using the settings in `configuration.json`:
 
 ```bash
 python exp/full_experiment/main.py
 ```
 
-`llm/main.py` launches the independent LLM experiment using the PostgreSQL and `online_model` settings in `Robusta/configuration.json`. From the `Robusta` root directory, run:
+The experimental results will be saved in the `data/` directory.
+
+**LLM Experiment**
+
+Run the independent LLM experiment using the PostgreSQL and `online_model` settings in `configuration.json`:
 
 ```bash
 python exp/llm/main.py
 ```
+
+The experimental results will be saved in the `data/LLM_reuslts/` directory.
