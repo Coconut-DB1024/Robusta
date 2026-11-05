@@ -223,10 +223,10 @@ def _summary_text(graph, stage3, similarity):
             f"at_most_{percent}_percent", {}
         )
         fraction = threshold.get("fraction")
-        speed = total_speed * fraction if total_speed is not None and fraction is not None else None
+        speed = total_speed * fraction * 60 if total_speed is not None and fraction is not None else None
         lines.append(
             f"Predicate generation speed (similarity <= {percent}%): "
-            f"{_format_stat(speed, 4, ' predicates/s')}"
+            f"{_format_stat(speed, 4, ' predicates/min')}"
         )
     return "\n".join(lines) + "\n"
 
