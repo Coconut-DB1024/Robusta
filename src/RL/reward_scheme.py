@@ -1,4 +1,4 @@
-# Candidate-bitmap step rewards; diagnostic field names remain compatible.
+# Candidate-bitmap step rewards and diagnostics.
 from __future__ import annotations
 from typing import Dict, Any, Tuple
 from RL.config import RL_ENV_CONFIG  # <--- 【新增】引入配置中的超参数
@@ -16,18 +16,11 @@ def compute_reward(
         structure_operator_count: int = 0,  # 阶段 5：当前谓词结构中的算子数量
         new_operator_count: int = 0,  # 阶段 5：运行统计中尚未出现过的算子数量
         low_freq_operator_count: int = 0,  # 阶段 5：运行统计中的低频算子数量
-        # 仅保留作 debug 记录
-        sigma_a: float = 0.0,
-        sigma_b: float = 0.0,
         coverage_mode: str = "unrestricted",
         fixed_base_structure: bool = True,
         fixed_base_new_edges: int = 0,
         frontier_new_edges: int = 0,
         frontier_new_nodes: int = 0,
-        mutation_operator_similarity: float = 0.0,
-        mutation_kind_success_rate: float = 0.5,
-        mutation_local_failed: bool = False,
-        mutation_local_success: bool = False,
         frontier_mode: bool = False,
         frontier_predicted_new_edges: int = 0,
         frontier_actual_new_edges: int = 0,
@@ -44,7 +37,7 @@ def compute_reward(
         candidate_bitmap_failure_kind: str = "",
         candidate_bitmap_safe_closure_used: bool = False,
 ) -> Tuple[float, Dict[str, Any]]:
-    """Compute candidate-edge rewards while retaining the existing log fields."""
+    """Compute candidate-edge rewards and diagnostics."""
     reward = 0.0
     reasons = []
 
@@ -56,9 +49,6 @@ def compute_reward(
         "old_edge": 0.0,
         "new_operator": 0.0,
         "low_freq_operator": 0.0,
-        "mutation_similarity": 0.0,
-        "mutation_kind_success": 0.0,
-        "mutation_local_history": 0.0,
         "frontier_real_new_edge": 0.0,
         "frontier_prediction_hit": 0.0,
         "frontier_prediction_miss": 0.0,
@@ -92,8 +82,6 @@ def compute_reward(
         ),
     }
 
-    # Fixed diagnostic values preserve the existing candidate-bitmap output schema.
-
     candidate_level_text = str(candidate_bitmap_candidate_level or "").lower()
     candidate_edge_score_value = max(0.0, min(1.5, float(candidate_bitmap_edge_score or 0.0)))
     candidate_support_rank_value = max(0, int(candidate_bitmap_support_rank or 0))
@@ -113,18 +101,6 @@ def compute_reward(
         "candidate_bitmap_global_new_edge": float(bool(candidate_bitmap_global_new_edge)),
         "candidate_bitmap_failure_kind": str(candidate_bitmap_failure_kind or ""),
         "candidate_bitmap_safe_closure_used": float(bool(candidate_bitmap_safe_closure_used)),
-    }
-
-    mutation_similarity = max(0.0, min(1.0, float(mutation_operator_similarity or 0.0)))
-    mutation_kind_rate = max(0.0, min(1.0, float(mutation_kind_success_rate or 0.5)))
-
-    mutation_info = {
-        "generation_mode": "candidate_bitmap",
-        "operator_mutation_mode": 0.0,
-        "mutation_operator_similarity": mutation_similarity,
-        "mutation_kind_success_rate": mutation_kind_rate,
-        "mutation_local_failed": float(bool(mutation_local_failed)),
-        "mutation_local_success": float(bool(mutation_local_success)),
     }
 
     frontier_mode_flag = bool(frontier_mode)
@@ -248,9 +224,6 @@ def compute_reward(
         "reward_old_edge": components["old_edge"],
         "reward_new_operator": components["new_operator"],
         "reward_low_freq_operator": components["low_freq_operator"],
-        "reward_mutation_similarity": components["mutation_similarity"],
-        "reward_mutation_kind_success": components["mutation_kind_success"],
-        "reward_mutation_local_history": components["mutation_local_history"],
         "reward_frontier_real_new_edge": components["frontier_real_new_edge"],
         "reward_frontier_prediction_hit": components["frontier_prediction_hit"],
         "reward_frontier_prediction_miss": components["frontier_prediction_miss"],
@@ -277,10 +250,8 @@ def compute_reward(
         "new_operator_count": int(new_operator_count),
         "low_freq_operator_count": int(low_freq_operator_count),
         "complexity_score": complexity_score,
-        "sigma_a": sigma_a,
-        "sigma_b": sigma_b,
         **coverage_info,
-        **mutation_info,
+        "generation_mode": "candidate_bitmap",
         **frontier_info,
         **candidate_info,
     }
