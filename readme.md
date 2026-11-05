@@ -1,7 +1,18 @@
 ## Robusta
 **Getting Started**
 
-First, configure the database connection settings in `configuration.json`.We recommend using Qwen3.5-27B for the experiments.
+First, configure the database connection settings in `configuration.json`. We recommend using **Qwen3.5-27B** for the experiments.
+
+The following database versions were used in our experiments:
+
+| Database | Version |
+|---|---|
+| PostgreSQL | 14.23 |
+| MySQL | 8.0.45 |
+| Oracle | 26ai Free |
+| SQL Server | 2022 Developer Edition (16.0.4275.2) |
+
+The standalone LLM experiment uses PostgreSQL 14.23, while the L-error experiment uses **PostgreSQL 18.6**. We recommend using the same database versions for reproducibility.
 
 Install the required dependencies using:
 
