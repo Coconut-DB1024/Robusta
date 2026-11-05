@@ -30,7 +30,7 @@ To run the LLM experiment independently, execute the following command from the 
 python exp/llm/main.py
 ```
 
-The experimental results will be saved in the `data/LLM_reuslts/` directory.
+The experimental results will be saved in the `data/LLM_results/` directory.
 
 **Project Structure**
 
