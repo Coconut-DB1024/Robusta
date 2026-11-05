@@ -1,11 +1,11 @@
 """
-SQL Server 2022 test_wide_table initializer
+SQL Server 2022 configured-table initializer
 
 Target:
     Microsoft SQL Server 2022 Developer Edition
 
 Purpose:
-    Create a permanent test_wide_table and populate 500 rows containing:
+    Create the permanent table configured in RL/config and populate 500 rows containing:
     - NULL values
     - ordinary random values
     - boundary / special values
@@ -37,15 +37,15 @@ import pyodbc
 project_root = str(Path(__file__).resolve().parents[1])
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
-from RL.config import DB_CONFIG
+from RL.config import DB_CONFIG, get_target_table
 
 
 # ============================================================
 # Table configuration
 # ============================================================
 
-TABLE_SCHEMA = "dbo"
-TABLE_NAME = "test_wide_table"
+TABLE_NAME, TABLE_SCHEMA, QUALIFIED_TABLE = get_target_table("sqlserver", DB_CONFIG)
+JSON_CONSTRAINT_NAME = "[" + ("CK_" + TABLE_NAME + "_json").replace("]", "]]") + "]"
 
 INITIAL_ROWS = 500
 NULL_PROBABILITY = 0.15
@@ -537,7 +537,7 @@ def random_sql_variant():
 # ============================================================
 
 CREATE_TABLE_SQL = f"""
-CREATE TABLE {TABLE_SCHEMA}.{TABLE_NAME} (
+CREATE TABLE {QUALIFIED_TABLE} (
 
     id BIGINT
         IDENTITY(1,1)
@@ -616,7 +616,7 @@ CREATE TABLE {TABLE_SCHEMA}.{TABLE_NAME} (
 
     col_geography_0 GEOGRAPHY NULL,
 
-    CONSTRAINT CK_{TABLE_NAME}_json
+    CONSTRAINT {JSON_CONSTRAINT_NAME}
         CHECK (
             col_json_0 IS NULL
             OR ISJSON(col_json_0) = 1
@@ -807,7 +807,7 @@ def insert_row(cursor, row):
     values_sql = ",\n    ".join(value_expressions)
 
     sql = f"""
-    INSERT INTO {TABLE_SCHEMA}.{TABLE_NAME} (
+    INSERT INTO {QUALIFIED_TABLE} (
         {column_sql}
     )
     VALUES (
@@ -866,7 +866,7 @@ def main():
             """
             SELECT OBJECT_ID(?, 'U')
             """,
-            f"{TABLE_SCHEMA}.{TABLE_NAME}",
+            QUALIFIED_TABLE,
         )
 
         existing_object_id = cursor.fetchone()[0]
@@ -917,7 +917,7 @@ def main():
         cursor.execute(
             f"""
             SELECT COUNT(*)
-            FROM {TABLE_SCHEMA}.{TABLE_NAME}
+            FROM {QUALIFIED_TABLE}
             """
         )
         row_count = cursor.fetchone()[0]
@@ -928,7 +928,7 @@ def main():
             FROM sys.columns
             WHERE object_id = OBJECT_ID(?, 'U')
             """,
-            f"{TABLE_SCHEMA}.{TABLE_NAME}",
+            QUALIFIED_TABLE,
         )
         column_count = cursor.fetchone()[0]
 

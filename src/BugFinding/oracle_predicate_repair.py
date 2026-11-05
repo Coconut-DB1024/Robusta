@@ -213,7 +213,7 @@ class OraclePredicateRepair:
             self.metadata_seconds += time.monotonic() - started
         return self.descriptions[key]
 
-    def repair(self, predicate, error, *, table="test_wide_table", fallback=False):
+    def repair(self, predicate, error, *, table=None, fallback=False):
         domain = conversion_domain(error)
         if not domain or len(predicate) > self.MAX_SQL_CHARS:
             return predicate, 0
@@ -229,6 +229,9 @@ class OraclePredicateRepair:
                 return predicate, 0
         except (ValueError, IndexError, RecursionError):
             return predicate, 0
+        if table is None:
+            from RL.config import get_target_table
+            table = get_target_table("oracle")[2]
         self._load_columns(table)
         seed = int(hashlib.sha1(predicate.encode()).hexdigest()[:8], 16)
         safe = {"number": str(1 + seed % 9), "boolean": "TRUE",

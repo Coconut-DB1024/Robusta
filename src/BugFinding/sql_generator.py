@@ -431,7 +431,7 @@ def _discover_predicate_files(input_dir: Path) -> List[str]:
 class DBMetaDataLoader:
     """
     类说明: 元数据加载器。
-    功能: 连接数据库，实时查询 `test_wide_table` 表的结构信息 (列名、类型)。
+    功能: 连接数据库，实时查询 RL/config 中配置的目标表结构 (列名、类型)。
     """
     def __init__(self):
         # 初始化一个字典，用于存储加载到的列信息，key为表名
@@ -456,7 +456,7 @@ class DBMetaDataLoader:
         self.table_name, self.table_schema, self.table_sql = get_target_table(
             DB_CONFIG.db_type, getattr(executor, "config", DB_CONFIG)
         )
-        # 目标表名 (固定为我们之前初始化的大宽表，不从其他表读取)
+        # 仅从 RL/config 指定的目标表读取。
         table_name = self.table_name
 
         # 执行查询，返回 DBQueryResult 对象
