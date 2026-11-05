@@ -15,7 +15,7 @@ class SimilarityAnalysisConfig:
     shingle_size: int = 3
     normalize_unquoted_tokens: bool = True
 
-    max_predicates_to_read: Optional[int] = 8_000_000
+    max_predicates_to_read: Optional[int] = 20_000_000
     executable_only: bool = True
 
     minhash_size: int = 32
