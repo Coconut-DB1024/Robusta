@@ -363,7 +363,7 @@ class HeuristicCompletionClient:
         from RL.sqlserver_sqlglot import parse_sqlserver_expression
 
         if not self.table_name:
-            raise ValueError("SQL Server schema is unavailable: test_wide_table has no usable columns.")
+            raise ValueError(f"SQL Server schema is unavailable: {DB_CONFIG.table_name} has no usable columns.")
         clean_pred = self._clean_sqlserver_predicate(predicate)
         # The outer node's category selects only the validation wrapper.
         # Candidate operand compatibility is learned from database execution,

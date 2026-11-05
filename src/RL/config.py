@@ -832,22 +832,27 @@ RL_ALGO_CONFIG = RLAlgoConfig()
 
 # ====================== 6. DBMS 配置 ======================
 
-TABLE_NAME = "test_wide_table"
-
-
 def get_target_table(db_type: str, config: Any = None) -> Tuple[str, Optional[str], str]:
-    """Return the catalog name, schema, and SQL identifier for the test table."""
+    """Return the configured table's catalog name, schema, and SQL identifier."""
+    table_name = getattr(config, "table_name", DB_CONFIG.table_name)
+    if not isinstance(table_name, str) or not table_name.strip():
+        raise ValueError("table_name must be a non-empty string.")
     db_type = str(db_type or "").lower().strip()
     if db_type in {"postgresql", "postgres", "pg"}:
-        return TABLE_NAME, "public", '"public"."test_wide_table"'
+        quoted_table = '"' + table_name.replace('"', '""') + '"'
+        return table_name, "public", f'"public".{quoted_table}'
     if db_type in {"oracle", "oracledb", "oracle_ai26"}:
-        # Oracle's initializer creates an unquoted name, stored in uppercase.
-        return TABLE_NAME.upper(), None, '"TEST_WIDE_TABLE"'
+        # Preserve Oracle's uppercase convention for unquoted table names.
+        table_name = table_name.upper()
+        quoted_table = '"' + table_name.replace('"', '""') + '"'
+        return table_name, None, quoted_table
     if db_type == "sqlserver":
         schema = str(getattr(config, "schema", "dbo") or "dbo")
         quoted_schema = "[" + schema.replace("]", "]]") + "]"
-        return TABLE_NAME, schema, f"{quoted_schema}.[test_wide_table]"
-    return TABLE_NAME, None, "`test_wide_table`"
+        quoted_table = "[" + table_name.replace("]", "]]") + "]"
+        return table_name, schema, f"{quoted_schema}.{quoted_table}"
+    quoted_table = "`" + table_name.replace("`", "``") + "`"
+    return table_name, None, quoted_table
 
 
 @dataclass
@@ -868,6 +873,9 @@ class DBConfig: # 配置结构；实际连接参数请填写 Robusta/configurati
 
     # 实际的数据库名
     database: str = ""
+
+    # 实验使用的表名；实际值由 Robusta/configuration.json 读取。
+    table_name: str = "test_wide_table"
 
     # 连接超时时间（秒）
     connect_timeout: int = 5
@@ -912,6 +920,8 @@ def _load_database_config() -> DBConfig:
     values.pop("_comment_database", None)
     values.pop("_comment_step", None)
     values.pop("step", None)
+    # Older configuration files retain the original target table.
+    values.setdefault("table_name", DBConfig.table_name)
     expected_fields = {item.name for item in fields(DBConfig)}
     missing = expected_fields - values.keys()
     unknown = values.keys() - expected_fields
@@ -919,9 +929,11 @@ def _load_database_config() -> DBConfig:
         raise ValueError(
             f"Invalid fields in {config_path}: missing={sorted(missing)}, unknown={sorted(unknown)}"
         )
-    for name in ("db_type", "host", "user", "password", "database"):
+    for name in ("db_type", "host", "user", "password", "database", "table_name"):
         if not isinstance(values[name], str):
             raise ValueError(f"{config_path}: {name} must be a JSON string.")
+    if not values["table_name"].strip():
+        raise ValueError(f"{config_path}: table_name must not be empty.")
     for name in ("port", "connect_timeout", "query_timeout"):
         if type(values[name]) is not int:
             raise ValueError(f"{config_path}: {name} must be a JSON integer.")
