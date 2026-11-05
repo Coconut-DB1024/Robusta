@@ -41,7 +41,7 @@ To run the LLM experiment independently, execute the following command from the 
 python exp/llm/main.py
 ```
 
-Only PostgreSQL is supported. The experimental results will be saved in the `data/LLM_results/` directory.
+**Only PostgreSQL is supported.** The experimental results will be saved in the `data/LLM_results/` directory.
 
 To run the L-error experiment, first download and set up the TPC-H and JOB datasets. Since this experiment uses PostgreSQL 18.6, configure the database connection settings and experiment switches in `configuration_lerror.json` located in the Robusta root directory.
 
@@ -51,7 +51,7 @@ Then, run the following command from the Robusta root directory:
 python exp/L-error/main.py
 ```
 
-Only PostgreSQL is supported. The experimental results will be saved in the `data/L-error_results/<experiment>_results/` directory.
+**Only PostgreSQL is supported.** The experimental results will be saved in the `data/L-error_results/<experiment>_results/` directory.
 
 **Project Structure**
 
