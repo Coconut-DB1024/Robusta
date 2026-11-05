@@ -915,11 +915,13 @@ def _load_database_config() -> DBConfig:
         return DBConfig()
     config_path = CONFIGURATION_PATH
     values = dict(_EXPERIMENT_CONFIGURATION)
-    # Field descriptions and the Stage-3 step are not database connection options.
+    # Descriptions, the Stage-3 step and independent LLM settings are not DB options.
     values.pop("_comment_db_type", None)
     values.pop("_comment_database", None)
     values.pop("_comment_step", None)
     values.pop("step", None)
+    values.pop("_comment_online_model", None)
+    values.pop("online_model", None)
     # Older configuration files retain the original target table.
     values.setdefault("table_name", DBConfig.table_name)
     expected_fields = {item.name for item in fields(DBConfig)}
