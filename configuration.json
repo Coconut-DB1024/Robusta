@@ -2,15 +2,27 @@
   "_comment_db_type": "Use one of these lowercase values: mysql/postgresql/oracle/sqlserver.",
   "db_type": "postgresql",
   "unix_socket": null,
-  "host": "",
-  "port": 0,
-  "user": "",
-  "password": "",
+  "host": "127.0.0.1",
+  "port": 5432,
+  "user": "predicate_test",
+  "password": "123456",
   "_comment_database": "For Oracle, enter the service_name",
-  "database": "",
+  "database": "database_predicate",
   "table_name": "test_wide_table",
   "connect_timeout": 5,
   "query_timeout": 10,
   "_comment_step": "Stage-3 sampling step. Recommended values: 256, 64, 16, 4. Defaults to 64 if omitted or blank.",
-  "step": 64
+  "step": 64,
+  "_comment_online_model": "Used only by the independently launched LLM experiment. Fill in the endpoint and API key, or set the environment variable named by api_key_env.",
+  "online_model": {
+    "name": "qwen3.5-27b",
+    "base_url": "",
+    "api_key": "",
+    "api_key_env": "DASHSCOPE_API_KEY",
+    "temperature": 0,
+    "max_tokens": 2048,
+    "timeout_seconds": 180,
+    "enable_thinking": false,
+    "stream": true
+  }
 }
