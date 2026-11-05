@@ -19,3 +19,13 @@ python exp/llm/main.py
 ```
 
 The experimental results will be saved in the `data/LLM_reuslts/` directory.
+
+**L-error Experiment**
+
+Run the independent L-error experiment using the PostgreSQL settings and experiment selection in `configuration-lerror.json`:
+
+```bash
+python exp/L-error/main.py
+```
+
+Only PostgreSQL is supported. Each selected experiment archives `results.csv` and `l_error_summary.txt` in `data/L-error_results/<experiment>_results/`.
