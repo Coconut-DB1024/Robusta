@@ -270,8 +270,8 @@ class PostgreSQLCatalogProvider(CatalogProvider):
     db_types = ("postgresql", "postgres", "pg")
 
     @staticmethod
-    def _rows(executor: Any, sql: str) -> List[Dict[str, Any]]:
-        result = executor.execute_query(sql, fetch="all", autocommit=True)
+    def _rows(executor: Any, sql: str, params=None) -> List[Dict[str, Any]]:
+        result = executor.execute_query(sql, params=params, fetch="all", autocommit=True)
         if not result.success:
             raise RuntimeError(result.error or "PostgreSQL catalog query failed")
         return list(result.rows or [])
@@ -286,6 +286,7 @@ class PostgreSQLCatalogProvider(CatalogProvider):
         return tuple(_normalize_type(item.strip('"')) for item in text.split(","))
 
     def load(self) -> CatalogSnapshot:
+        from RL.config import get_target_table
         from RL.db_executor import create_db_executor
 
         snapshot = CatalogSnapshot(
@@ -369,6 +370,7 @@ class PostgreSQLCatalogProvider(CatalogProvider):
                 for row in cast_rows
             }
 
+            table_name, table_schema, _ = get_target_table("postgresql")
             column_rows = self._rows(
                 executor,
                 """
@@ -377,11 +379,12 @@ class PostgreSQLCatalogProvider(CatalogProvider):
                 FROM pg_catalog.pg_attribute AS a
                 JOIN pg_catalog.pg_class AS c ON c.oid = a.attrelid
                 JOIN pg_catalog.pg_namespace AS n ON n.oid = c.relnamespace
-                WHERE n.nspname = 'public'
-                  AND c.relname = 'test_wide_table'
+                WHERE n.nspname = %s
+                  AND c.relname = %s
                   AND a.attnum > 0
                   AND NOT a.attisdropped;
                 """,
+                params=(table_schema, table_name),
             )
             prefix_tokens = {
                 "col_integer_": "COL_INT",
@@ -409,8 +412,8 @@ class MySQLCatalogProvider(CatalogProvider):
     db_types = ("mysql",)
 
     @staticmethod
-    def _rows(executor: Any, sql: str) -> List[Dict[str, Any]]:
-        result = executor.execute_query(sql, fetch="all", autocommit=True)
+    def _rows(executor: Any, sql: str, params=None) -> List[Dict[str, Any]]:
+        result = executor.execute_query(sql, params=params, fetch="all", autocommit=True)
         if not result.success:
             raise RuntimeError(result.error or "MySQL information_schema query failed")
         return list(result.rows or [])
@@ -436,6 +439,7 @@ class MySQLCatalogProvider(CatalogProvider):
         return value or _WILDCARD_TYPE
 
     def load(self) -> CatalogSnapshot:
+        from RL.config import get_target_table
         from RL.db_executor import create_db_executor
 
         snapshot = CatalogSnapshot(
@@ -456,9 +460,10 @@ class MySQLCatalogProvider(CatalogProvider):
                        CHARACTER_SET_NAME, COLLATION_NAME, IS_NULLABLE
                 FROM information_schema.COLUMNS
                 WHERE TABLE_SCHEMA = DATABASE()
-                  AND TABLE_NAME = 'test_wide_table'
+                  AND TABLE_NAME = %s
                 ORDER BY ORDINAL_POSITION;
                 """,
+                params=(get_target_table("mysql")[0],),
             )
             prefix_tokens = {
                 "col_integer_": "COL_INT",
@@ -586,8 +591,8 @@ class OracleCatalogProvider(CatalogProvider):
     db_types = ("oracle", "oracledb", "oracle_ai26")
 
     @staticmethod
-    def _rows(executor: Any, sql: str) -> List[Dict[str, Any]]:
-        result = executor.execute_query(sql, fetch="all", autocommit=True)
+    def _rows(executor: Any, sql: str, params=None) -> List[Dict[str, Any]]:
+        result = executor.execute_query(sql, params=params, fetch="all", autocommit=True)
         if not result.success:
             raise RuntimeError(result.error or "Oracle catalog query failed")
         return list(result.rows or [])
@@ -1006,6 +1011,7 @@ class OracleCatalogProvider(CatalogProvider):
                 cls._add_function(snapshot, item["name"], resolved_args, result_type)
 
     def load(self) -> CatalogSnapshot:
+        from RL.config import get_target_table
         from RL.db_executor import create_db_executor
 
         snapshot = CatalogSnapshot(
@@ -1036,9 +1042,10 @@ class OracleCatalogProvider(CatalogProvider):
                        char_length,
                        nullable
                 FROM user_tab_columns
-                WHERE table_name = 'TEST_WIDE_TABLE'
+                WHERE table_name = :1
                 ORDER BY table_name, column_id
                 """,
+                params=(get_target_table("oracle")[0],),
             )
             prefix_tokens = {
                 "col_integer_": "COL_INT",
@@ -1179,7 +1186,7 @@ class SQLServerCatalogProvider(CatalogProvider):
     db_types = ("sqlserver",)
 
     def load(self) -> CatalogSnapshot:
-        from RL.config import DB_CONFIG
+        from RL.config import DB_CONFIG, get_target_table
         from RL.db_executor import create_db_executor
         from RL.sqlserver_evidence_types import column_type, base_type, NUMERIC, STRINGS
 
@@ -1187,9 +1194,9 @@ class SQLServerCatalogProvider(CatalogProvider):
         executor = None
         try:
             executor = create_db_executor(db_type="sqlserver", autoconnect=True, query_timeout_seconds=10)
-            schema = str(getattr(DB_CONFIG, "schema", "dbo") or "dbo")
+            table_name, schema, _ = get_target_table("sqlserver", DB_CONFIG)
             # Reuse the executor's sys.columns/sys.types query and alias resolution.
-            result = executor.list_columns("test_wide_table", schema=schema)
+            result = executor.list_columns(table_name, schema=schema)
             if not result.success:
                 raise RuntimeError(result.error or "SQL Server column metadata unavailable")
             for raw in result.rows or []:
@@ -1211,7 +1218,7 @@ class SQLServerCatalogProvider(CatalogProvider):
                 snapshot.terminal_types.setdefault(token, set()).add(dtype)
                 snapshot.terminal_metadata.setdefault(token, []).append({
                     **row, "physical_type": dtype, "table_schema": schema,
-                    "table_name": "test_wide_table",
+                    "table_name": table_name,
                 })
             if not snapshot.terminal_metadata:
                 raise RuntimeError("SQL Server target table has no supported visible columns")
@@ -1254,6 +1261,7 @@ def _catalog_cache_key(db_type: str) -> Tuple[Any, ...]:
             getattr(DB_CONFIG, "port", None),
             getattr(DB_CONFIG, "database", None),
             getattr(DB_CONFIG, "user", None),
+            getattr(DB_CONFIG, "table_name", None),
         )
     except Exception:
         return (db_type,)
@@ -3165,6 +3173,7 @@ def project_graph_for_stage3(
         _path_fingerprint(source_path),
         _path_fingerprint(evidence_path if evidence_enabled else None),
         normalized_db,
+        _catalog_cache_key(normalized_db),
         enabled,
         catalog_enabled,
         evidence_enabled,
