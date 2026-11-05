@@ -1,0 +1,13 @@
+{
+  "_comment_db_type": "Only postgresql is supported by the L-error experiment.",
+  "db_type": "postgresql",
+  "host": "",
+  "port": null,
+  "user": "",
+  "password": "",
+  "_comment_database": "Use the PostgreSQL database containing the tpch and job schemas and their benchmark tables.",
+  "database": "",
+  "connect_timeout": 5,
+  "_comment_experiment": "Use exactly: all, Robusta-TPC-H, or Robusta-JOB. all runs both experiments in that order.",
+  "experiment": "all"
+}
