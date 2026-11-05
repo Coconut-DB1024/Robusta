@@ -1,7 +1,7 @@
 ## Robusta
 **Getting Started**
 
-First, configure the database connection settings in `configuration.json`.
+First, configure the database connection settings in `configuration.json`.We recommend using Qwen3.5-27B for the experiments.
 
 Install the required dependencies using:
 
