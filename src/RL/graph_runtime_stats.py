@@ -308,7 +308,6 @@ class GraphRuntimeStats:
     后续阶段中：
     - env_sql_dependency.py 可以用它记录 step 级尝试；
     - pkg_manager.py 可以用它记录全局知识图真实接收的 Correct 谓词；
-    - reward_scheme.py 和 vector_spaces.py 后续可读取这些统计做低频算子奖励与基向量调度。
     """
 
     def __init__(self, stats_dir: Optional[Path] = None) -> None:
