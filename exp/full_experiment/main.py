@@ -17,7 +17,6 @@ _SOURCE_OUTPUT_DIRECTORIES = (
     "BugFinding/generated_test_cases",
     "data/cluster_final_output",
     "pkg/counted_graph",
-    "pkg/generated_sqls",
     "pkg/knowledge_graph",
     "pkg/unfolded_graph",
     "RL/checkpoints",
@@ -25,6 +24,7 @@ _SOURCE_OUTPUT_DIRECTORIES = (
     "RL/time_collect",
     "stage3_predicate_similarity_analysis/outputs",
 )
+_GENERATED_SQLS_DIRECTORY = "pkg/generated_sqls"
 _SOURCE_OUTPUT_FILES = (
     "codet5-small/encoder_state.pt",
     "RL/ppo_sql_model.zip",
@@ -88,7 +88,7 @@ def _prepare_transformer(project_dir):
     return True
 
 
-def _reset_source_outputs(project_dir):
+def _reset_source_outputs(project_dir, *, db_type):
     """Reset only the named outputs, once before starting the experiment."""
     source_dir = Path(project_dir).resolve() / "src"
     if source_dir.resolve() != source_dir:
@@ -98,20 +98,55 @@ def _reset_source_outputs(project_dir):
 
     directories = [source_dir / name for name in _SOURCE_OUTPUT_DIRECTORIES]
     files = [source_dir / name for name in _SOURCE_OUTPUT_FILES]
+    generated_dir = source_dir / _GENERATED_SQLS_DIRECTORY
     # Validate every absolute target before deleting anything. Symlinks and
     # junctions must not redirect cleanup to model files, inputs or another tree.
-    for path in directories + files:
+    for path in directories + [generated_dir] + files:
         if path.resolve() != path or not path.is_relative_to(source_dir):
             raise RuntimeError(f"Refusing to clear a redirected output path: {path}")
         if path.exists():
-            expected_type = path.is_dir() if path in directories else path.is_file()
+            expected_type = path.is_file() if path in files else path.is_dir()
             if not expected_type:
                 raise RuntimeError(f"Unexpected output path type: {path}")
+
+    feedback_dir = generated_dir / "feedback"
+    generated_children = list(generated_dir.iterdir()) if generated_dir.exists() else []
+    for path in generated_children:
+        if path.resolve() != path or path.parent != generated_dir:
+            raise RuntimeError(f"Refusing to clear a redirected output path: {path}")
+    if feedback_dir.exists() and not feedback_dir.is_dir():
+        raise RuntimeError(f"Feedback path is not a directory: {feedback_dir}")
+
+    # Match the existing Stage-3 feedback filenames and database aliases.
+    feedback_db = {
+        "mysql": "mysql",
+        "postgresql": "postgresql", "postgres": "postgresql", "pg": "postgresql",
+        "oracle": "oracle", "oracledb": "oracle", "oracle_ai26": "oracle",
+        "sqlserver": "sqlserver",
+    }.get(str(db_type or "").strip().lower())
+    feedback_seed = None
+    if feedback_db is not None:
+        candidate = feedback_dir / f"stage3_signature_feedback-{feedback_db}.json"
+        if candidate.resolve() != candidate:
+            raise RuntimeError(f"Refusing to copy a redirected feedback file: {candidate}")
+        if candidate.is_file():
+            feedback_seed = candidate
 
     for directory in directories:
         if directory.exists():
             shutil.rmtree(directory)
         directory.mkdir(parents=True, exist_ok=True)
+    # Preserve the baseline folder, but discard all per-run files and folders.
+    generated_dir.mkdir(parents=True, exist_ok=True)
+    for path in generated_children:
+        if path == feedback_dir:
+            continue
+        if path.is_dir():
+            shutil.rmtree(path)
+        else:
+            path.unlink()
+    if feedback_seed is not None:
+        shutil.copy2(feedback_seed, generated_dir / feedback_seed.name)
     for path in files:
         path.unlink(missing_ok=True)
 
@@ -253,7 +288,11 @@ def main() -> int:
     source_dir = project_dir / "src"
     if not _prepare_transformer(project_dir):
         return 1
-    _reset_source_outputs(project_dir)
+    if str(source_dir) not in sys.path:
+        sys.path.insert(0, str(source_dir))
+    from RL.config import DB_CONFIG
+
+    _reset_source_outputs(project_dir, db_type=DB_CONFIG.db_type)
     tracked_files = [
         source_dir / "pkg/generated_sqls/stage3_run_status.json",
         source_dir / "BugFinding/generated_test_cases/satisfiable_predicates.txt",
