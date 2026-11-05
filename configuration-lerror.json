@@ -8,6 +8,6 @@
   "_comment_database": "Use the PostgreSQL database containing the tpch and job schemas and their benchmark tables.",
   "database": "",
   "connect_timeout": 5,
-  "_comment_experiment": "Use exactly: all, Robusta-TPC-H, or Robusta-JOB. all runs both experiments in that order.",
-  "experiment": "all"
+  "_comment_experiment": "Use exactly: Robusta-TPC-H or Robusta-JOB.",
+  "experiment": "Robusta-TPC-H"
 }
