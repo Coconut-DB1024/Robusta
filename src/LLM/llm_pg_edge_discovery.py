@@ -14,6 +14,7 @@ import re
 import sys
 import time
 from collections import Counter, defaultdict
+from contextlib import redirect_stdout
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Iterable, Optional
@@ -4619,6 +4620,8 @@ def run_experiment(
                 max_predicates_per_target,
             )
 
+            print(f"Completed interactions: {len(interaction_by_id)}/{len(targets)}", flush=True)
+
             if response.stop_requested:
                 logger.warning(
                     "Stopping new API requests: %s",
@@ -4626,6 +4629,7 @@ def run_experiment(
                 )
                 break
 
+        print("Validating predicates in the database...", flush=True)
         logger.info(
             (
                 "Generation phase stopped or completed. "
@@ -5040,17 +5044,21 @@ def main(
             from stage3_predicate_similarity_analysis import run_analysis
             from result_archive import archive_results
         satisfiable_path = Path(summary["result_directory"]) / SATISFIABLE_PREDICATES_FILENAME
-        similarity_result = run_analysis(
-            project_root=ROOT,
-            input_path=satisfiable_path,
-            output_dir=Path(summary["result_directory"]) / "similarity_result",
-        )
-        archive_results(
-            project_dir=ROOT.parents[1],
-            predicate_path=satisfiable_path,
-            experiment=summary,
-            similarity_result=similarity_result,
-        )
+        print("Calculating predicate similarity...", flush=True)
+        with (Path(summary["result_directory"]) / "experiment.log").open(
+            "a", encoding="utf-8", buffering=1,
+        ) as detail_log, redirect_stdout(detail_log):
+            similarity_result = run_analysis(
+                project_root=ROOT,
+                input_path=satisfiable_path,
+                output_dir=Path(summary["result_directory"]) / "similarity_result",
+            )
+            archive_results(
+                project_dir=ROOT.parents[1],
+                predicate_path=satisfiable_path,
+                experiment=summary,
+                similarity_result=similarity_result,
+            )
 
     except Exception as exc:
         print(
@@ -5060,52 +5068,7 @@ def main(
 
         return 1
 
-    print(
-        json.dumps(
-            {
-                "run_status":
-                    summary[
-                        "run_status"
-                    ],
-
-                "planned_targets":
-                    summary[
-                        "planned_targets"
-                    ],
-
-                "llm_interactions":
-                    summary[
-                        "llm_interactions"
-                    ],
-
-                "generated_predicates":
-                    summary[
-                        "generated_predicates"
-                    ],
-
-                "db_executable_count":
-                    summary[
-                        "db_executable_count"
-                    ],
-
-                "db_satisfiable_count":
-                    summary[
-                        "db_satisfiable_count"
-                    ],
-
-                "discovered_unique_edges":
-                    summary[
-                        "discovered_unique_edges"
-                    ],
-
-                "result_directory":
-                    summary[
-                        "result_directory"
-                    ],
-            },
-            ensure_ascii=False,
-        )
-    )
+    print("Experiment finished.", flush=True)
 
     return 0
 
