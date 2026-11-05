@@ -1,0 +1,411 @@
+{
+  "AND": [
+    "slot1",
+    "slot2"
+  ],
+  "OR": [
+    "slot1",
+    "slot2"
+  ],
+  "NOT": [
+    "slot1"
+  ],
+  ">": [
+    "slot1",
+    "slot2"
+  ],
+  ">=": [
+    "slot1",
+    "slot2"
+  ],
+  "<": [
+    "slot1",
+    "slot2"
+  ],
+  "<=": [
+    "slot1",
+    "slot2"
+  ],
+  "=": [
+    "slot1",
+    "slot2"
+  ],
+  "!=": [
+    "slot1",
+    "slot2"
+  ],
+  "IS DISTINCT FROM": [
+    "slot1",
+    "slot2"
+  ],
+  "IS NOT DISTINCT FROM": [
+    "slot1",
+    "slot2"
+  ],
+  "LIKE": [
+    "slot1",
+    "slot2"
+  ],
+  "NOT LIKE": [
+    "slot1",
+    "slot2"
+  ],
+  "ILIKE": [
+    "slot1",
+    "slot2"
+  ],
+  "NOT ILIKE": [
+    "slot1",
+    "slot2"
+  ],
+  "~": [
+    "slot1",
+    "slot2"
+  ],
+  "~*": [
+    "slot1",
+    "slot2"
+  ],
+  "!~": [
+    "slot1",
+    "slot2"
+  ],
+  "!~*": [
+    "slot1",
+    "slot2"
+  ],
+  "SIMILAR TO": [
+    "slot1",
+    "slot2"
+  ],
+  "IN": [
+    "slot1",
+    "slot2"
+  ],
+  "NOT IN": [
+    "slot1",
+    "slot2"
+  ],
+  "IS NULL": [
+    "slot1"
+  ],
+  "IS NOT NULL": [
+    "slot1"
+  ],
+  "IS UNKNOWN": [
+    "slot1"
+  ],
+  "IS NOT UNKNOWN": [
+    "slot1"
+  ],
+  "IS TRUE": [
+    "slot1"
+  ],
+  "IS FALSE": [
+    "slot1"
+  ],
+  "IS NOT TRUE": [
+    "slot1"
+  ],
+  "IS NOT FALSE": [
+    "slot1"
+  ],
+  "IS NORMALIZED": [
+    "slot1"
+  ],
+  "IS NOT NORMALIZED": [
+    "slot1"
+  ],
+  "BETWEEN": [
+    "slot1",
+    "slot2",
+    "slot3"
+  ],
+  "BETWEEN SYMMETRIC": [
+    "slot1",
+    "slot2",
+    "slot3"
+  ],
+  "NOT BETWEEN": [
+    "slot1",
+    "slot2",
+    "slot3"
+  ],
+  "NOT BETWEEN SYMMETRIC": [
+    "slot1",
+    "slot2",
+    "slot3"
+  ],
+  "+": [
+    "slot1",
+    "slot2"
+  ],
+  "-": [
+    "slot1",
+    "slot2"
+  ],
+  "*": [
+    "slot1",
+    "slot2"
+  ],
+  "/": [
+    "slot1",
+    "slot2"
+  ],
+  "%": [
+    "slot1",
+    "slot2"
+  ],
+  "^": [
+    "slot1",
+    "slot2"
+  ],
+  "&": [
+    "slot1",
+    "slot2"
+  ],
+  "|": [
+    "slot1",
+    "slot2"
+  ],
+  "#": [
+    "slot1",
+    "slot2"
+  ],
+  "<<": [
+    "slot1",
+    "slot2"
+  ],
+  ">>": [
+    "slot1",
+    "slot2"
+  ],
+  "||": [
+    "slot1",
+    "slot2"
+  ],
+  "LOWER()": [
+    "slot1"
+  ],
+  "UPPER()": [
+    "slot1"
+  ],
+  "LENGTH()": [
+    "slot1"
+  ],
+  "ASCII()": [
+    "slot1"
+  ],
+  "INITCAP()": [
+    "slot1"
+  ],
+  "MD5()": [
+    "slot1"
+  ],
+  "REVERSE()": [
+    "slot1"
+  ],
+  "ABS()": [
+    "slot1"
+  ],
+  "FLOOR()": [
+    "slot1"
+  ],
+  "CEILING()": [
+    "slot1"
+  ],
+  "CBRT()": [
+    "slot1"
+  ],
+  "EXP()": [
+    "slot1"
+  ],
+  "LN()": [
+    "slot1"
+  ],
+  "LOG()": [
+    "slot1"
+  ],
+  "DEGREES()": [
+    "slot1"
+  ],
+  "RADIANS()": [
+    "slot1"
+  ],
+  "ROUND()": [
+    "slot1"
+  ],
+  "SIGN()": [
+    "slot1"
+  ],
+  "TRUNC()": [
+    "slot1"
+  ],
+  "ATAN()": [
+    "slot1"
+  ],
+  "ATAND()": [
+    "slot1"
+  ],
+  "COS()": [
+    "slot1"
+  ],
+  "COSD()": [
+    "slot1"
+  ],
+  "SIN()": [
+    "slot1"
+  ],
+  "SIND()": [
+    "slot1"
+  ],
+  "TAN()": [
+    "slot1"
+  ],
+  "TAND()": [
+    "slot1"
+  ],
+  "SINH()": [
+    "slot1"
+  ],
+  "COSH()": [
+    "slot1"
+  ],
+  "TANH()": [
+    "slot1"
+  ],
+  "ASINH()": [
+    "slot1"
+  ],
+  "COT()": [
+    "slot1"
+  ],
+  "COTD()": [
+    "slot1"
+  ],
+  "BTRIM()": [
+    "slot1",
+    "slot2"
+  ],
+  "RTRIM()": [
+    "slot1"
+  ],
+  "STRPOS()": [
+    "slot1",
+    "slot2"
+  ],
+  "QUOTE_IDENT()": [
+    "slot1"
+  ],
+  "QUOTE_LITERAL()": [
+    "slot1"
+  ],
+  "TRANSLATE()": [
+    "slot1",
+    "slot2",
+    "slot3"
+  ],
+  "LEFT()": [
+    "slot1",
+    "slot2"
+  ],
+  "RIGHT()": [
+    "slot1",
+    "slot2"
+  ],
+  "RPAD()": [
+    "slot1",
+    "slot2"
+  ],
+  "SUBSTR()": [
+    "slot1",
+    "slot2",
+    "slot3"
+  ],
+  "CHR()": [
+    "slot1"
+  ],
+  "TO_ASCII()": [
+    "slot1",
+    "slot2"
+  ],
+  "TO_CHAR()": [
+    "slot1",
+    "slot2"
+  ],
+  "BIT_LENGTH()": [
+    "slot1"
+  ],
+  "CHAR_LENGTH()": [
+    "slot1"
+  ],
+  "OCTET_LENGTH()": [
+    "slot1"
+  ],
+  "LTRIM()": [
+    "slot1"
+  ],
+  "QUOTE_NULLABLE()": [
+    "slot1"
+  ],
+  "TO_HEX()": [
+    "slot1"
+  ],
+  "NORMALIZE()": [
+    "slot1"
+  ],
+  "UNISTR()": [
+    "slot1"
+  ],
+  "GCD()": [
+    "slot1",
+    "slot2"
+  ],
+  "LCM()": [
+    "slot1",
+    "slot2"
+  ],
+  "ATAN2()": [
+    "slot1",
+    "slot2"
+  ],
+  "ATAN2D()": [
+    "slot1",
+    "slot2"
+  ],
+  "DIV()": [
+    "slot1",
+    "slot2"
+  ],
+  "STARTS_WITH()": [
+    "slot1",
+    "slot2"
+  ],
+  "REPEAT()": [
+    "slot1",
+    "slot2"
+  ],
+  "COL_INT": [],
+  "COL_FLOAT": [],
+  "COL_STRING": [],
+  "VALUE_TYPICAL_INT": [],
+  "VALUE_TYPICAL_FLOAT": [],
+  "VALUE_TYPICAL_STRING": [],
+  "NULL": [],
+  "TRUE": [],
+  "FALSE": [],
+  "CURRENT_DATABASE()": [],
+  "CURRENT_SCHEMA()": [],
+  "VERSION()": [],
+  "PG_JIT_AVAILABLE()": [],
+  "INET_CLIENT_PORT()": [],
+  "PG_BACKEND_PID()": [],
+  "PG_NOTIFICATION_QUEUE_USAGE()": [],
+  "PG_TRIGGER_DEPTH()": [],
+  "PI()": [],
+  "CURRENT_USER": [],
+  "SESSION_USER": [],
+  "PG_CLIENT_ENCODING()": [],
+  "INET_SERVER_PORT()": [],
+  "PG_IS_IN_RECOVERY()": []
+}

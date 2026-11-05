@@ -1,0 +1,806 @@
+{
+  "schema_version": 2,
+  "purpose": "Independent pglast/raw-PostgreSQL-AST mapping for all 132 experiment tokens. Ordinary function tokens use the generic FuncCall rule. Special syntactic forms and all 23 terminal tokens have explicit rules. The main checker must honor slot_selectors and terminal modes; mappings are never guessed.",
+  "function_rule": {
+    "enabled": true,
+    "applies_when": "token ends with () and no explicit_tokens entry exists",
+    "ast_node": "FuncCall",
+    "function_name_transform": "remove trailing parentheses, lowercase",
+    "slot_field": "args",
+    "confidence": "PostgreSQL FuncCall convention; function name is matched by the final component of funcname"
+  },
+  "explicit_tokens": {
+    "AND": {
+      "ast_node": "BoolExpr",
+      "enum_field": "boolop",
+      "enum_values": [
+        "AND_EXPR"
+      ],
+      "slot_field": "args"
+    },
+    "OR": {
+      "ast_node": "BoolExpr",
+      "enum_field": "boolop",
+      "enum_values": [
+        "OR_EXPR"
+      ],
+      "slot_field": "args"
+    },
+    "NOT": {
+      "ast_node": "BoolExpr",
+      "enum_field": "boolop",
+      "enum_values": [
+        "NOT_EXPR"
+      ],
+      "slot_field": "args"
+    },
+    ">": {
+      "ast_node": "A_Expr",
+      "enum_field": "kind",
+      "enum_values": [
+        "AEXPR_OP"
+      ],
+      "operator_names": [
+        ">"
+      ],
+      "slot_fields": [
+        "lexpr",
+        "rexpr"
+      ]
+    },
+    ">=": {
+      "ast_node": "A_Expr",
+      "enum_field": "kind",
+      "enum_values": [
+        "AEXPR_OP"
+      ],
+      "operator_names": [
+        ">="
+      ],
+      "slot_fields": [
+        "lexpr",
+        "rexpr"
+      ]
+    },
+    "<": {
+      "ast_node": "A_Expr",
+      "enum_field": "kind",
+      "enum_values": [
+        "AEXPR_OP"
+      ],
+      "operator_names": [
+        "<"
+      ],
+      "slot_fields": [
+        "lexpr",
+        "rexpr"
+      ]
+    },
+    "<=": {
+      "ast_node": "A_Expr",
+      "enum_field": "kind",
+      "enum_values": [
+        "AEXPR_OP"
+      ],
+      "operator_names": [
+        "<="
+      ],
+      "slot_fields": [
+        "lexpr",
+        "rexpr"
+      ]
+    },
+    "=": {
+      "ast_node": "A_Expr",
+      "enum_field": "kind",
+      "enum_values": [
+        "AEXPR_OP"
+      ],
+      "operator_names": [
+        "="
+      ],
+      "slot_fields": [
+        "lexpr",
+        "rexpr"
+      ]
+    },
+    "!=": {
+      "ast_node": "A_Expr",
+      "enum_field": "kind",
+      "enum_values": [
+        "AEXPR_OP"
+      ],
+      "operator_names": [
+        "<>",
+        "!="
+      ],
+      "slot_fields": [
+        "lexpr",
+        "rexpr"
+      ]
+    },
+    "IS DISTINCT FROM": {
+      "ast_node": "A_Expr",
+      "enum_field": "kind",
+      "enum_values": [
+        "AEXPR_DISTINCT"
+      ],
+      "operator_names": [
+        "="
+      ],
+      "slot_fields": [
+        "lexpr",
+        "rexpr"
+      ]
+    },
+    "IS NOT DISTINCT FROM": {
+      "ast_node": "A_Expr",
+      "enum_field": "kind",
+      "enum_values": [
+        "AEXPR_NOT_DISTINCT"
+      ],
+      "operator_names": [
+        "="
+      ],
+      "slot_fields": [
+        "lexpr",
+        "rexpr"
+      ]
+    },
+    "LIKE": {
+      "ast_node": "A_Expr",
+      "enum_field": "kind",
+      "enum_values": [
+        "AEXPR_LIKE"
+      ],
+      "operator_names": [
+        "~~"
+      ],
+      "slot_fields": [
+        "lexpr",
+        "rexpr"
+      ]
+    },
+    "NOT LIKE": {
+      "ast_node": "A_Expr",
+      "enum_field": "kind",
+      "enum_values": [
+        "AEXPR_LIKE"
+      ],
+      "operator_names": [
+        "!~~"
+      ],
+      "slot_fields": [
+        "lexpr",
+        "rexpr"
+      ]
+    },
+    "ILIKE": {
+      "ast_node": "A_Expr",
+      "enum_field": "kind",
+      "enum_values": [
+        "AEXPR_ILIKE"
+      ],
+      "operator_names": [
+        "~~*"
+      ],
+      "slot_fields": [
+        "lexpr",
+        "rexpr"
+      ]
+    },
+    "NOT ILIKE": {
+      "ast_node": "A_Expr",
+      "enum_field": "kind",
+      "enum_values": [
+        "AEXPR_ILIKE"
+      ],
+      "operator_names": [
+        "!~~*"
+      ],
+      "slot_fields": [
+        "lexpr",
+        "rexpr"
+      ]
+    },
+    "~": {
+      "ast_node": "A_Expr",
+      "enum_field": "kind",
+      "enum_values": [
+        "AEXPR_OP"
+      ],
+      "operator_names": [
+        "~"
+      ],
+      "slot_fields": [
+        "lexpr",
+        "rexpr"
+      ]
+    },
+    "~*": {
+      "ast_node": "A_Expr",
+      "enum_field": "kind",
+      "enum_values": [
+        "AEXPR_OP"
+      ],
+      "operator_names": [
+        "~*"
+      ],
+      "slot_fields": [
+        "lexpr",
+        "rexpr"
+      ]
+    },
+    "!~": {
+      "ast_node": "A_Expr",
+      "enum_field": "kind",
+      "enum_values": [
+        "AEXPR_OP"
+      ],
+      "operator_names": [
+        "!~"
+      ],
+      "slot_fields": [
+        "lexpr",
+        "rexpr"
+      ]
+    },
+    "!~*": {
+      "ast_node": "A_Expr",
+      "enum_field": "kind",
+      "enum_values": [
+        "AEXPR_OP"
+      ],
+      "operator_names": [
+        "!~*"
+      ],
+      "slot_fields": [
+        "lexpr",
+        "rexpr"
+      ]
+    },
+    "SIMILAR TO": {
+      "ast_node": "A_Expr",
+      "enum_field": "kind",
+      "enum_values": [
+        "AEXPR_SIMILAR"
+      ],
+      "operator_names": [
+        "~"
+      ],
+      "slot_fields": [
+        "lexpr",
+        "rexpr"
+      ],
+      "semantic_rhs_wrapper": "PostgreSQL may wrap the pattern side in pg_catalog.similar_to_escape(); the main checker must unwrap this parser helper before checking slot2."
+    },
+    "IN": {
+      "ast_node": "A_Expr",
+      "enum_field": "kind",
+      "enum_values": [
+        "AEXPR_IN"
+      ],
+      "operator_names": [
+        "="
+      ],
+      "slot_selectors": [
+        {
+          "field": "lexpr"
+        },
+        {
+          "field": "rexpr",
+          "list_mode": "any"
+        }
+      ]
+    },
+    "NOT IN": {
+      "ast_node": "A_Expr",
+      "enum_field": "kind",
+      "enum_values": [
+        "AEXPR_IN"
+      ],
+      "operator_names": [
+        "<>"
+      ],
+      "slot_selectors": [
+        {
+          "field": "lexpr"
+        },
+        {
+          "field": "rexpr",
+          "list_mode": "any"
+        }
+      ]
+    },
+    "IS NULL": {
+      "ast_node": "NullTest",
+      "enum_field": "nulltesttype",
+      "enum_values": [
+        "IS_NULL"
+      ],
+      "slot_field": "arg"
+    },
+    "IS NOT NULL": {
+      "ast_node": "NullTest",
+      "enum_field": "nulltesttype",
+      "enum_values": [
+        "IS_NOT_NULL"
+      ],
+      "slot_field": "arg"
+    },
+    "IS UNKNOWN": {
+      "ast_node": "BooleanTest",
+      "enum_field": "booltesttype",
+      "enum_values": [
+        "IS_UNKNOWN"
+      ],
+      "slot_field": "arg"
+    },
+    "IS NOT UNKNOWN": {
+      "ast_node": "BooleanTest",
+      "enum_field": "booltesttype",
+      "enum_values": [
+        "IS_NOT_UNKNOWN"
+      ],
+      "slot_field": "arg"
+    },
+    "IS TRUE": {
+      "ast_node": "BooleanTest",
+      "enum_field": "booltesttype",
+      "enum_values": [
+        "IS_TRUE"
+      ],
+      "slot_field": "arg"
+    },
+    "IS FALSE": {
+      "ast_node": "BooleanTest",
+      "enum_field": "booltesttype",
+      "enum_values": [
+        "IS_FALSE"
+      ],
+      "slot_field": "arg"
+    },
+    "IS NOT TRUE": {
+      "ast_node": "BooleanTest",
+      "enum_field": "booltesttype",
+      "enum_values": [
+        "IS_NOT_TRUE"
+      ],
+      "slot_field": "arg"
+    },
+    "IS NOT FALSE": {
+      "ast_node": "BooleanTest",
+      "enum_field": "booltesttype",
+      "enum_values": [
+        "IS_NOT_FALSE"
+      ],
+      "slot_field": "arg"
+    },
+    "IS NORMALIZED": {
+      "mode": "normalized_test",
+      "negated": false,
+      "ast_node": "FuncCall",
+      "function_name": "is_normalized",
+      "slot_selectors": [
+        {
+          "field": "args",
+          "list_index": 0
+        }
+      ]
+    },
+    "IS NOT NORMALIZED": {
+      "mode": "normalized_test",
+      "negated": true,
+      "ast_node": "BoolExpr",
+      "enum_field": "boolop",
+      "enum_values": [
+        "NOT_EXPR"
+      ],
+      "inner": {
+        "container_field": "args",
+        "container_index": 0,
+        "ast_node": "FuncCall",
+        "function_name": "is_normalized"
+      },
+      "slot_selectors": [
+        {
+          "through_inner": true,
+          "field": "args",
+          "list_index": 0
+        }
+      ]
+    },
+    "BETWEEN": {
+      "ast_node": "A_Expr",
+      "enum_field": "kind",
+      "enum_values": [
+        "AEXPR_BETWEEN"
+      ],
+      "slot_selectors": [
+        {
+          "field": "lexpr"
+        },
+        {
+          "field": "rexpr",
+          "list_index": 0
+        },
+        {
+          "field": "rexpr",
+          "list_index": 1
+        }
+      ]
+    },
+    "BETWEEN SYMMETRIC": {
+      "ast_node": "A_Expr",
+      "enum_field": "kind",
+      "enum_values": [
+        "AEXPR_BETWEEN_SYM"
+      ],
+      "slot_selectors": [
+        {
+          "field": "lexpr"
+        },
+        {
+          "field": "rexpr",
+          "list_index": 0
+        },
+        {
+          "field": "rexpr",
+          "list_index": 1
+        }
+      ]
+    },
+    "NOT BETWEEN": {
+      "ast_node": "A_Expr",
+      "enum_field": "kind",
+      "enum_values": [
+        "AEXPR_NOT_BETWEEN"
+      ],
+      "slot_selectors": [
+        {
+          "field": "lexpr"
+        },
+        {
+          "field": "rexpr",
+          "list_index": 0
+        },
+        {
+          "field": "rexpr",
+          "list_index": 1
+        }
+      ]
+    },
+    "NOT BETWEEN SYMMETRIC": {
+      "ast_node": "A_Expr",
+      "enum_field": "kind",
+      "enum_values": [
+        "AEXPR_NOT_BETWEEN_SYM"
+      ],
+      "slot_selectors": [
+        {
+          "field": "lexpr"
+        },
+        {
+          "field": "rexpr",
+          "list_index": 0
+        },
+        {
+          "field": "rexpr",
+          "list_index": 1
+        }
+      ]
+    },
+    "+": {
+      "ast_node": "A_Expr",
+      "enum_field": "kind",
+      "enum_values": [
+        "AEXPR_OP"
+      ],
+      "operator_names": [
+        "+"
+      ],
+      "slot_fields": [
+        "lexpr",
+        "rexpr"
+      ]
+    },
+    "-": {
+      "ast_node": "A_Expr",
+      "enum_field": "kind",
+      "enum_values": [
+        "AEXPR_OP"
+      ],
+      "operator_names": [
+        "-"
+      ],
+      "slot_fields": [
+        "lexpr",
+        "rexpr"
+      ]
+    },
+    "*": {
+      "ast_node": "A_Expr",
+      "enum_field": "kind",
+      "enum_values": [
+        "AEXPR_OP"
+      ],
+      "operator_names": [
+        "*"
+      ],
+      "slot_fields": [
+        "lexpr",
+        "rexpr"
+      ]
+    },
+    "/": {
+      "ast_node": "A_Expr",
+      "enum_field": "kind",
+      "enum_values": [
+        "AEXPR_OP"
+      ],
+      "operator_names": [
+        "/"
+      ],
+      "slot_fields": [
+        "lexpr",
+        "rexpr"
+      ]
+    },
+    "%": {
+      "ast_node": "A_Expr",
+      "enum_field": "kind",
+      "enum_values": [
+        "AEXPR_OP"
+      ],
+      "operator_names": [
+        "%"
+      ],
+      "slot_fields": [
+        "lexpr",
+        "rexpr"
+      ]
+    },
+    "^": {
+      "ast_node": "A_Expr",
+      "enum_field": "kind",
+      "enum_values": [
+        "AEXPR_OP"
+      ],
+      "operator_names": [
+        "^"
+      ],
+      "slot_fields": [
+        "lexpr",
+        "rexpr"
+      ]
+    },
+    "&": {
+      "ast_node": "A_Expr",
+      "enum_field": "kind",
+      "enum_values": [
+        "AEXPR_OP"
+      ],
+      "operator_names": [
+        "&"
+      ],
+      "slot_fields": [
+        "lexpr",
+        "rexpr"
+      ]
+    },
+    "|": {
+      "ast_node": "A_Expr",
+      "enum_field": "kind",
+      "enum_values": [
+        "AEXPR_OP"
+      ],
+      "operator_names": [
+        "|"
+      ],
+      "slot_fields": [
+        "lexpr",
+        "rexpr"
+      ]
+    },
+    "#": {
+      "ast_node": "A_Expr",
+      "enum_field": "kind",
+      "enum_values": [
+        "AEXPR_OP"
+      ],
+      "operator_names": [
+        "#"
+      ],
+      "slot_fields": [
+        "lexpr",
+        "rexpr"
+      ]
+    },
+    "<<": {
+      "ast_node": "A_Expr",
+      "enum_field": "kind",
+      "enum_values": [
+        "AEXPR_OP"
+      ],
+      "operator_names": [
+        "<<"
+      ],
+      "slot_fields": [
+        "lexpr",
+        "rexpr"
+      ]
+    },
+    ">>": {
+      "ast_node": "A_Expr",
+      "enum_field": "kind",
+      "enum_values": [
+        "AEXPR_OP"
+      ],
+      "operator_names": [
+        ">>"
+      ],
+      "slot_fields": [
+        "lexpr",
+        "rexpr"
+      ]
+    },
+    "||": {
+      "ast_node": "A_Expr",
+      "enum_field": "kind",
+      "enum_values": [
+        "AEXPR_OP"
+      ],
+      "operator_names": [
+        "||"
+      ],
+      "slot_fields": [
+        "lexpr",
+        "rexpr"
+      ]
+    },
+    "COL_INT": {
+      "mode": "terminal_column",
+      "terminal": true,
+      "ast_node": "ColumnRef",
+      "column_type_group": "integer"
+    },
+    "COL_FLOAT": {
+      "mode": "terminal_column",
+      "terminal": true,
+      "ast_node": "ColumnRef",
+      "column_type_group": "float"
+    },
+    "COL_STRING": {
+      "mode": "terminal_column",
+      "terminal": true,
+      "ast_node": "ColumnRef",
+      "column_type_group": "string"
+    },
+    "VALUE_TYPICAL_INT": {
+      "mode": "terminal_literal",
+      "terminal": true,
+      "ast_node": "A_Const",
+      "literal_kind": "integer"
+    },
+    "VALUE_TYPICAL_FLOAT": {
+      "mode": "terminal_literal",
+      "terminal": true,
+      "ast_node": "A_Const",
+      "literal_kind": "float"
+    },
+    "VALUE_TYPICAL_STRING": {
+      "mode": "terminal_literal",
+      "terminal": true,
+      "ast_node": "A_Const",
+      "literal_kind": "string"
+    },
+    "NULL": {
+      "mode": "terminal_null",
+      "terminal": true,
+      "ast_node": "A_Const",
+      "is_null": true
+    },
+    "TRUE": {
+      "mode": "terminal_boolean",
+      "terminal": true,
+      "ast_node": "A_Const",
+      "bool_value": true
+    },
+    "FALSE": {
+      "mode": "terminal_boolean",
+      "terminal": true,
+      "ast_node": "A_Const",
+      "bool_value": false
+    },
+    "CURRENT_USER": {
+      "mode": "sql_value_function",
+      "terminal": true,
+      "ast_node": "SQLValueFunction",
+      "enum_field": "op",
+      "enum_values": [
+        "SVFOP_CURRENT_USER"
+      ]
+    },
+    "SESSION_USER": {
+      "mode": "sql_value_function",
+      "terminal": true,
+      "ast_node": "SQLValueFunction",
+      "enum_field": "op",
+      "enum_values": [
+        "SVFOP_SESSION_USER"
+      ]
+    },
+    "CURRENT_DATABASE()": {
+      "mode": "terminal_function",
+      "terminal": true,
+      "ast_node": "FuncCall",
+      "function_name": "current_database"
+    },
+    "CURRENT_SCHEMA()": {
+      "mode": "terminal_function",
+      "terminal": true,
+      "ast_node": "FuncCall",
+      "function_name": "current_schema"
+    },
+    "VERSION()": {
+      "mode": "terminal_function",
+      "terminal": true,
+      "ast_node": "FuncCall",
+      "function_name": "version"
+    },
+    "PG_JIT_AVAILABLE()": {
+      "mode": "terminal_function",
+      "terminal": true,
+      "ast_node": "FuncCall",
+      "function_name": "pg_jit_available"
+    },
+    "INET_CLIENT_PORT()": {
+      "mode": "terminal_function",
+      "terminal": true,
+      "ast_node": "FuncCall",
+      "function_name": "inet_client_port"
+    },
+    "PG_BACKEND_PID()": {
+      "mode": "terminal_function",
+      "terminal": true,
+      "ast_node": "FuncCall",
+      "function_name": "pg_backend_pid"
+    },
+    "PG_NOTIFICATION_QUEUE_USAGE()": {
+      "mode": "terminal_function",
+      "terminal": true,
+      "ast_node": "FuncCall",
+      "function_name": "pg_notification_queue_usage"
+    },
+    "PG_TRIGGER_DEPTH()": {
+      "mode": "terminal_function",
+      "terminal": true,
+      "ast_node": "FuncCall",
+      "function_name": "pg_trigger_depth"
+    },
+    "PI()": {
+      "mode": "terminal_function",
+      "terminal": true,
+      "ast_node": "FuncCall",
+      "function_name": "pi"
+    },
+    "PG_CLIENT_ENCODING()": {
+      "mode": "terminal_function",
+      "terminal": true,
+      "ast_node": "FuncCall",
+      "function_name": "pg_client_encoding"
+    },
+    "INET_SERVER_PORT()": {
+      "mode": "terminal_function",
+      "terminal": true,
+      "ast_node": "FuncCall",
+      "function_name": "inet_server_port"
+    },
+    "PG_IS_IN_RECOVERY()": {
+      "mode": "terminal_function",
+      "terminal": true,
+      "ast_node": "FuncCall",
+      "function_name": "pg_is_in_recovery"
+    }
+  }
+}

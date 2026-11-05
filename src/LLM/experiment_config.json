@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "backend": "online",
+  "_comment_configuration": "At startup, database connection/table/timeouts and online_model are read from ../../configuration.json. This file keeps only LLM experiment settings and is not rewritten.",
+  "online_model": {},
+  "generation": {
+    "max_predicates_per_target": 30
+  },
+  "database": {
+    "schema": "public",
+    "read_only": true
+  },
+  "rag": {
+    "pdf_filename": "postgresql-14-US.pdf",
+    "cache_directory": "results",
+    "chunk_chars": 4800,
+    "overlap_chars": 600,
+    "top_k": 5
+  }
+}
