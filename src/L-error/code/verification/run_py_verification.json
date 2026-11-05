@@ -1,0 +1,20 @@
+{
+  "verified_at": "2026-11-05T09:25:44.454810+00:00",
+  "python_entrypoint": "run.py",
+  "powershell_launcher_required": false,
+  "offline_tests_passed": 17,
+  "full_simulated_flow": {
+    "sql_counts": {
+      "Robusta-TPC-H": 47,
+      "Robusta-JOB": 59
+    },
+    "measurement_count": 5406,
+    "database_calls_mocked": true,
+    "csv_columns": 52,
+    "completed": true
+  },
+  "results_directory_empty": true,
+  "source_sql_hashes_unchanged": true,
+  "actual_connection_check": "ConnectionTimeout; Docker engine unavailable",
+  "actual_workload_measurements_started": false
+}

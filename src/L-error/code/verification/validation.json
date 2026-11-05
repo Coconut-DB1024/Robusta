@@ -1,0 +1,13 @@
+{
+  "status": "validated_no_database_execution",
+  "protocol": "default3-min-success-hint1-sequential-dynamic-best-v1",
+  "experiments": {
+    "Robusta-TPC-H": 47,
+    "Robusta-JOB": 59
+  },
+  "default_timeout_seconds": {
+    "Robusta-TPC-H": 600,
+    "Robusta-JOB": 600
+  },
+  "csv_columns": 52
+}

@@ -1,0 +1,629 @@
+{
+  "created_at": "2026-11-05T09:05:48.894192+00:00",
+  "purpose": "Reproduction package; no database measurements executed",
+  "source_roots": {
+    "experiment_archive": "Robusta_L-error archive",
+    "project": "original project root"
+  },
+  "protocol": "default3-min-success-hint1-sequential-dynamic-best-v1",
+  "default_timeout_ms": 600000,
+  "hint_order": [
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15,
+    16,
+    17,
+    18,
+    19,
+    20,
+    21,
+    22,
+    23,
+    24,
+    25,
+    26,
+    27,
+    28,
+    29,
+    30,
+    31,
+    32,
+    33,
+    34,
+    35,
+    36,
+    37,
+    38,
+    39,
+    40,
+    41,
+    42,
+    43,
+    44,
+    45,
+    46,
+    47,
+    48,
+    49
+  ],
+  "hint_timeout_formula": "ceil(T_best + max(1000, 0.1*T_best))",
+  "datasets": {
+    "Robusta-TPC-H": {
+      "source_version": "V6",
+      "count": 47,
+      "source_summary": "experiment_archive/Robusta_TPCH_V6/final/summary.csv",
+      "source_summary_sha256": "db600fc9dd1ca12ca53908854a9f38911679c97bbaf7a3118d5943a5da64dd36",
+      "queries": [
+        {
+          "query_id": "RTPCH-01",
+          "sql_file": "Robusta-TPC-H/RTPCH-01.sql",
+          "sha256": "5349b4f6eeb3f8f5caf20f92f937a35928d74c9a7c3db5fae739f972230bc1c2"
+        },
+        {
+          "query_id": "RTPCH-02",
+          "sql_file": "Robusta-TPC-H/RTPCH-02.sql",
+          "sha256": "2aea7be49fe06cd54ea1c92abaad29249d8fb9d904f2ebab643184840d917380"
+        },
+        {
+          "query_id": "RTPCH-03",
+          "sql_file": "Robusta-TPC-H/RTPCH-03.sql",
+          "sha256": "398195e003278fdbc80eacdad57f8b16e7fec41c30f28d67919ce1958bce226f"
+        },
+        {
+          "query_id": "RTPCH-04",
+          "sql_file": "Robusta-TPC-H/RTPCH-04.sql",
+          "sha256": "4d8c17fd93fc1a2071291f698fb32c7888fe4521181431b446f7761593df356e"
+        },
+        {
+          "query_id": "RTPCH-05",
+          "sql_file": "Robusta-TPC-H/RTPCH-05.sql",
+          "sha256": "cbefe9c275fd2aface0e083e6a2e1e8c31b6db6523fbc402f67d3f0187d9aa96"
+        },
+        {
+          "query_id": "RTPCH-06",
+          "sql_file": "Robusta-TPC-H/RTPCH-06.sql",
+          "sha256": "bf21ba0eea3c2bd9fb14f1d22586006b72ed0897b59ae8c5db038f9d6894c38a"
+        },
+        {
+          "query_id": "RTPCH-07",
+          "sql_file": "Robusta-TPC-H/RTPCH-07.sql",
+          "sha256": "f611ebf1b147421feaad20931096bce90e85f577c38b1c76ceafa13e26a9971e"
+        },
+        {
+          "query_id": "RTPCH-08",
+          "sql_file": "Robusta-TPC-H/RTPCH-08.sql",
+          "sha256": "6cfa442e014cfe2b9c87f935b8044e8574eaf425b20014635f8ecc02b4e1e861"
+        },
+        {
+          "query_id": "RTPCH-09",
+          "sql_file": "Robusta-TPC-H/RTPCH-09.sql",
+          "sha256": "2c7d8e8af0db396b6e019fca03bb4bd60cca24cad0af56293c21e1b911401699"
+        },
+        {
+          "query_id": "RTPCH-10",
+          "sql_file": "Robusta-TPC-H/RTPCH-10.sql",
+          "sha256": "0a14f0a4407bcb01bb6f3c77c975349e1ade4ce6f01f2ceb819bd477c9fad6ca"
+        },
+        {
+          "query_id": "RTPCH-11",
+          "sql_file": "Robusta-TPC-H/RTPCH-11.sql",
+          "sha256": "bc3c339d9b1b5fc359385de43754cbc6c98c20e66ad789b8601d66d4a833078f"
+        },
+        {
+          "query_id": "RTPCH-12",
+          "sql_file": "Robusta-TPC-H/RTPCH-12.sql",
+          "sha256": "a9abc14794c166abe0c958a944d814b10d3bf5a85a1fb72025a6dce151991172"
+        },
+        {
+          "query_id": "RTPCH-13",
+          "sql_file": "Robusta-TPC-H/RTPCH-13.sql",
+          "sha256": "2fd692d15c7192d942ec553d9c947c86628219ee7b7cf9accd84b620291323c9"
+        },
+        {
+          "query_id": "RTPCH-14",
+          "sql_file": "Robusta-TPC-H/RTPCH-14.sql",
+          "sha256": "8bf6791bd2928380c43a365dd9d424bd44fde3cea6df32be6a5b3b7eac1acd15"
+        },
+        {
+          "query_id": "RTPCH-15",
+          "sql_file": "Robusta-TPC-H/RTPCH-15.sql",
+          "sha256": "7a63a7d1df0c24567e41a8ebb1df7ce8d857a48b00365ce53167c1a5b0a6c73d"
+        },
+        {
+          "query_id": "RTPCH-16",
+          "sql_file": "Robusta-TPC-H/RTPCH-16.sql",
+          "sha256": "2a7d29aecb8006f3cdf8fcc31d0f41feb17792a43fc4f1aabc205df8b782092a"
+        },
+        {
+          "query_id": "RTPCH-17",
+          "sql_file": "Robusta-TPC-H/RTPCH-17.sql",
+          "sha256": "dbcca32ba850d21cc2225e5195064cedf7875a3f0bf272bd574cb2a1526a3e55"
+        },
+        {
+          "query_id": "RTPCH-18",
+          "sql_file": "Robusta-TPC-H/RTPCH-18.sql",
+          "sha256": "fe39a35b7923ec8bfdf4d1bced2485dabb1beb47dc8bbe4d870107b6b599e56b"
+        },
+        {
+          "query_id": "RTPCH-19",
+          "sql_file": "Robusta-TPC-H/RTPCH-19.sql",
+          "sha256": "03d9ea3fab4230cba7076065e3e4e0c2661c0a36549e128af7bd204528a0b766"
+        },
+        {
+          "query_id": "RTPCH-20",
+          "sql_file": "Robusta-TPC-H/RTPCH-20.sql",
+          "sha256": "59d64b4ab96185b5c4e144d364aa702811e84ea40660d9c4ce5b412842f662dc"
+        },
+        {
+          "query_id": "RTPCH-21",
+          "sql_file": "Robusta-TPC-H/RTPCH-21.sql",
+          "sha256": "cbd81377b6810eb954c56966e9501fc771ddb51181ca6e8a1d402434d163d816"
+        },
+        {
+          "query_id": "RTPCH-22",
+          "sql_file": "Robusta-TPC-H/RTPCH-22.sql",
+          "sha256": "8bdd8a74b00f5e761ee3b316e9752bd55a3c22335696e98b259666e17cc7ab53"
+        },
+        {
+          "query_id": "RTPCH-23",
+          "sql_file": "Robusta-TPC-H/RTPCH-23.sql",
+          "sha256": "ff902e922890728090e1a6cff74b11a7730b570f1d13867d6675182d3b7218a8"
+        },
+        {
+          "query_id": "RTPCH-24",
+          "sql_file": "Robusta-TPC-H/RTPCH-24.sql",
+          "sha256": "b0a3adf9e8188eea3a058d0001766240d337e8b99ac716446b42a5db57f473e0"
+        },
+        {
+          "query_id": "RTPCH-25",
+          "sql_file": "Robusta-TPC-H/RTPCH-25.sql",
+          "sha256": "34922471e33c010e1ff085dc5d39cde960bee5a151d5f7b8cb894a4e1930e8c4"
+        },
+        {
+          "query_id": "RTPCH-26",
+          "sql_file": "Robusta-TPC-H/RTPCH-26.sql",
+          "sha256": "cb2f0b9b0af2f29fd13dca35e4bffcfb221e9b5d9e5191def3ed0deb08bc6c59"
+        },
+        {
+          "query_id": "RTPCH-27",
+          "sql_file": "Robusta-TPC-H/RTPCH-27.sql",
+          "sha256": "7d3a9b2d86000fdbefb2871864072f6f2dc886e3fa38bb385f3acdd4ba576d70"
+        },
+        {
+          "query_id": "RTPCH-28",
+          "sql_file": "Robusta-TPC-H/RTPCH-28.sql",
+          "sha256": "d76dfb853939b93e995613c3a07e9f5ccb4739b4c6a852a12b5d02706d6c1677"
+        },
+        {
+          "query_id": "RTPCH-29",
+          "sql_file": "Robusta-TPC-H/RTPCH-29.sql",
+          "sha256": "0fd655c0ff0e68da0477dcf68951808d65eaf67f0502d2bdaeba7e803ab7cc2b"
+        },
+        {
+          "query_id": "RTPCH-30",
+          "sql_file": "Robusta-TPC-H/RTPCH-30.sql",
+          "sha256": "c80dcb035400795e67dfff85e67adb046e27411a784a82f8021976570260ec0c"
+        },
+        {
+          "query_id": "RTPCH-31",
+          "sql_file": "Robusta-TPC-H/RTPCH-31.sql",
+          "sha256": "8b5c29fa5f2195500fc9d6382f84ea54072c42577facbece83cac2cd7e81c0b5"
+        },
+        {
+          "query_id": "RTPCH-32",
+          "sql_file": "Robusta-TPC-H/RTPCH-32.sql",
+          "sha256": "911218a632b1ea526081d68acc902c06c3ea50b7eab25b47c76b224cfe2c3f4d"
+        },
+        {
+          "query_id": "RTPCH-33",
+          "sql_file": "Robusta-TPC-H/RTPCH-33.sql",
+          "sha256": "816b4a6f4297870efc5c86f7a0fe98b9952e550c5bedb19a8bb0c87aba67def6"
+        },
+        {
+          "query_id": "RTPCH-34",
+          "sql_file": "Robusta-TPC-H/RTPCH-34.sql",
+          "sha256": "7df5b93c413e668376d05ee04287ae3f1fee1078b38eb7ce83395d25209095aa"
+        },
+        {
+          "query_id": "RTPCH-35",
+          "sql_file": "Robusta-TPC-H/RTPCH-35.sql",
+          "sha256": "ec0342f8542be468f410aba7bf6d127d154e5c2d3949f813b9496ead8d327d70"
+        },
+        {
+          "query_id": "RTPCH-36",
+          "sql_file": "Robusta-TPC-H/RTPCH-36.sql",
+          "sha256": "975f2dc4e913b9ab6f2b8f0ec41a2377dda9d113db7d15516883215edb28e939"
+        },
+        {
+          "query_id": "RTPCH-37",
+          "sql_file": "Robusta-TPC-H/RTPCH-37.sql",
+          "sha256": "4b0a008f42e37c634c877d89fd209900fae8e64f07546cb6ddc81c6f7a4aacb0"
+        },
+        {
+          "query_id": "RTPCH-38",
+          "sql_file": "Robusta-TPC-H/RTPCH-38.sql",
+          "sha256": "ab65381c37449b6470d5e8b29624808466a06709f07c3f81a432d451da48ef8d"
+        },
+        {
+          "query_id": "RTPCH-39",
+          "sql_file": "Robusta-TPC-H/RTPCH-39.sql",
+          "sha256": "df74ace12a968417bf6fd617f10d496e644d56f218ee9dbed0024e400bf532e5"
+        },
+        {
+          "query_id": "RTPCH-40",
+          "sql_file": "Robusta-TPC-H/RTPCH-40.sql",
+          "sha256": "441e6f4c6e701ec0c70407a5c32f1ddf72e41e2a849bcc6139ddc9a58e510859"
+        },
+        {
+          "query_id": "RTPCH-41",
+          "sql_file": "Robusta-TPC-H/RTPCH-41.sql",
+          "sha256": "ea282a2aa66afdc487d04279221a901e3bcf980a27599953d29ae9f08eeec7b3"
+        },
+        {
+          "query_id": "RTPCH-42",
+          "sql_file": "Robusta-TPC-H/RTPCH-42.sql",
+          "sha256": "9c116ee01b78ad627833bfbe5e1ca749d8ce8847079bc3aa38f68f5a8d138a45"
+        },
+        {
+          "query_id": "RTPCH-43",
+          "sql_file": "Robusta-TPC-H/RTPCH-43.sql",
+          "sha256": "15f81803c883b5af5c082a7cc144b9a0767b0264b01c0ba69a87cc29ac65d7a3"
+        },
+        {
+          "query_id": "RTPCH-44",
+          "sql_file": "Robusta-TPC-H/RTPCH-44.sql",
+          "sha256": "1c77c261d34ba4cad1b937d0005b874b723cf4bc1ac3d9301f5cbbc920119b49"
+        },
+        {
+          "query_id": "RTPCH-45",
+          "sql_file": "Robusta-TPC-H/RTPCH-45.sql",
+          "sha256": "6c43a1ab7ab0a0e82f19560436e7935139cf1cc3b933239cecd3396eaa39317e"
+        },
+        {
+          "query_id": "RTPCH-46",
+          "sql_file": "Robusta-TPC-H/RTPCH-46.sql",
+          "sha256": "3cd4036da148f4d5bdc7086740ba7a09b8295de872e75cd2487fc88941cf3b3f"
+        },
+        {
+          "query_id": "RTPCH-47",
+          "sql_file": "Robusta-TPC-H/RTPCH-47.sql",
+          "sha256": "1f8082c247c0df2fb973ded464e522a9e7b00f778cdc3d037e5c31c6b0a26fce"
+        }
+      ]
+    },
+    "Robusta-JOB": {
+      "source_version": "V10",
+      "count": 59,
+      "source_summary": "experiment_archive/Kalita_L_Error_Work/Robusta_JOB_V10/final/summary.csv",
+      "source_summary_sha256": "d224cc1576e0b60f71e06137f770982700bd4066bdaef94bad65cd2effed95be",
+      "queries": [
+        {
+          "query_id": "RJOB-01",
+          "sql_file": "Robusta-JOB/RJOB-01.sql",
+          "sha256": "ac41b1ef8c827a6e25cb44a54750e0a5c4d0c760e50ef18cc2d73e420f588515"
+        },
+        {
+          "query_id": "RJOB-02",
+          "sql_file": "Robusta-JOB/RJOB-02.sql",
+          "sha256": "d33651903be967da537fdece10714db327712e33be463a11119c7fab463a4af3"
+        },
+        {
+          "query_id": "RJOB-03",
+          "sql_file": "Robusta-JOB/RJOB-03.sql",
+          "sha256": "d30a4c41da025ea3a60088846f50139f1eaf28d03905b563b2d76b6d0e789d1f"
+        },
+        {
+          "query_id": "RJOB-04",
+          "sql_file": "Robusta-JOB/RJOB-04.sql",
+          "sha256": "548c93f399a2e6e457a82757145326ddcddf0399025c81ff6c816d95daf3ba9b"
+        },
+        {
+          "query_id": "RJOB-05",
+          "sql_file": "Robusta-JOB/RJOB-05.sql",
+          "sha256": "e55a70a0f33fa35217c35dabb2e8fa07966bf26c235202b025097c802f828a63"
+        },
+        {
+          "query_id": "RJOB-06",
+          "sql_file": "Robusta-JOB/RJOB-06.sql",
+          "sha256": "dfbbea91565b3e5de99682e71a81b7c0e7b9f1489223668277e53bc7daf1d716"
+        },
+        {
+          "query_id": "RJOB-07",
+          "sql_file": "Robusta-JOB/RJOB-07.sql",
+          "sha256": "05cb23bbb3846b7612af82f493fd44732c28185cd18204e413163e3c0358f552"
+        },
+        {
+          "query_id": "RJOB-08",
+          "sql_file": "Robusta-JOB/RJOB-08.sql",
+          "sha256": "fde0f1d041dd72bc48816465ab4821056dad43050204447d942a11b3b478f66c"
+        },
+        {
+          "query_id": "RJOB-09",
+          "sql_file": "Robusta-JOB/RJOB-09.sql",
+          "sha256": "27dc8a8ee8f299934874b0e7f38655469f01db6751201e2e34328d368664c94a"
+        },
+        {
+          "query_id": "RJOB-10",
+          "sql_file": "Robusta-JOB/RJOB-10.sql",
+          "sha256": "19fc0c315fdc850b639c70bc25179ce1f16acb5bdb23dbefedc923c66022792a"
+        },
+        {
+          "query_id": "RJOB-11",
+          "sql_file": "Robusta-JOB/RJOB-11.sql",
+          "sha256": "7a5783527d2a3c5abecda8a368038291974a67d42908a519c20abcfc15656d29"
+        },
+        {
+          "query_id": "RJOB-12",
+          "sql_file": "Robusta-JOB/RJOB-12.sql",
+          "sha256": "2ae10ec02e6cd1ab238d5f3c7fb25a7374116dccb4438ae85fe914718db0ca8b"
+        },
+        {
+          "query_id": "RJOB-13",
+          "sql_file": "Robusta-JOB/RJOB-13.sql",
+          "sha256": "a20b833110484506efb6a6bc960fa17eac2cd352414645a0951da08e363a4552"
+        },
+        {
+          "query_id": "RJOB-14",
+          "sql_file": "Robusta-JOB/RJOB-14.sql",
+          "sha256": "6da5f52ae748e1cf407475aa7cad0c55a2dfb5b643465482eab4b95f08d7d6f0"
+        },
+        {
+          "query_id": "RJOB-15",
+          "sql_file": "Robusta-JOB/RJOB-15.sql",
+          "sha256": "26ef678b8cb7cabe6abf695a5bb868f9920b4e718c238a7b95a0d554710a9411"
+        },
+        {
+          "query_id": "RJOB-16",
+          "sql_file": "Robusta-JOB/RJOB-16.sql",
+          "sha256": "c5fbb6f89daae04be2da14d97ec1b3ade2b4c5b1d2144315b123781b8a5d5956"
+        },
+        {
+          "query_id": "RJOB-17",
+          "sql_file": "Robusta-JOB/RJOB-17.sql",
+          "sha256": "78e0f28a3c03b7bf1794a1d8628f91c65cec4c6c29ef239fc3ef7d1fcf06fe66"
+        },
+        {
+          "query_id": "RJOB-18",
+          "sql_file": "Robusta-JOB/RJOB-18.sql",
+          "sha256": "b7a73b475d44ca99d0b1589e808211ff033b0747e653d49ed9431423e91e496f"
+        },
+        {
+          "query_id": "RJOB-19",
+          "sql_file": "Robusta-JOB/RJOB-19.sql",
+          "sha256": "71707b1e6937c44fd078c380dc77841af450304d81020d8b0304c04c480e442f"
+        },
+        {
+          "query_id": "RJOB-20",
+          "sql_file": "Robusta-JOB/RJOB-20.sql",
+          "sha256": "49e35cff6c2e136c60ae413ca635a1a16824a799a33c87f442317b0cdcec411c"
+        },
+        {
+          "query_id": "RJOB-21",
+          "sql_file": "Robusta-JOB/RJOB-21.sql",
+          "sha256": "2193dc7fe0a7d75bc29b7849ef1ab832ef82aa61308a8360f953c4c3ebdfe675"
+        },
+        {
+          "query_id": "RJOB-22",
+          "sql_file": "Robusta-JOB/RJOB-22.sql",
+          "sha256": "49e1f9f5dbf10f7072bd09e233447ea7309399d96712b645e1435a0df813be07"
+        },
+        {
+          "query_id": "RJOB-23",
+          "sql_file": "Robusta-JOB/RJOB-23.sql",
+          "sha256": "0256996eba68704448b728ff825125d3eefe3fbebce130e8b4d0955ea8eaa92f"
+        },
+        {
+          "query_id": "RJOB-24",
+          "sql_file": "Robusta-JOB/RJOB-24.sql",
+          "sha256": "f50106c1ea2f0c67f535d412e2c04a323264ba8b1bd8941531b94c63159a9c65"
+        },
+        {
+          "query_id": "RJOB-25",
+          "sql_file": "Robusta-JOB/RJOB-25.sql",
+          "sha256": "06c368cb63a691a33667d0b87735cca0299ce3ce6558a4c38904ab2a8cd7eefb"
+        },
+        {
+          "query_id": "RJOB-26",
+          "sql_file": "Robusta-JOB/RJOB-26.sql",
+          "sha256": "0bda3634f96a32f981dc7e8d2e31c416e156da703b22c238feba25edf1cef855"
+        },
+        {
+          "query_id": "RJOB-27",
+          "sql_file": "Robusta-JOB/RJOB-27.sql",
+          "sha256": "f8a4c1208babd635223ebd666df6ad949208c32da01783354338b7b52d0de7fe"
+        },
+        {
+          "query_id": "RJOB-28",
+          "sql_file": "Robusta-JOB/RJOB-28.sql",
+          "sha256": "5393e86e33c7f7475b53b78bd5ca0dd8f37cc3ee072261287c7272aeb4dc60bd"
+        },
+        {
+          "query_id": "RJOB-29",
+          "sql_file": "Robusta-JOB/RJOB-29.sql",
+          "sha256": "650f4ee033c40e45b3edafabe5063280830ed09c790c71e1d60e493e55e0f9fc"
+        },
+        {
+          "query_id": "RJOB-30",
+          "sql_file": "Robusta-JOB/RJOB-30.sql",
+          "sha256": "97b54bb348f5e5363a2d5dfc539c0ef4d44a9458354bc465d330e50c569601a2"
+        },
+        {
+          "query_id": "RJOB-31",
+          "sql_file": "Robusta-JOB/RJOB-31.sql",
+          "sha256": "39a5724e5310e962cc54ccb1ce690bd96a18e7c8bbf4c26174ef3b976f5ceaa9"
+        },
+        {
+          "query_id": "RJOB-32",
+          "sql_file": "Robusta-JOB/RJOB-32.sql",
+          "sha256": "e8ac851088544be8ccca27332138d0c04ef0228c7dee31f00ade1e6d263b87c9"
+        },
+        {
+          "query_id": "RJOB-33",
+          "sql_file": "Robusta-JOB/RJOB-33.sql",
+          "sha256": "8d05f7dcd028e4fb011c763b9541abdd61f67535d2e0a149d0a12998bc091eb6"
+        },
+        {
+          "query_id": "RJOB-34",
+          "sql_file": "Robusta-JOB/RJOB-34.sql",
+          "sha256": "b118aa7c3e7538d04b0b0fa3afd8b690cfdf042ef7a439e8656a155163448d15"
+        },
+        {
+          "query_id": "RJOB-35",
+          "sql_file": "Robusta-JOB/RJOB-35.sql",
+          "sha256": "618f8c0998a793f88a4ebe4cbdfa6c84bb450ab2faad797e0dd39c9ba36fd0a3"
+        },
+        {
+          "query_id": "RJOB-36",
+          "sql_file": "Robusta-JOB/RJOB-36.sql",
+          "sha256": "4ce75d14a5c89eeb82d6f8b1be839b19fe469901b842f8bc4627b9582c53f998"
+        },
+        {
+          "query_id": "RJOB-37",
+          "sql_file": "Robusta-JOB/RJOB-37.sql",
+          "sha256": "7f2fec5aa457b4f82b71f33f6c62007261c64d1711500fe4716ebc40da8d3272"
+        },
+        {
+          "query_id": "RJOB-38",
+          "sql_file": "Robusta-JOB/RJOB-38.sql",
+          "sha256": "b3d438089be0909eb840f8d3812f3de4e87caf5b5bbe87792c4416840deff3f7"
+        },
+        {
+          "query_id": "RJOB-39",
+          "sql_file": "Robusta-JOB/RJOB-39.sql",
+          "sha256": "2a06771cbb9b27220ea34416c2ed44d76998cb95bed60ca5ff97568cbd56a7fd"
+        },
+        {
+          "query_id": "RJOB-40",
+          "sql_file": "Robusta-JOB/RJOB-40.sql",
+          "sha256": "73f861daccf520be7c54105a18bf2da089a93522099f268ad7cbd97d4ac44e52"
+        },
+        {
+          "query_id": "RJOB-41",
+          "sql_file": "Robusta-JOB/RJOB-41.sql",
+          "sha256": "c43e634dfd52c2db18ae3b8768f0999769efb752ef986d3c0c1ce6986d845e6c"
+        },
+        {
+          "query_id": "RJOB-42",
+          "sql_file": "Robusta-JOB/RJOB-42.sql",
+          "sha256": "eb70afb2b913310290cf7110c961860f21d8d4165d17e3b115113f4f4b6c3f0f"
+        },
+        {
+          "query_id": "RJOB-43",
+          "sql_file": "Robusta-JOB/RJOB-43.sql",
+          "sha256": "d5f39034ef519a4e04a6d3305b477db3ed5de7a7e9c7fe3d939f2755280ba000"
+        },
+        {
+          "query_id": "RJOB-44",
+          "sql_file": "Robusta-JOB/RJOB-44.sql",
+          "sha256": "1784d13ac83770d38cf0020f6b530d5266dcc1a3e28cdb9f72fdd9b1573329a7"
+        },
+        {
+          "query_id": "RJOB-49",
+          "sql_file": "Robusta-JOB/RJOB-49.sql",
+          "sha256": "375c145424c771691e713e1bc34bb829d0733fcd809bc674b28577ab1fa82004"
+        },
+        {
+          "query_id": "RJOB-50",
+          "sql_file": "Robusta-JOB/RJOB-50.sql",
+          "sha256": "8de894f30df0ebc4f1e5c065e740221ac84863065c7e183e8d1fd2fd3cfff711"
+        },
+        {
+          "query_id": "RJOB-51",
+          "sql_file": "Robusta-JOB/RJOB-51.sql",
+          "sha256": "eb9b8c112afb7d08ffaf026acf4398c65fa667bfce8e8f290210b845c31bafdc"
+        },
+        {
+          "query_id": "RJOB-52",
+          "sql_file": "Robusta-JOB/RJOB-52.sql",
+          "sha256": "5f55ee792b9874e2151dd1d1fe69d54b0dee13567a3aca70495ac65d95852d0f"
+        },
+        {
+          "query_id": "RJOB-45",
+          "sql_file": "Robusta-JOB/RJOB-45.sql",
+          "sha256": "b9073306201ab29978892d28c696fc011a24cc8f783378203e36b5a09633e00b"
+        },
+        {
+          "query_id": "RJOB-46",
+          "sql_file": "Robusta-JOB/RJOB-46.sql",
+          "sha256": "759def3a3568d7e1da653c77e58c963ee66f6b9106ad7dee6fa4324c69baa840"
+        },
+        {
+          "query_id": "RJOB-47",
+          "sql_file": "Robusta-JOB/RJOB-47.sql",
+          "sha256": "673c935c391ffc0ef35a7bed034f846a9b4021724e96b705c18be2968e17cc42"
+        },
+        {
+          "query_id": "RJOB-48",
+          "sql_file": "Robusta-JOB/RJOB-48.sql",
+          "sha256": "865c332494e35b0e675d1db5308d874729d31277fb741026076c90def250aa91"
+        },
+        {
+          "query_id": "RJOB-53",
+          "sql_file": "Robusta-JOB/RJOB-53.sql",
+          "sha256": "ec2c08d58fae7c540b97c0f60d7f3d27f66aa21a2402edf43d1f60b5ff46de5e"
+        },
+        {
+          "query_id": "RJOB-54",
+          "sql_file": "Robusta-JOB/RJOB-54.sql",
+          "sha256": "8181cbc7e21a28ea6a8ec89e26aff8c63a347e002e87fceb26cdb7450781459a"
+        },
+        {
+          "query_id": "RJOB-55",
+          "sql_file": "Robusta-JOB/RJOB-55.sql",
+          "sha256": "307ba9b5453c2d5e54c0855782d3058628038ef1cb7aa1e71402033b8d6de6ec"
+        },
+        {
+          "query_id": "RJOB-56",
+          "sql_file": "Robusta-JOB/RJOB-56.sql",
+          "sha256": "eff6917a171deca18c70ab22ec4602c94e7ca467fbc6a285efa0d5011527a76b"
+        },
+        {
+          "query_id": "RJOB-57",
+          "sql_file": "Robusta-JOB/RJOB-57.sql",
+          "sha256": "6aff296ef8869933856299ad184177d06dfb6682e22fe4892e5e072f4298a3f0"
+        },
+        {
+          "query_id": "RJOB-58",
+          "sql_file": "Robusta-JOB/RJOB-58.sql",
+          "sha256": "0155d0a6bccf4b114c33ac90f49fcb9663c7a77425b02ee7eafc8eea44236d24"
+        },
+        {
+          "query_id": "RJOB-59",
+          "sql_file": "Robusta-JOB/RJOB-59.sql",
+          "sha256": "1d6b84ce4238b29958f00b1661920cae6fc69ccf65005558672fd7b6798e4015"
+        }
+      ]
+    }
+  },
+  "core_copies": {
+    "hints.py": {
+      "source": "project/L-error/l_error/hints.py",
+      "sha256": "2bbf93d97895bb827b0a3f062be6435bd56076e25c6cc507eb444760f3ff05d3",
+      "byte_identical": true
+    },
+    "database.py": {
+      "source": "project/L-error/l_error/database.py",
+      "sha256": "257ffaa2fcbdc75f3226363e672d53795df7795ee973d7092ba7eea9ec692edf",
+      "byte_identical": true
+    },
+    "validation.py": {
+      "source": "project/L-error/l_error/validation.py",
+      "sha256": "edb0767f5264e1da28b571a669f96465c0a7501273f3531a1c700a74d823149f",
+      "byte_identical": true
+    }
+  },
+  "baseline_workloads_enabled": false,
+  "setup_baseline_copies": "results/_setup_backup (redundant copies verified against originals; pending manual deletion because automatic approval blocked cleanup)",
+  "packaging_evidence_directory": "code/verification"
+}
