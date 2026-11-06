@@ -1470,7 +1470,8 @@ def run_stage3_predicate_similarity_post_analysis(stage3_report=None):
 def _run_subprocess_step(step_name: str, cmd: list, cwd: str, stop_on_failure: bool = True) -> bool:
     print(f"\n{'=' * 80}")
     print(f"[AutoCycle] START STEP: {step_name}")
-    print(f"[AutoCycle] CMD: {' '.join(str(x) for x in cmd)}")
+    if not cmd or cmd[-1] not in {"pre_rl", "rl_cycle"}:
+        print(f"[AutoCycle] CMD: {' '.join(str(x) for x in cmd)}")
     print(f"{'=' * 80}", flush=True)
     sys.stderr.flush()
 
@@ -1558,10 +1559,7 @@ def _verify_operator_similarity_outputs(project_root: str, *, context: str) -> b
         print(f"[AutoCycle Verify] {context}: failed to read operator_similarity.json | {e}")
         return False
 
-    print(
-        f"[AutoCycle Verify] {context}: operator similarity outputs OK. "
-        f"num_operators={len(similarity)}"
-    )
+    print(f"[AutoCycle Verify] {context}: operator similarity outputs OK.")
     return True
 
 
