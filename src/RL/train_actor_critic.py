@@ -414,7 +414,6 @@ def _run_training():
 
     # ==================== [多进程环境配置] ====================
     target_n_envs = RL_ALGO_CONFIG.n_envs
-    print(f"\n[Parallel] Launching {target_n_envs} environments with SubprocVecEnv (spawn)...")
 
     # 从 env_runner 导入工厂函数
     # 这里的 env_runner 是我们之前创建的那个纯净文件

@@ -1419,13 +1419,6 @@ class SqlDependencyEnv(gym.Env):#
             "group_counts": group_counts,
             "inner_kind_counts": kind_counts,
         }
-        print(
-            "[CandidateBitmap PPO Shard] "
-            f"worker={getattr(self, 'worker_rank', 0)}/{getattr(self, 'worker_count', 1)}, "
-            f"edges={len(owned_indices)}, levels={level_counts}, "
-            f"groups={group_counts}, inner={kind_counts}",
-            flush=True,
-        )
 
     def _candidate_bitmap_apply_ppo_shard(self, indices: list[int]) -> list[int]:
         """Filter target candidates only; graph traversal remains globally shared."""
