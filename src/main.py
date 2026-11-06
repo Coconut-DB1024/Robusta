@@ -63,9 +63,6 @@ def run_candidate_bitmap_bootstrap():
     rules_path = Path(getattr(CANDIDATE_BITMAP_CONFIG, "rules_path"))
 
     _bootstrap_log("\n>>> [Stage 17-9] Candidate bitmap bootstrap before RL")
-    _bootstrap_log(f"[CandidateBitmapBootstrap] edge_index_path = {edge_index_path}")
-    _bootstrap_log(f"[CandidateBitmapBootstrap] bitmap_npz_path = {bitmap_npz_path}")
-    _bootstrap_log(f"[CandidateBitmapBootstrap] graph_path = {graph_path}")
 
     from RL.candidate_bitmap import (
         build_and_save_candidate_bitmap,
@@ -94,9 +91,7 @@ def run_candidate_bitmap_bootstrap():
         )
         candidate_report = build_and_save_candidate_bitmap(rules_path)
         _bootstrap_log(
-            "[CandidateBitmapBootstrap] candidate edge universe 构建完成："
-            f"num_edges={candidate_report.get('num_edges')}, "
-            f"by_level={candidate_report.get('by_level')}"
+            "[CandidateBitmapBootstrap] Candidate edge universe construction completed."
         )
         need_build_universe = False
 
@@ -112,10 +107,7 @@ def run_candidate_bitmap_bootstrap():
             graph_path=graph_path,
         )
         _bootstrap_log(
-            "[CandidateBitmapBootstrap] 初始正式谓词知识图准备完成："
-            f"nodes={graph_report.get('node_count')}, "
-            f"edges={graph_report.get('edge_count')}, "
-            f"path={graph_report.get('graph_path')}"
+            "[CandidateBitmapBootstrap] Initial predicate knowledge graph is ready."
         )
 
     if not graph_path.exists():
@@ -132,9 +124,7 @@ def run_candidate_bitmap_bootstrap():
         )
         candidate_report = build_and_save_candidate_bitmap(rules_path)
         _bootstrap_log(
-            "[CandidateBitmapBootstrap] candidate edge universe 构建完成："
-            f"num_edges={candidate_report.get('num_edges')}, "
-            f"by_level={candidate_report.get('by_level')}"
+            "[CandidateBitmapBootstrap] Candidate edge universe construction completed."
         )
     else:
         _bootstrap_log("[CandidateBitmapBootstrap] candidate bitmap 主文件已存在，跳过全集重建。")
@@ -145,13 +135,7 @@ def run_candidate_bitmap_bootstrap():
     graph_info = observed_report.get("graph", {}) if isinstance(observed_report, dict) else {}
 
     _bootstrap_log(
-        "[CandidateBitmapBootstrap] observed bitmap 刷新完成："
-        f"graph_edges={graph_info.get('edge_count')}, "
-        f"matched={graph_info.get('matched_candidate_edge_count')}, "
-        f"candidate_edges={candidate_info.get('candidate_edge_count')}, "
-        f"observed={candidate_info.get('observed_edge_count')}, "
-        f"missing={candidate_info.get('missing_edge_count')}, "
-        f"available={candidate_info.get('available_initial_edge_count')}"
+        "[CandidateBitmapBootstrap] Observed bitmap refresh completed."
     )
 
     if bool(getattr(RL_ENV_CONFIG, "candidate_bitmap_enumeration_enabled", False)):
@@ -214,8 +198,7 @@ def run_candidate_bitmap_bootstrap():
     if bool(getattr(CANDIDATE_BITMAP_CONFIG, "refresh_pattern_transfer_before_rl", True)):
         if representation_guidance_enabled:
             _bootstrap_log(
-                "[CandidateBitmapBootstrap] 开始刷新 pattern_transfer_score / edge_score "
-                "（阶段18-3，RL 启动前强制刷新）..."
+                "[CandidateBitmapBootstrap] Refreshing pattern_transfer_score / edge_score ..."
             )
         else:
             _bootstrap_log(
@@ -225,14 +208,7 @@ def run_candidate_bitmap_bootstrap():
         score_report = refresh_candidate_edge_scores_by_pattern_transfer(graph_path=graph_path)
 
         _bootstrap_log(
-            "[CandidateBitmapBootstrap] pattern_transfer_score 刷新完成："
-            f"edges={score_report.get('edge_count')}, "
-            f"positive={score_report.get('positive_pattern_transfer_score_count')}, "
-            f"zero={score_report.get('zero_pattern_transfer_score_count')}, "
-            f"max={score_report.get('max_pattern_transfer_score')}, "
-            f"mean={score_report.get('mean_pattern_transfer_score')}, "
-            f"representation_guidance_enabled={score_report.get('representation_guidance_enabled')}, "
-            f"operator_similarity_loaded={score_report.get('operator_similarity_loaded')}"
+            "[CandidateBitmapBootstrap] pattern_transfer_score refresh completed."
         )
     else:
         _bootstrap_log(
