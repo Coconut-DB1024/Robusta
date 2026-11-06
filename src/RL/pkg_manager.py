@@ -425,13 +425,6 @@ def _build_sampled_initial_graph(
 
     if STAGE2_MODE == "base":
         print("普通随机实验")
-    else:
-        print(
-            f"{log_prefix} sampled_llm_seeded initial graph: "
-            f"candidate_edges={len(candidate_records)}, verified_edges={len(verified_records)}, "
-            f"seed_edges={builder.total_edges}, ratio={ratio:.4f}, "
-            f"missing_scaffolds={missing_scaffold_outers}, blocked={blocked_outers}"
-        )
     if blocked_outers and require_multislot_scaffold:
         raise ValueError(
             "sampled_llm_seeded preflight failed: operators have neither a verified "
@@ -564,8 +557,6 @@ def _prepare_initial_global_graph_builder(
             )
             try:
                 builder.save_to_json(str(resolved_graph_path))
-                if STAGE2_MODE != "base":
-                    print(f"{log_prefix} sampled initial graph saved: {resolved_graph_path}")
             except Exception as e:
                 print(f"{log_prefix} sampled initial graph save failed: {e}")
         else:
