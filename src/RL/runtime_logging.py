@@ -14,6 +14,25 @@ _warning_lock = Lock()
 
 
 @contextmanager
+def suppress_sb3_logging_destination():
+    """Hide only SB3's directory announcement, retaining all log writers."""
+    from stable_baselines3.common.logger import Logger
+
+    original_log = Logger.log
+
+    def log_without_destination(logger, *args, **kwargs):
+        if len(args) == 1 and args[0] == f"Logging to {logger.get_dir()}":
+            return
+        return original_log(logger, *args, **kwargs)
+
+    Logger.log = log_without_destination
+    try:
+        yield
+    finally:
+        Logger.log = original_log
+
+
+@contextmanager
 def runtime_warning_scope():
     """Reuse the parent run's log marker, or own one for a standalone run."""
     if os.environ.get(_WARNING_DIRECTORY_ENV):

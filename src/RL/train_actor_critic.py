@@ -37,7 +37,7 @@ from RL.config import (
     RECYCLE_CONFIG,
 )
 from RL.progress import get_rl_progress_total_steps
-from RL.runtime_logging import runtime_warning_scope
+from RL.runtime_logging import runtime_warning_scope, suppress_sb3_logging_destination
 
 # 【重要提醒】
 # 此时此刻，绝对不要导入 RL.env_sql_dependency, stable_baselines3, torch 等库。
@@ -561,11 +561,12 @@ def _run_training():
     print("\n[PPO] Start Learning...")
     training_failed = False
     try:
-        model.learn(
-            total_timesteps=RL_ALGO_CONFIG.total_timesteps,
-            callback=callbacks,
-            progress_bar=False
-        )
+        with suppress_sb3_logging_destination():
+            model.learn(
+                total_timesteps=RL_ALGO_CONFIG.total_timesteps,
+                callback=callbacks,
+                progress_bar=False
+            )
         print("\n[PPO] Training Completed.")
     except KeyboardInterrupt:
         print("\n[PPO] Training interrupted manually.")
