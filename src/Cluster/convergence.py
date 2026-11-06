@@ -87,12 +87,7 @@ def is_converged(i):
 
     # 打印判断结果
     if converged:
-        print(
-            f"[INFO] 聚类收敛 (第{i + 1}轮): "
-            f"标签变化比例={label_change_ratio:.4f}, "
-            f"inertia变化比例={inertia_decrease_ratio:.4f}, "
-            f"ARI={ari:.4f} (>= {ARI_THRESHOLD})"
-        )
+        print(f"[INFO] 聚类收敛 (第{i + 1}轮)")
     else:
         print(
             f"[INFO] 未收敛 (第{i + 1}轮): "
