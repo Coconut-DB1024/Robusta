@@ -526,10 +526,7 @@ def _prepare_initial_global_graph_builder(
             if STAGE2_MODE == "base":
                 print("普通随机实验")
             else:
-                print(
-                    f"{log_prefix} 已从缓存图谱加载: {resolved_graph_path}。"
-                    f"已读取 {len(known_texts)} 条 Correct 文本用于去重。"
-                )
+                print(f"{log_prefix} 已从缓存图谱加载: {resolved_graph_path.name}。")
         except Exception as e:
             print(f"{log_prefix} 缓存图谱加载失败，将执行一次性基础图谱构建: {e}")
 
@@ -829,10 +826,7 @@ def global_graph_manager(queue, batch_size, correct_txt_path, progress_total_ste
     parse_pool = None
     if parse_workers > 1:
         parse_pool = ProcessPoolExecutor(max_workers=parse_workers)
-        print(
-            f"[Master Process] PKG parallel parser enabled: "
-            f"workers={parse_workers}, min_batch={parse_min_batch}"
-        )
+        print("[Master Process] PKG parallel parser enabled")
     else:
         print("[Master Process] PKG parallel parser disabled; using serial parser.")
 
