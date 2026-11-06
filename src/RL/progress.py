@@ -6,7 +6,7 @@ class EnvironmentReloadError(RuntimeError):
 
 
 class EnvironmentProgress:
-    """Report completion milestones without synchronizing worker execution."""
+    """Report startup milestones once without synchronizing worker execution."""
 
     _labels = {
         "initialized": "[Parallel] Initialization progress",
@@ -28,11 +28,11 @@ class EnvironmentProgress:
                 stage, ([0] * self.worker_count, 0, False)
             )
             counts = list(counts)
-            if stage == "initialized" and counts[rank]:
+            if counts[rank]:
                 return
             counts[rank] += 1
-            # Each round counts one completion per worker. A fast worker cannot
-            # count as several workers; later reloads never wait for slower ones.
+            # Count each worker's first success only. Runtime bitmap reloads
+            # continue normally, but do not repeat the startup progress logs.
             while True:
                 done = sum(count > finished_rounds for count in counts)
                 if (
