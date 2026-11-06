@@ -901,7 +901,6 @@ def _run_stage3(predicate_report):
         try:
             from pkg.stage3_runtime import write_status_json
             write_status_json(fixed_report, status_path)
-            print(f"[Stage3] Compact run status: {status_path}")
         except Exception as exc:
             print(f"[Stage3] Warning: failed to write compact run status: {exc}")
         return fixed_report
@@ -1408,7 +1407,6 @@ def _run_stage3(predicate_report):
     )
     try:
         metrics_recorder.write_measured_status(final_report, status_path)
-        print(f"[Stage3] Compact run status: {status_path}")
     except Exception as exc:
         print(f"[Stage3] Warning: failed to write compact run status: {exc}")
     return final_report
@@ -1447,7 +1445,7 @@ def _run_subprocess_step(step_name: str, cmd: list, cwd: str, stop_on_failure: b
     print(f"\n{'=' * 80}")
     print(f"[AutoCycle] START STEP: {step_name}")
     if (
-        (not cmd or cmd[-1] not in {"pre_rl", "rl_cycle", "recycle_pre_rl"})
+        (not cmd or cmd[-1] not in {"pre_rl", "rl_cycle", "recycle_pre_rl", "stage3"})
         and cmd[1:3] != ["-m", "RL.predicate_recycle"]
     ):
         print(f"[AutoCycle] CMD: {' '.join(str(x) for x in cmd)}")
@@ -1844,19 +1842,10 @@ def run_auto_cycle(num_cycles_override=None):
                 f"report={consistency_report.get('report_path')}"
             )
             if consistency_report.get("is_consistent"):
-                print(consistency_message)
                 try:
                     observed_report = build_and_save_observed_bitmap()
                     candidate_info = observed_report.get("candidate", {})
                     graph_info = observed_report.get("graph", {})
-                    print(
-                        "[AutoCycle] final candidate observed report refreshed: "
-                        f"graph_edges={graph_info.get('edge_count')}, "
-                        f"observed={candidate_info.get('observed_edge_count')}, "
-                        f"missing={candidate_info.get('missing_edge_count')}, "
-                        f"coverage={float(candidate_info.get('coverage_rate', 0.0) or 0.0):.6f}, "
-                        f"report={observed_report.get('observed_report_path')}"
-                    )
                 except Exception as observed_report_exc:
                     print(
                         "[AutoCycle Warning] final candidate observed report refresh "
