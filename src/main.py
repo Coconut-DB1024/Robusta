@@ -1446,7 +1446,10 @@ def run_stage3_predicate_similarity_post_analysis(stage3_report=None):
 def _run_subprocess_step(step_name: str, cmd: list, cwd: str, stop_on_failure: bool = True) -> bool:
     print(f"\n{'=' * 80}")
     print(f"[AutoCycle] START STEP: {step_name}")
-    if not cmd or cmd[-1] not in {"pre_rl", "rl_cycle"}:
+    if (
+        (not cmd or cmd[-1] not in {"pre_rl", "rl_cycle", "recycle_pre_rl"})
+        and cmd[1:3] != ["-m", "RL.predicate_recycle"]
+    ):
         print(f"[AutoCycle] CMD: {' '.join(str(x) for x in cmd)}")
     print(f"{'=' * 80}", flush=True)
     sys.stderr.flush()
@@ -1724,15 +1727,6 @@ def run_auto_cycle(num_cycles_override=None):
             continue
 
         recycle_schedule = _resolve_auto_cycle_recycle_schedule(cycle_idx)
-
-        print(
-            "[AutoCycle] recycle schedule: "
-            f"cycle={cycle_idx}, "
-            f"value_limit={recycle_schedule['value_limit']}, "
-            f"novel_target={recycle_schedule['novel_target']}, "
-            f"apply_top_k={recycle_schedule['apply_top_k']}, "
-            f"source={recycle_schedule['schedule_source']}"
-        )
 
         recycle_cmd = [
             sys.executable,
