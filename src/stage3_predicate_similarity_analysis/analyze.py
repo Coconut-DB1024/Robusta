@@ -1152,7 +1152,11 @@ def run_analysis(
         backend = distance_backend_info()
         timings["ast_accelerator_setup"] = time.monotonic() - started
         manifest["algorithm"]["ast_distance_backend"] = backend
-        print(f"[PredicateSimilarity] AST distance backend: {backend['engine']}", flush=True)
+        print(
+            "[PredicateSimilarity] AST distance backend: "
+            + backend["engine"].replace("; bounded APTED fallback", ";"),
+            flush=True,
+        )
         if not backend["accelerated"]:
             print("[PredicateSimilarity] AST accelerator unavailable; using exact Python "
                   "fallback (slower). Install requirements-ast.txt. Reason: "
