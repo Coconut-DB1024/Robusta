@@ -36,5 +36,6 @@ def pre_load() -> List[str]: #预处理入口
         for line in unique_templates:       # 遍历去重后的模板
             f.write(line + "\n")           # 每个模板一行
 
-    # 返回结果列表
-    return unique_templates
+    from .llm_seed import supplement_predicates
+
+    return supplement_predicates(output_file, unique_templates)
