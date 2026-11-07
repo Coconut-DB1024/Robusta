@@ -24,7 +24,7 @@ Download the required [CodeT5-small model](https://huggingface.co/Salesforce/cod
 python download_codet5_small.py
 ```
 
-Alternatively, you can download `codet5-small.zip` from GitHub Releases and extract it into the root directory of the Robusta project.
+Alternatively, you can download `codet5-small.zip` from GitHub Releases and extract it so that the model files are located directly in `Robusta/codet5-small/`, without any additional nested folders.
 
 For the main Robusta and standalone LLM experiments, configure the database connection settings and specify a table name (e.g., `test_table`) in `configuration.json`. We recommend using **Qwen3.5-27B** for these experiments.
 
