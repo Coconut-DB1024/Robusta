@@ -43,7 +43,7 @@ def _load_configuration():
         if not isinstance(getattr(database, name), str):
             raise ValueError(f"configuration-lerror.json: {name} must be a JSON string")
     if database.db_type != "postgresql":
-        raise ValueError("仅支持postgresql")
+        raise ValueError("Only PostgreSQL is supported.")
     if database.port is not None and (
         type(database.port) is not int or not 1 <= database.port <= 65535
     ):
