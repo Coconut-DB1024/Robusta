@@ -5,7 +5,7 @@
 | 1 | SQLite | SQLite 3.47.0: incorrect REAL conversion for large numeric literal | [Link](https://sqlite.org/forum/info/5e3852a09127616b) |
 | 2 | SQLite | SQLite 3.44.1: incorrect IS NULL result for empty-set aggregation with LEFT JOIN | [Link](https://sqlite.org/forum/info/5b4fc7d582bfa903) |
 | 3 | SQLite | SQLite 3.53.0: incorrect EXISTS subquery result with unary plus operator and NULL index | [Link](https://sqlite.org/forum/info/f6fa0afcd2d1d98e) |
-| 4 | 达梦数据库 | 疑似查询优化器问题：VIEW 经 UNION ALL 过滤后出现额外结果行 | [Link](https://eco.dameng.com/community/question/e170e240a1861b4633a136a04e9f0a40) |
+| 4 | Dameng | Suspected Query Optimizer Bug: Extra Rows Returned After Filtering a VIEW with UNION ALL | [Link](https://eco.dameng.com/community/question/e170e240a1861b4633a136a04e9f0a40) |
 | 5 | PostgreSQL | BUG #19709: Incorrect result when comparing OLD tuple column to itself in INSERT RETURNING | [Link](https://www.postgresql.org/message-id/19709-388df6818f7ef822%40postgresql.org) |
 | 6 | PostgreSQL | BUG #19707: Reproduction of BUG #19553 on PostgreSQL 18.4: nested LEFT JOIN returns a constant instead of NULL | [Link](https://www.postgresql.org/message-id/19707-da66e5a04b617fd4%40postgresql.org) |
 | 7 | DuckDB | Logic evaluation error with multi-column NOT IN when encountering NULL values | [Link](https://github.com/duckdb/duckdb/issues/22418) |
