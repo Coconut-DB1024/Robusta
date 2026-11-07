@@ -1601,7 +1601,7 @@ class TLPBugFinder:
             self.bug_samples_dropped += 1
             if self.bug_samples_dropped == 1:
                 print(
-                    "[TLP] 逻辑 Bug 详细报告已达到上限，后续仅保留计数。"
+                    '[TLP] Detailed logic-bug report limit reached; subsequent bugs will only be counted.'
                 )
             return
 
@@ -1648,7 +1648,7 @@ class TLPBugFinder:
         self.bug_samples_written += 1
 
         # 控制台醒目提示
-        print(f"!!! 发现疑似 BUG !!! 详情已写入 {self.bug_file}")
+        print(f'!!! Suspected BUG found !!! Details written to {self.bug_file}')
 
     def iter_sql_file(self, file_path: str) -> Iterator[List[str]]:
         """
@@ -1688,8 +1688,7 @@ class TLPBugFinder:
         # 检查数量是否符合预期 (应该是 4 的倍数)
         if valid_sql_count % 4 != 0:
             self.log(
-                f"[Warning] 文件 {os.path.basename(file_path)} 的 SELECT 数量不是 4 的倍数 "
-                f"({valid_sql_count})，末尾不完整分组已忽略！"
+                f'[Warning] The number of SELECT statements in {os.path.basename(file_path)} is not a multiple of 4 ({valid_sql_count}); the incomplete trailing group was ignored.'
             )
 
     def parse_sql_file(self, file_path: str) -> List[List[str]]:
@@ -1917,11 +1916,11 @@ class TLPBugFinder:
         方法说明: 主执行流程。
         """
         self.start_time = time.time()
-        self.log(f"=== 开始运行 TLP Bug Finder ===")
-        self.log(f"批次大小: {VALIDATION_BATCH_SIZE}")
-        self.log(f"并发 worker 数: {MAX_WORKERS}")
-        self.log(f"单条 SQL 超时: {self.query_timeout} 秒")
-        self.log(f"进程池 chunksize: {self.pool_chunksize}")
+        self.log(f'=== Starting TLP Bug Finder ===')
+        self.log(f'Batch size: {VALIDATION_BATCH_SIZE}')
+        self.log(f'Concurrent workers: {MAX_WORKERS}')
+        self.log(f'Per-SQL timeout: {self.query_timeout} seconds')
+        self.log(f'Process pool chunksize: {self.pool_chunksize}')
         if _is_oracle_db():
             self.log(
                 "Oracle worker guard: spawn; crash detection; "
@@ -1930,18 +1929,11 @@ class TLPBugFinder:
                 "report flush interval=5s"
             )
             self.log(
-                "Oracle 资源参数限幅: "
-                f"{self.resource_argument_bounding_enabled} "
-                f"(LPAD/RPAD/SUBSTR/SUBSTRB=0..{self.string_length_max})"
+                f'Oracle argument bounds: {self.resource_argument_bounding_enabled} (LPAD/RPAD/SUBSTR/SUBSTRB=0..{self.string_length_max})'
             )
         elif _normalized_db_type() == "sqlserver":
             self.log(
-                "SQL Server 资源参数限幅: "
-                f"{self.resource_argument_bounding_enabled} "
-                f"(REPLICATE=0..{self.repeat_count_max}, "
-                f"REPLICATE结果上限={self.repeat_output_max_chars} chars, "
-                f"LEFT/RIGHT/SUBSTRING/SPACE=0..{self.string_length_max}; "
-                "保留 NULL，REPLICATE/SPACE 负参数仍返回 NULL)"
+                f'SQL Server argument bounds: {self.resource_argument_bounding_enabled} (REPLICATE=0..{self.repeat_count_max}, REPLICATE output limit={self.repeat_output_max_chars} chars, LEFT/RIGHT/SUBSTRING/SPACE=0..{self.string_length_max}; NULL preserved; negative REPLICATE/SPACE arguments still return NULL)'
             )
 
         # 1. 扫描所有旧 .sql 或无损压缩 .sql.gz 文件。
@@ -1955,7 +1947,7 @@ class TLPBugFinder:
         files = _select_current_test_case_files(candidate_files)
 
         if not files:
-            self.log("[Error] 未找到测试用例文件，请先运行 sql_generator.py！")
+            self.log('[Error] No test-case files found. Run sql_generator.py first.')
             self.executor.close()
             self._close_report_handles()
             return {
@@ -1968,7 +1960,7 @@ class TLPBugFinder:
         compressed_count = sum(
             1 for path in files if str(path).lower().endswith(".sql.gz")
         )
-        self.log(f"发现 {len(files)} 个测试文件，准备开始扫描...")
+        self.log(f'Found {len(files)} test files; starting scan...')
 
         # 2. 流式遍历每个文件。每次只保留当前批次和一个前瞻任务，避免 all_tasks 全量驻留。
         def iter_tasks():
@@ -2006,7 +1998,7 @@ class TLPBugFinder:
                     yield (file_name, case_idx, group, file_tlp_mode)
 
         task_iter = iter_tasks()
-        self.log("开始流式加载测试组并按批次并发验证...")
+        self.log('Streaming test groups and validating concurrently in batches...')
 
         pool = (
             OracleValidationPool(
@@ -2188,8 +2180,7 @@ class TLPBugFinder:
             self.worker_failure = exc.details
             self.log(f"[Oracle Worker Failure] {exc}")
             self.log(
-                "[Oracle Worker Failure] 本轮未完成，停止调度；"
-                "已收到的结果保留。完整诊断写入本轮 tlp_error_summary。"
+                "[Oracle Worker Failure] Round incomplete; stopping scheduling and retaining received results. Full diagnostics are in this round's tlp_error_summary."
             )
             self._flush_oracle_reports(force=True)
             pool.terminate()
@@ -2218,38 +2209,36 @@ class TLPBugFinder:
                      f"excluded_wall_seconds={self.oracle_excluded_wall_seconds:.2f}, "
                      f"raw_elapsed_seconds={raw_duration:.2f}")
         self.log("==================================================")
-        self.log("扫描因 Oracle worker 异常提前结束（未完成）。"
-                 if self.worker_failure is not None else "扫描完成！")
-        self.log(f"耗时       : {duration:.2f} 秒")
+        self.log('Scan stopped early due to an Oracle worker failure (incomplete).' if self.worker_failure is not None else 'Scan completed.')
+        self.log(f'Elapsed time          : {duration:.2f} seconds')
         if self.stratified_task_source is not None:
-            self.log(f"分层流式 TLP 构造另计: {streamed_tlp_seconds:.2f} 秒（未计入上述验证耗时）")
+            self.log(f'Stratified streaming TLP construction: {streamed_tlp_seconds:.2f} seconds (excluded from the validation time above)')
         self.log(f"TLP mode   : {self.tlp_mode}")
         effective_loaded = self.total_cases_loaded - self.oracle_excluded_cases
-        self.log(f"加载测试组 : {effective_loaded} 组")
+        self.log(f'Loaded test groups    : {effective_loaded} groups')
         if _is_oracle_db():
-            self.log(f"原始加载组 : {self.total_cases_loaded} 组；特殊故障排除 : {self.oracle_excluded_cases} 组")
+            self.log(f'Original loaded groups: {self.total_cases_loaded} groups; excluded special faults: {self.oracle_excluded_cases} groups')
             if self.oracle_fault_counts:
-                self.log(f"特殊故障记录: {self.oracle_fault_path}")
-        self.log(f"处理测试组 : {self.total_cases_run} 组")
-        self.log(f"成功验证组 : {self.total_cases_validated} 组")
-        self.log(f"跳过测试组 : {self.total_cases_skipped} 组")
-        self.log(f"SQL Error  : {self.total_sql_errors} 条")
-        self.log(f"  - validation error: {self.total_validation_errors} 条")
-        self.log(f"  - query timeout   : {self.total_query_timeouts} 条")
-        self.log(f"截止时间停止 : {self.stopped_by_deadline}")
-        self.log(f"发现 Bug 数: {self.total_bugs_found} 个")
+                self.log(f'Special fault records: {self.oracle_fault_path}')
+        self.log(f'Processed test groups : {self.total_cases_run} groups')
+        self.log(f'Successfully validated: {self.total_cases_validated} groups')
+        self.log(f'Skipped test groups   : {self.total_cases_skipped} groups')
+        self.log(f'SQL Error             : {self.total_sql_errors} statements')
+        self.log(f'  - validation error  : {self.total_validation_errors} statements')
+        self.log(f'  - query timeout     : {self.total_query_timeouts} statements')
+        self.log(f'Stopped by deadline   : {self.stopped_by_deadline}')
+        self.log(f'Bugs found            : {self.total_bugs_found}')
         self.log(
-            f"Bug 详细报告写入: {self.bug_samples_written}/{self.bug_sample_limit} 条，"
-            f"省略现场: {self.bug_samples_dropped} 条"
+            f'Detailed bug reports written: {self.bug_samples_written}/{self.bug_sample_limit}; omitted details: {self.bug_samples_dropped}'
         )
         error_summary_path = self._write_error_summary()
 
         self.log("==================================================")
 
         if self.total_bugs_found > 0:
-            self.log(f"详细 Bug 报告请查看: {self.bug_file}")
+            self.log(f'Detailed bug reports: {self.bug_file}')
         else:
-            self.log("本次扫描未发现逻辑漏洞 (Logic Bug)。")
+            self.log('No logic bugs found in this scan.')
 
         # 关闭数据库连接
         self.executor.close()

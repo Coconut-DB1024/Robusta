@@ -447,7 +447,7 @@ class DBMetaDataLoader:
         方法说明: 核心加载逻辑。
         使用 SQL 的 DESCRIBE 语句向数据库查询表结构。
         """
-        print("[SchemaLoader] 正在连接数据库加载元数据...")
+        print('[SchemaLoader] Connecting to the database to load metadata...')
 
         # === 复用点：使用 RL.db_executor 统一执行器 ===
         # autoconnect=True 表示初始化时自动建立数据库连接
@@ -500,7 +500,7 @@ class DBMetaDataLoader:
         # 将解析好的列列表保存到字典中，以表名为 Key
         self.columns[table_name] = cols
         self.columns[self.table_sql] = cols
-        print(f"[SchemaLoader] 加载完成: {table_name} 包含 {len(cols)} 列。")
+        print(f'[SchemaLoader] Metadata loaded: {table_name} has {len(cols)} columns.')
 
     def get_columns(self, table_name: str):
         """
@@ -612,7 +612,7 @@ class SmartInstantiator:
                         self.operator_map = json.load(f)
                     source_type = f"Specific ({config_db_type}.json)"
                 except Exception as e:
-                    print(f"[Config] Oracle 专用配置加载失败: {e}")
+                    print(f'[Config] Failed to load the Oracle-specific configuration: {e}')
             if not self.operator_map:
                 self.operator_map = dict(ORACLE_OPERATOR_MAP)
                 source_type = "Oracle Stage-3 built-in profile"
@@ -626,7 +626,7 @@ class SmartInstantiator:
                     self.operator_map = json.load(f)
                 source_type = f"Specific ({db_type}.json)"
             except Exception as e:
-                print(f"[Config] 加载专用配置失败: {e}")
+                print(f'[Config] Failed to load the database-specific configuration: {e}')
 
         # 2. 如果专用配置没加载到，尝试通用配置
         if db_type == "sqlserver" and not self.operator_map:
@@ -637,7 +637,7 @@ class SmartInstantiator:
                     self.operator_map = json.load(f)
                 source_type = "Common (common.json)"
             except Exception as e:
-                print(f"[Config] 加载通用配置失败: {e}")
+                print(f'[Config] Failed to load the common configuration: {e}')
 
         # 3. 如果文件都失败，使用硬编码保底 (Expanded Hardcoded Map)
         if not self.operator_map:
@@ -1141,7 +1141,7 @@ class TestCaseGenerator:
 
         # 如果没找到文件，打印警告并退出
         if not files:
-            print(f"[Warning] 在 {INPUT_DIR} 下没有找到任何 input 文件。")
+            print(f'[Warning] No input files found in {INPUT_DIR}.')
             return {
                 "success": False,
                 "round_complete": False,
@@ -1152,7 +1152,7 @@ class TestCaseGenerator:
                 "elapsed_seconds": time.monotonic() - generation_start,
             }
 
-        print(f"[Generator] 发现 {len(files)} 个谓词文件，准备处理...")
+        print(f'[Generator] Found {len(files)} predicate files; starting processing...')
         output_buffer_bytes = max(
             4096,
             int(getattr(STAGE3_CONFIG, "stage3_output_buffer_bytes", 1048576)),
@@ -1282,13 +1282,12 @@ class TestCaseGenerator:
                         partial_path.unlink()
                     except OSError as cleanup_error:
                         print(
-                            "     [Warning] 无法清理截止时未完成测试用例文件 "
-                            f"{partial_path}: {cleanup_error}"
+                            f'     [Warning] Failed to remove the test-case file left incomplete at the deadline {partial_path}: {cleanup_error}'
                         )
                 break
             except Exception as e:
                 # 捕获处理过程中的异常，打印文件名和错误信息
-                print(f"     [Error] 处理文件 {file_name} 时出错: {e}")
+                print(f'     [Error] Failed to process file {file_name}: {e}')
                 # 打印详细堆栈跟踪，方便调试
                 import traceback
                 traceback.print_exc()
@@ -1300,8 +1299,7 @@ class TestCaseGenerator:
                         partial_path.unlink()
                     except OSError as cleanup_error:
                         print(
-                            "     [Warning] 无法清理未完成测试用例文件 "
-                            f"{partial_path}: {cleanup_error}"
+                            f'     [Warning] Failed to remove incomplete test-case file {partial_path}: {cleanup_error}'
                         )
                 break
 
