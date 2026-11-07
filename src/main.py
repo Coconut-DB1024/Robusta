@@ -19,17 +19,17 @@ if __name__ == '__main__':
         pass
 
 def transformer_encoder():
-    print("开始执行运算符编码流程...")
+    print('Starting operator encoding...')
     from transformer_encoder.encode_operators import run_encoding
     run_encoding()
-    print("运算符编码流程执行完毕。")
+    print('Operator encoding completed.')
 
 
 def run_operator_embedding_extraction():
-    print("开始生成算子向量与相似算子表...")
+    print('Generating operator vectors and the similar-operator table...')
     from transformer_encoder.operator_embedding_extractor import run_extraction
     run_extraction()
-    print("算子向量与相似算子表生成完毕。")
+    print('Operator vectors and the similar-operator table generated.')
 
 
 def run_contrastive_learning_step(iter_n):
@@ -78,7 +78,7 @@ def run_candidate_bitmap_bootstrap():
     initial_graph_mode = "sampled_llm_seeded"
 
     if STAGE2_MODE == "base" and graph_path.exists():
-        print("普通随机实验")
+        print('Random experiment')
 
     if (
         not graph_path.exists()
@@ -97,8 +97,7 @@ def run_candidate_bitmap_bootstrap():
 
     if not graph_path.exists():
         _bootstrap_log(
-            "[CandidateBitmapBootstrap] global_knowledge_graph.json 不存在，"
-            f"按 initial_graph_mode={initial_graph_mode!r} 创建初始图。"
+            f'[CandidateBitmapBootstrap] global_knowledge_graph.json is missing; creating the initial graph with initial_graph_mode={initial_graph_mode!r}.'
         )
         from RL.pkg_manager import ensure_initial_global_knowledge_graph
 
@@ -112,24 +111,21 @@ def run_candidate_bitmap_bootstrap():
 
     if not graph_path.exists():
         raise FileNotFoundError(
-            "[CandidateBitmapBootstrap] global_knowledge_graph.json 仍然不存在，"
-            "无法根据正式知识图刷新 observed_bitmap。正确路径应为："
-            f"{graph_path}"
+            f'[CandidateBitmapBootstrap] global_knowledge_graph.json is still missing; cannot refresh observed_bitmap from the formal knowledge graph. Expected path: {graph_path}'
         )
 
     if need_build_universe:
         _bootstrap_log(
-            "[CandidateBitmapBootstrap] candidate bitmap 主文件缺失，"
-            "开始构建 candidate edge universe..."
+            '[CandidateBitmapBootstrap] Candidate bitmap files are missing; building the candidate edge universe...'
         )
         candidate_report = build_and_save_candidate_bitmap(rules_path)
         _bootstrap_log(
             "[CandidateBitmapBootstrap] Candidate edge universe construction completed."
         )
     else:
-        _bootstrap_log("[CandidateBitmapBootstrap] candidate bitmap 主文件已存在，跳过全集重建。")
+        _bootstrap_log('[CandidateBitmapBootstrap] Candidate bitmap files already exist; skipping universe reconstruction.')
 
-    _bootstrap_log("[CandidateBitmapBootstrap] 开始刷新 observed/missing/available bitmap...")
+    _bootstrap_log('[CandidateBitmapBootstrap] Refreshing observed/missing/available bitmaps...')
     observed_report = build_and_save_observed_bitmap(graph_path)
     candidate_info = observed_report.get("candidate", {}) if isinstance(observed_report, dict) else {}
     graph_info = observed_report.get("graph", {}) if isinstance(observed_report, dict) else {}
@@ -202,8 +198,7 @@ def run_candidate_bitmap_bootstrap():
             )
         else:
             _bootstrap_log(
-                "[CandidateBitmapBootstrap] 表示迁移帮助已关闭："
-                "pattern_transfer_score置0，并继续刷新HNSW/熵组织数据..."
+                '[CandidateBitmapBootstrap] Representation transfer guidance is disabled: setting pattern_transfer_score to 0 and refreshing HNSW/entropy organization data...'
             )
         score_report = refresh_candidate_edge_scores_by_pattern_transfer(graph_path=graph_path)
 
@@ -212,8 +207,7 @@ def run_candidate_bitmap_bootstrap():
         )
     else:
         _bootstrap_log(
-            "[CandidateBitmapBootstrap] 跳过 pattern_transfer_score 刷新："
-            "CANDIDATE_BITMAP_CONFIG.refresh_pattern_transfer_before_rl=False"
+            '[CandidateBitmapBootstrap] Skipping pattern_transfer_score refresh: CANDIDATE_BITMAP_CONFIG.refresh_pattern_transfer_before_rl=False'
         )
 
 
@@ -279,12 +273,12 @@ def run_predicate_knowledge_graph_traverse(
     localized_random=False,
     output_label=None,
 ):
-    print("开始执行谓词知识图处理阶段...")
+    print('Starting predicate knowledge graph processing...')
     from pkg.unfolder import unfolder
     from pkg.counter import counter
     from pkg.sampler import sampler
 
-    print(">>> (跳过建图，直接读取 RL 阶段产出的全局大图)")
+    print('>>> Skipping graph construction; reading the global graph produced by RL.')
     if metrics_recorder is not None:
         metrics_recorder.start_phase("dag_unfolding", max_depth)
     unfold_started = time.monotonic()
@@ -311,7 +305,7 @@ def run_predicate_knowledge_graph_traverse(
     if not unfold_report.get("success", False) or not unfold_report.get(
         "round_complete", False
     ):
-        print("谓词知识图处理阶段在 DAG 展开阶段停止。")
+        print('Predicate knowledge graph processing stopped during DAG unfolding.')
         return {
             "success": bool(unfold_report.get("success", False)),
             "round_complete": False,
@@ -348,7 +342,7 @@ def run_predicate_knowledge_graph_traverse(
     if not count_report.get("success", False) or not count_report.get(
         "round_complete", False
     ):
-        print("谓词知识图处理阶段在组合计数阶段停止。")
+        print('Predicate knowledge graph processing stopped during combination counting.')
         return {
             "success": bool(count_report.get("success", False)),
             "round_complete": False,
@@ -423,7 +417,7 @@ def run_predicate_knowledge_graph_traverse(
         ),
         **sampling_phase_timings,
     }
-    print("谓词知识图处理阶段执行完毕。")
+    print('Predicate knowledge graph processing completed.')
     return sampling_report if isinstance(sampling_report, dict) else {
         "success": False,
         "round_complete": False,
@@ -433,11 +427,11 @@ def run_predicate_knowledge_graph_traverse(
 
 
 def run_database_builder():
-    print(">>> 正在启动数据库初始化模块...")
+    print('>>> Starting database initialization...')
     from BugFinding.db_initializer import DatabaseInitializer
     initializer = DatabaseInitializer()
     initializer.setup_database()
-    print(">>> 数据库初始化成功！")
+    print('>>> Database initialization completed successfully.')
 
 
 def run_BugFinding(
@@ -450,7 +444,7 @@ def run_BugFinding(
     cumulative_tlp_base=None,
     stratified_layers_by_file=None,
 ):
-    print("开始第三阶段流程...")
+    print('Starting Stage 3...')
 
     round_summary = {
         "phase_timings": {
@@ -475,12 +469,12 @@ def run_BugFinding(
 
     if not stratified_layers_by_file:
         if deadline is not None and time.monotonic() >= deadline:
-            print(">>> [TLP] 已达到第三阶段截止时间，跳过新的测试用例生成。")
+            print('>>> [TLP] Stage 3 deadline reached; skipping new test-case generation.')
             round_summary["round_complete"] = False
             round_summary["stop_phase"] = "tlp_generation"
             return round_summary
 
-        print(">>> [TLP] 正在启动测试用例生成模块...")
+        print('>>> [TLP] Starting test-case generation...')
         from BugFinding.sql_generator import TestCaseGenerator
         generator = TestCaseGenerator()
         if metrics_recorder is not None:
@@ -500,21 +494,21 @@ def run_BugFinding(
                 phase="tlp_generation",
                 depth=current_depth,
             )
-        print(">>> [TLP] 测试用例生成完成！")
+        print('>>> [TLP] Test-case generation completed.')
 
         round_summary["tlp_generation"] = generator_report
         if not generator_report.get("success", False):
             round_summary["round_complete"] = False
             round_summary["stop_phase"] = "tlp_generation"
-            print(">>> [TLP] 测试用例生成失败，本轮不扫描旧测试文件。")
+            print('>>> [TLP] Test-case generation failed; skipping existing test files for this round.')
             return round_summary
         if not generator_report.get("round_complete", True):
             round_summary["round_complete"] = False
             round_summary["stop_phase"] = "tlp_generation"
-            print(">>> [TLP] 截止时间已到，已保留本轮完整生成的部分测试用例。")
+            print('>>> [TLP] Deadline reached; retaining fully generated test cases from this round.')
             return round_summary
 
-        print(">>> [TLP] 正在启动 Bug 搜寻模块...")
+        print('>>> [TLP] Starting bug detection...')
         from BugFinding.bug_finder import TLPBugFinder
         test_case_signature_spans = {}
         source_output_files = generator_report.get("source_output_files", {}) or {}
@@ -570,7 +564,7 @@ def run_BugFinding(
                 phase="database_validation",
                 depth=current_depth,
             )
-        print(f">>> [TLP] 本次扫描发现 Bug 数: {finder.total_bugs_found}")
+        print(f'>>> [TLP] Bugs found in this scan: {finder.total_bugs_found}')
         round_summary["tlp"] = {
             "cases_loaded": scan_report.get("cases_loaded", finder.total_cases_loaded),
             "cases_run": finder.total_cases_run,
@@ -610,7 +604,7 @@ def run_BugFinding(
 
     round_summary.setdefault("round_complete", True)
     round_summary.setdefault("stop_phase", None)
-    print("第三阶段流程执行完毕。")
+    print('Stage 3 completed.')
     return round_summary
 
 
@@ -800,7 +794,7 @@ def _run_stage3(predicate_report):
                 ),
             ) or {}
         else:
-            print("[Stage3] 谓词生成未成功提交，本轮不扫描旧输出文件。")
+            print('[Stage3] Predicate generation was not committed successfully; skipping existing output files for this round.')
         rate_lines = _print_stage3_validation_rates(
             sampling_report.get("total_generated", 0),
             bug_report.get("tlp", {}) or {},
@@ -1617,8 +1611,7 @@ def run_auto_cycle(num_cycles_override=None):
         else:
             if interval_steps <= 0:
                 raise ValueError(
-                    "[AutoCycle] recycle_interval_steps 必须大于 0，"
-                    "否则无法自动计算循环轮数。"
+                    '[AutoCycle] recycle_interval_steps must be greater than 0 to calculate the cycle count automatically.'
                 )
 
             num_cycles = (total_timesteps + interval_steps - 1) // interval_steps
@@ -1626,8 +1619,7 @@ def run_auto_cycle(num_cycles_override=None):
 
             if total_timesteps % interval_steps != 0:
                 print(
-                    "[AutoCycle Warning] total_timesteps 不能被 recycle_interval_steps 整除，"
-                    f"将向上取整为 {num_cycles} 轮。"
+                    f'[AutoCycle Warning] total_timesteps is not divisible by recycle_interval_steps; rounding up to {num_cycles} cycles.'
                 )
     else:
         num_cycles = int(AUTO_CYCLE_CONFIG.auto_cycle_num_cycles)
@@ -1636,10 +1628,10 @@ def run_auto_cycle(num_cycles_override=None):
     stop_on_failure = bool(AUTO_CYCLE_CONFIG.auto_cycle_stop_on_failure)
 
     if num_cycles <= 0:
-        raise ValueError("[AutoCycle] num_cycles 必须大于 0。")
+        raise ValueError('[AutoCycle] num_cycles must be greater than 0.')
 
     print(f"\n{'=' * 80}")
-    print("[AutoCycle] 自动循环启动")
+    print('[AutoCycle] Automatic cycles started')
     print(f"[AutoCycle] project_root = {project_root}")
     print(f"[AutoCycle] num_cycles = {num_cycles}")
     print(f"[AutoCycle] num_cycle_source = {num_cycle_source}")
@@ -1662,8 +1654,7 @@ def run_auto_cycle(num_cycles_override=None):
     if need_initial_pre_rl:
         if AUTO_CYCLE_CONFIG.auto_cycle_run_pre_rl_if_missing:
             print(
-                "[AutoCycle] 检测到 output/predicate.txt 或 encoder_state.pt 不存在，"
-                "先自动运行一次 pre_rl。"
+                '[AutoCycle] output/predicate.txt or encoder_state.pt is missing; running pre_rl first.'
             )
             ok = _run_subprocess_step(
                 step_name="initial_pre_rl",
@@ -1672,7 +1663,7 @@ def run_auto_cycle(num_cycles_override=None):
                 stop_on_failure=stop_on_failure,
             )
             if not ok:
-                print("[AutoCycle] initial_pre_rl 失败，跳过后续自动循环。")
+                print('[AutoCycle] initial_pre_rl failed; skipping subsequent automatic cycles.')
                 return
             if bool(getattr(AUTO_CYCLE_CONFIG, "auto_cycle_verify_operator_similarity_after_retrain", True)):
                 verified = _verify_operator_similarity_outputs(
@@ -1680,15 +1671,14 @@ def run_auto_cycle(num_cycles_override=None):
                     context="initial_pre_rl",
                 )
                 if not verified:
-                    msg = "[AutoCycle] initial_pre_rl 后未得到有效 operator_similarity 输出。"
+                    msg = '[AutoCycle] No valid operator_similarity output was produced after initial_pre_rl.'
                     if stop_on_failure:
                         raise RuntimeError(msg)
                     print(msg)
                     return
         else:
             raise FileNotFoundError(
-                "[AutoCycle] 缺少 output/predicate.txt 或 encoder_state.pt，"
-                "且 auto_cycle_run_pre_rl_if_missing=False。请先运行 python main.py pre_rl。"
+                '[AutoCycle] output/predicate.txt or encoder_state.pt is missing, and auto_cycle_run_pre_rl_if_missing=False. Run python main.py pre_rl first.'
             )
 
     if (
@@ -1701,8 +1691,7 @@ def run_auto_cycle(num_cycles_override=None):
         )
         if not verified:
             msg = (
-                "[AutoCycle] 已存在 predicate.txt 和 encoder_state.pt，"
-                "但 operator_similarity 输出缺失或无效。请先运行 python main.py pre_rl。"
+                '[AutoCycle] predicate.txt and encoder_state.pt exist, but operator_similarity output is missing or invalid. Run python main.py pre_rl first.'
             )
             if stop_on_failure:
                 raise RuntimeError(msg)
@@ -1721,7 +1710,7 @@ def run_auto_cycle(num_cycles_override=None):
             stop_on_failure=stop_on_failure,
         )
         if not ok:
-            print(f"[AutoCycle] cycle_{cycle_idx}_rl_cycle 失败，跳过本轮剩余步骤。")
+            print(f'[AutoCycle] cycle_{cycle_idx}_rl_cycle failed; skipping the remaining steps in this cycle.')
             continue
 
         recycle_schedule = _resolve_auto_cycle_recycle_schedule(cycle_idx)
@@ -1760,7 +1749,7 @@ def run_auto_cycle(num_cycles_override=None):
             stop_on_failure=stop_on_failure,
         )
         if not ok:
-            print(f"[AutoCycle] cycle_{cycle_idx}_recycle_apply 失败，跳过本轮重训。")
+            print(f'[AutoCycle] cycle_{cycle_idx}_recycle_apply failed; skipping retraining in this cycle.')
             continue
 
         applied_count = _read_last_recycle_apply_count(project_root)
@@ -1768,26 +1757,25 @@ def run_auto_cycle(num_cycles_override=None):
 
         if applied_count is None:
             msg = (
-                f"[AutoCycle] 无法读取 cycle_{cycle_idx} 的 recycle_apply_log.json，"
-                "不能确认是否有新谓词写入 predicate.txt。"
+                f'[AutoCycle] Cannot read recycle_apply_log.json for cycle_{cycle_idx}; unable to confirm whether new predicates were written to predicate.txt.'
             )
 
             if stop_on_failure:
                 raise RuntimeError(msg)
 
             print(msg)
-            print("[AutoCycle] stop_on_failure=False，跳过本轮 recycle_pre_rl。")
+            print('[AutoCycle] stop_on_failure=False; skipping recycle_pre_rl in this cycle.')
             continue
 
         if AUTO_CYCLE_CONFIG.auto_cycle_recycle_dry_run:
-            print("[AutoCycle] 当前 recycle 是 dry-run，跳过 recycle_pre_rl。")
+            print('[AutoCycle] Recycle is a dry run; skipping recycle_pre_rl.')
             continue
 
         if (
             AUTO_CYCLE_CONFIG.auto_cycle_skip_retrain_if_no_apply
             and applied_count == 0
         ):
-            print("[AutoCycle] 本轮没有新谓词写入 predicate.txt，跳过 recycle_pre_rl。")
+            print('[AutoCycle] No new predicates were written to predicate.txt in this cycle; skipping recycle_pre_rl.')
             continue
 
         if AUTO_CYCLE_CONFIG.auto_cycle_run_recycle_pre_rl:
@@ -1798,7 +1786,7 @@ def run_auto_cycle(num_cycles_override=None):
                 stop_on_failure=stop_on_failure,
             )
             if not ok:
-                print(f"[AutoCycle] cycle_{cycle_idx}_recycle_pre_rl 失败。")
+                print(f'[AutoCycle] cycle_{cycle_idx}_recycle_pre_rl failed.')
                 continue
 
             if bool(getattr(AUTO_CYCLE_CONFIG, "auto_cycle_verify_operator_similarity_after_retrain", True)):
@@ -1808,20 +1796,19 @@ def run_auto_cycle(num_cycles_override=None):
                 )
                 if not verified:
                     msg = (
-                        f"[AutoCycle] cycle_{cycle_idx}_recycle_pre_rl 后 "
-                        "operator_similarity 输出缺失或无效。"
+                        f'[AutoCycle] operator_similarity output is missing or invalid after cycle_{cycle_idx}_recycle_pre_rl.'
                     )
                     if stop_on_failure:
                         raise RuntimeError(msg)
                     print(msg)
                     continue
         else:
-            print("[AutoCycle] auto_cycle_run_recycle_pre_rl=False，跳过第一阶段重训。")
+            print('[AutoCycle] auto_cycle_run_recycle_pre_rl=False; skipping Stage 1 retraining.')
 
         print(f"\n[AutoCycle] Cycle {cycle_idx}/{num_cycles} FINISHED")
 
     print(f"\n{'=' * 80}")
-    print("[AutoCycle] 自动循环全部结束")
+    print('[AutoCycle] All automatic cycles completed')
     print(f"{'=' * 80}")
 
     if bool(getattr(CANDIDATE_BITMAP_CONFIG, "enabled", True)):
@@ -1867,9 +1854,9 @@ def run_auto_cycle(num_cycles_override=None):
             stop_on_failure=stop_on_failure,
         )
         if not ok:
-            print("[AutoCycle] final_stage3 失败。")
+            print('[AutoCycle] final_stage3 failed.')
     else:
-        print("[AutoCycle] auto_cycle_run_stage3_after_cycles=False，跳过第三阶段。")
+        print('[AutoCycle] auto_cycle_run_stage3_after_cycles=False; skipping Stage 3.')
 
 
 
@@ -1885,8 +1872,7 @@ if __name__ == "__main__":
                 num_cycles_override = int(sys.argv[2])
             except ValueError as e:
                 raise ValueError(
-                    "[AutoCycle] 用法: python main.py auto_cycle [num_cycles]，"
-                    "其中 num_cycles 必须是整数。"
+                    '[AutoCycle] Usage: python main.py auto_cycle [num_cycles]; num_cycles must be an integer.'
                 ) from e
 
         run_auto_cycle(num_cycles_override=num_cycles_override)
@@ -1946,8 +1932,7 @@ if __name__ == "__main__":
 
             if not os.path.exists(predicate_txt_path):
                 raise FileNotFoundError(
-                    "[Stage 6D] recycle_pre_rl 模式需要已有 output/predicate.txt，"
-                    "但当前未找到。请先运行 pre_load 或完成 predicate_recycle apply。"
+                    '[Stage 6D] recycle_pre_rl requires an existing output/predicate.txt, but it was not found. Run pre_load or complete predicate_recycle apply first.'
                 )
 
             with open(predicate_txt_path, "r", encoding="utf-8") as f:
@@ -1955,49 +1940,48 @@ if __name__ == "__main__":
 
             if not existing_predicates:
                 raise RuntimeError(
-                    "[Stage 6D] output/predicate.txt 存在但为空，无法进行回炉重训。"
+                    '[Stage 6D] output/predicate.txt exists but is empty; cannot run recycle retraining.'
                 )
 
             print(
-                f"[Stage 6D] recycle_pre_rl 模式：跳过 pre_load，"
-                f"直接使用已有 {predicate_txt_path}，共 {len(existing_predicates)} 条谓词。"
+                f'[Stage 6D] recycle_pre_rl: skipping pre_load; using existing {predicate_txt_path} ({len(existing_predicates)} predicates).'
             )
         else:
-            print("开始执行预处理...")
+            print('Starting preprocessing...')
             result = pre_load()
-            print(f"处理结束")
+            print(f'Preprocessing completed.')
 
         i = 0
         while i < 20:
-            print(f"开始第{i + 1}轮迭代")
+            print(f'Starting iteration {i + 1}')
 
-            print(f">>> 开始编码阶段")
+            print(f'>>> Starting encoding')
             transformer_encoder()
-            print(f">>> 编码阶段结束")
+            print(f'>>> Encoding completed')
 
-            print(f">>> 开始聚类阶段")
+            print(f'>>> Starting clustering')
             clustering(iteration=i)
 
             if is_converged(i):
                 save_final_result(i)
                 print(f"\n{'=' * 50}")
-                print(f"第{i + 1}轮迭代收敛，结果已保存到: data/cluster_final_output")
+                print(f'Iteration {i + 1} converged. Results saved to: data/cluster_final_output')
                 print(f"{'=' * 50}")
                 break
-            print(f">>> 聚类阶段结束")
+            print(f'>>> Clustering completed')
 
-            print(f">>> 开始对比学习阶段")
+            print(f'>>> Starting contrastive learning')
             run_contrastive_learning_step(i)
 
             i += 1
 
         if i >= 20:
             save_final_result(19)
-            print(f"达到迭代上限，输出最后一次迭代结果，结果已保存到: data/cluster_final_output")
+            print(f'Iteration limit reached. Results from the last iteration saved to: data/cluster_final_output')
 
-        print(">>> 开始生成算子向量与相似算子表")
+        print('>>> Starting operator vector and similar-operator table generation')
         run_operator_embedding_extraction()
-        print(">>> 算子向量与相似算子表生成结束")
+        print('>>> Operator vector and similar-operator table generation completed')
 
         stage1_end = time.time()
         stage_times["Stage 1 (Pre/Code/Cluster/Contrastive)"] = stage1_end - stage1_start
@@ -2019,7 +2003,7 @@ if __name__ == "__main__":
             torch.cuda.empty_cache()
         print(">>> [System] Memory cleanup done.")
 
-        print(">>> 开始强化学习阶段")
+        print('>>> Starting reinforcement learning')
 
         disable_periodic_trigger_for_this_mode = mode in ["run_all", "post_rl"]
 
@@ -2035,10 +2019,10 @@ if __name__ == "__main__":
             print(f"\n{'=' * 50}")
             print("[Stage 6E] rl_cycle finished.")
             print(
-                "[Stage 6E] 本轮流程已完成：重建 HNSW -> 运行 RL cycle -> 执行 recycle 收尾。"
+                '[Stage 6E] Cycle completed: rebuild HNSW -> run RL cycle -> finalize recycle.'
             )
             print(
-                "[Stage 6E] 不进入第三阶段。下一步可根据 recycle 结果执行 apply / recycle_pre_rl / 下一轮 rl_cycle。"
+                '[Stage 6E] Stage 3 is skipped here. Next steps: apply / recycle_pre_rl / the next rl_cycle, based on the recycle results.'
             )
             print(
                 f"[Timer] Exiting after RL cycle. Total Time: "
@@ -2049,7 +2033,7 @@ if __name__ == "__main__":
 
         stage3_start = time.time()
         print("\n>>> [Stage 3] Start Downstream Tasks (Graph Traverse & Bug Finding)...")
-        print(">>> 开始第三阶段固定深度调度")
+        print('>>> Starting Stage 3 fixed-depth scheduling')
         stage3_report = run_stage3()
 
         stage3_end = time.time()
@@ -2059,22 +2043,22 @@ if __name__ == "__main__":
         total_time_seconds = global_end_time - global_start_time
 
         print(f"\n{'=' * 50}")
-        print("====== 系统运行完毕 ======")
+        print('====== Experiment completed ======')
         print(f"{'=' * 50}")
-        print("用时统计报告:")
+        print('Timing report:')
         if mode in ["run_all", "pre_rl"]:
             s1_time = datetime.timedelta(seconds=int(stage_times['Stage 1 (Pre/Code/Cluster/Contrastive)']))
-            print(f"  Stage 1 (预处理/编码/聚类/对比学习): {s1_time}")
+            print(f'  Stage 1 (Preprocessing/Encoding/Clustering/Contrastive learning): {s1_time}')
 
         if mode in ["run_all", "post_rl"]:
             s2_time = datetime.timedelta(seconds=int(stage_times['Stage 2 (RL Training)']))
-            print(f"  Stage 2 (强化学习/HNSW构建):         {s2_time}")
+            print(f'  Stage 2 (Reinforcement learning/HNSW construction):              {s2_time}')
             s3_time = datetime.timedelta(seconds=int(stage_times['Stage 3 (Graph/Bug Detection)']))
-            print(f"  Stage 3 (图遍历/Bug检测):            {s3_time}")
+            print(f'  Stage 3 (Graph traversal/Bug detection):                         {s3_time}')
 
         print("-" * 50)
         total_time = datetime.timedelta(seconds=int(total_time_seconds))
-        print(f"  项目总计用时:                     {total_time}")
+        print(f'  Total experiment time:                                          {total_time}')
         print(f"{'=' * 50}")
 
         run_stage3_predicate_similarity_post_analysis(stage3_report)
