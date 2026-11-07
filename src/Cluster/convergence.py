@@ -51,7 +51,7 @@ def is_converged(i):
         or not os.path.exists(prev_labels_path)
         or not os.path.exists(prev_meta_path)
     ):
-        print(f"警告: 文件缺失，无法判断收敛 (i={i})")
+        print(f'Warning: Missing files; cannot determine convergence (i={i})')
         return False
 
     # 读取标签数据
@@ -87,13 +87,10 @@ def is_converged(i):
 
     # 打印判断结果
     if converged:
-        print(f"[INFO] 聚类收敛 (第{i + 1}轮)")
+        print(f'[INFO] Clustering converged (iteration {i + 1})')
     else:
         print(
-            f"[INFO] 未收敛 (第{i + 1}轮): "
-            f"标签变化比例={label_change_ratio:.4f}, "
-            f"inertia变化比例={inertia_decrease_ratio:.4f}, "
-            f"ARI={ari:.4f} (< {ARI_THRESHOLD})"
+            f'[INFO] Not converged (iteration {i + 1}): label_change_ratio={label_change_ratio:.4f}, inertia_change_ratio={inertia_decrease_ratio:.4f}, ARI={ari:.4f} (< {ARI_THRESHOLD})'
         )
 
     return converged

@@ -51,9 +51,7 @@ def clustering(
             # 新 Encoder 输出为 512 维；旧 VAE 中心为 256 维时不能混用。
             if prev_centers.ndim != 2 or prev_centers.shape[1] != D:
                 print(
-                    f"Warning: Previous cluster center dimension "
-                    f"{getattr(prev_centers, 'shape', None)} != current embedding dimension {D}; "
-                    "重新使用 KMeans 默认初始化。"
+                    f"Warning: Previous cluster center dimension {getattr(prev_centers, 'shape', None)} != current embedding dimension {D}; using the default KMeans initialization."
                 )
                 prev_centers = None
 
@@ -143,4 +141,4 @@ def clustering(
     with open(os.path.join(final_output_dir, "cluster_meta.json"), "w", encoding="utf-8") as f:
         json.dump(meta, f, indent=2)
 
-    print(f"[INFO] 第{iteration+1}轮聚类完成")
+    print(f'[INFO] Clustering iteration {iteration + 1} completed')
