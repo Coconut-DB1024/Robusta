@@ -30,7 +30,7 @@ def main() -> int:
             raise ValueError(f"Expected a JSON object in {config_path}")
         # Check before cleanup so an unsupported DB leaves previous results intact.
         if config.get("db_type") != "postgresql":
-            print("当前仅支持postrgesql", file=sys.stderr, flush=True)
+            print("Only PostgreSQL is currently supported.", file=sys.stderr, flush=True)
             return 1
         if not entry_point.is_file():
             raise FileNotFoundError(f"LLM experiment entry point not found: {entry_point}")
