@@ -108,7 +108,7 @@ def load_experiment_config(config_path: Path) -> dict[str, Any]:
     if not isinstance(shared, dict):
         raise ValueError(f"Expected a JSON object in {SHARED_CONFIG_PATH}")
     if shared.get("db_type") != "postgresql":
-        raise ValueError("当前仅支持postgresql数据库")
+        raise ValueError("Only PostgreSQL is currently supported.")
 
     config = read_json(config_path)
     online_model = shared.get("online_model")
