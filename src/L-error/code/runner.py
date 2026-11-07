@@ -20,7 +20,7 @@ from datetime import datetime, timezone
 
 EXPERIMENTS = ("Robusta-TPC-H", "Robusta-JOB")
 HEADER = ["query_id", "default_plan_ms"] + [f"hint_{i:02d}_ms" for i in range(2, 50)] + ["l_error_ms", "speedup"]
-TIMEOUT_LABEL = "\u8d85\u65f6"
+TIMEOUT_LABEL = "Timeout"
 PROTOCOL = "default3-min-success-hint1-sequential-dynamic-best-v1"
 
 
