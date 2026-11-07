@@ -42,8 +42,8 @@ def run_contrastive_learning(
     model_dir = project_root / model_dir_name
     encoder_state_path = model_dir / "encoder_state.pt"
 
-    print("========== Encoder-only WeightedSupConLoss 阶段开始 ==========")
-    print(f"使用的 CodeT5 Encoder 目录: {model_dir}")
+    print('========== Encoder-only WeightedSupConLoss stage started ==========')
+    print(f'CodeT5 Encoder directory: {model_dir}')
     print(f"Encoder checkpoint: {encoder_state_path}")
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -63,7 +63,7 @@ def run_contrastive_learning(
         state_dict = torch.load(encoder_state_path, map_location=device)
         model.load_encoder_state_dict(state_dict)
     else:
-        print("[信息] 未发现 encoder_state.pt，本轮从原始 CodeT5-small 权重开始。")
+        print('[INFO] encoder_state.pt not found; starting this round with original CodeT5-small weights.')
 
     model.train()
 
@@ -128,4 +128,4 @@ def run_contrastive_learning(
 
     os.makedirs(model_dir, exist_ok=True)
     torch.save(model.encoder_state_dict(), encoder_state_path)
-    print("========== Encoder-only WeightedSupConLoss 阶段完成 ==========")
+    print('========== Encoder-only WeightedSupConLoss stage completed ==========')

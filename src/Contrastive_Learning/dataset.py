@@ -35,7 +35,7 @@ class ContrastiveDataset(Dataset):
         n_labels = len(self.labels)
         if n_texts != n_labels:
             raise ValueError(
-                f"数据数量不一致：文本 {n_texts} 条, 标签 {n_labels} 条，请检查。"
+                f'Data count mismatch: {n_texts} texts and {n_labels} labels. Please check.'
             )
 
         df = pd.read_csv(cluster_summary_file)
@@ -83,7 +83,7 @@ class ContrastiveDataset(Dataset):
     def collate_fn(self, batch):
         """按当前 batch 最长序列 padding，避免无效 token 计算。"""
         if self.tokenized_inputs is None:
-            raise RuntimeError("ContrastiveDataset.collate_fn 需要 tokenizer 才能工作。")
+            raise RuntimeError('ContrastiveDataset.collate_fn requires a tokenizer.')
 
         pad_id = self.tokenizer.pad_token_id
         input_ids = pad_sequence(
