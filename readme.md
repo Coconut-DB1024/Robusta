@@ -1,8 +1,6 @@
 ## Robusta
 **Getting Started**
 
-First, configure the database connection settings in `configuration.json`. We recommend using **Qwen3.5-27B** for the experiments.
-
 The following database versions were used in our experiments:
 
 | Database | Version |
@@ -27,6 +25,19 @@ python download_codet5_small.py
 ```
 
 Alternatively, you can download `codet5-small.zip` from GitHub Releases and extract it into the root directory of the Robusta project.
+
+For the main Robusta and standalone LLM experiments, configure the database connection settings and specify a table name (e.g., `test_table`) in `configuration.json`. We recommend using **Qwen3.5-27B** for these experiments.
+
+To prepare the test environment, we recommend running the following database initialization script from the Robusta root directory:
+
+```bash
+python exp/db_initializer/db_initializer.py
+```
+
+This script automatically creates the specified table in the configured database, which will be used for subsequent Robusta and LLM experiments.
+
+Note that the L-error experiment uses the TPC-H and JOB datasets instead and does not require this initialization step.
+
 Once the environment is configured, run the following command from the Robusta root directory to start the complete end-to-end workflow:
 
 ```bash
