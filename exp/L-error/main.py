@@ -18,7 +18,7 @@ def main() -> int:
         if not isinstance(config, dict):
             raise ValueError(f"Expected a JSON object in {config_path}")
         if config.get("db_type", "postgresql") != "postgresql":
-            print("仅支持postgresql", file=sys.stderr, flush=True)
+            print("Only PostgreSQL is supported.", file=sys.stderr, flush=True)
             return 1
         if not entry_point.is_file():
             raise FileNotFoundError(f"L-error experiment entry point not found: {entry_point}")
