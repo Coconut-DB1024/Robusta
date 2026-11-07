@@ -3,14 +3,80 @@
 The former generator consumed random draws even when data changes were disabled.
 Replay only those draws; this module never constructs SQL or connects to a DB.
 """
+import json
 import random
 import re
-from datetime import date
+import string
+from datetime import date, datetime, timedelta
 from typing import Any, Dict, Optional
 
-from BugFinding.db_initializer import RandomDataFactory
 from RL.config import DB_CONFIG
 from RL.sqlserver_evidence_types import BINARY, NUMERIC, STRINGS, TEMPORAL, base_type, column_type
+
+
+NULL_PROBABILITY = 0.15
+
+
+class RandomDataFactory:
+    """Keep the historical random draws local, without database initialization."""
+
+    @staticmethod
+    def generate_value(category: str) -> Any:
+        if random.random() < NULL_PROBABILITY:
+            return "NULL"
+        category = category.upper()
+        if "INTEGER" in category or "BOOLEAN" in category:
+            return RandomDataFactory._gen_int()
+        elif "FLOAT" in category:
+            return RandomDataFactory._gen_float()
+        elif "STRING" in category:
+            return RandomDataFactory._gen_string()
+        elif "DATETIME" in category:
+            return RandomDataFactory._gen_datetime()
+        elif "BINARY" in category:
+            return RandomDataFactory._gen_binary()
+        elif "JSON" in category:
+            return RandomDataFactory._gen_json()
+        else:
+            return RandomDataFactory._gen_string()
+
+    @staticmethod
+    def _gen_int():
+        return random.randint(-10000, 10000)
+
+    @staticmethod
+    def _gen_float():
+        return round(random.uniform(-10000.0, 10000.0), 2)
+
+    @staticmethod
+    def _gen_string():
+        length = random.randint(1, 50)
+        chars = string.ascii_letters + string.digits + " _-@"
+        val = ''.join(random.choice(chars) for _ in range(length))
+        return f"'{val}'"
+
+    @staticmethod
+    def _gen_datetime():
+        start = datetime.now() - timedelta(days=365*10)
+        end = datetime.now()
+        random_date = start + (end - start) * random.random()
+        return f"'{random_date.strftime('%Y-%m-%d %H:%M:%S')}'"
+
+    @staticmethod
+    def _gen_binary():
+        random_hex = ''.join(random.choices('0123456789ABCDEF', k=16))
+        return f"'{random_hex}'"
+
+    @staticmethod
+    def _gen_json():
+        data = {
+            "id": random.randint(1, 100),
+            "tag": "".join(random.choices(string.ascii_lowercase, k=5)),
+            "score": round(random.random(), 2)
+        }
+        json_str = json.dumps(data)
+        return f"'{json_str}'"
+
 
 def _value_category(column: Dict[str, Any]) -> str:
     """Map a live table column to a category understood by RandomDataFactory."""
