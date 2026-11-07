@@ -18,7 +18,7 @@ Run the independent LLM experiment using the PostgreSQL and `online_model` setti
 python exp/llm/main.py
 ```
 
-**Only PostgreSQL is supported.** The experimental results will be saved in the `data/LLM_reuslts/` directory.
+The experimental results will be saved in the `data/LLM_reuslts/` directory.
 
 **L-error Experiment**
 
@@ -28,4 +28,14 @@ Run the independent L-error experiment using the PostgreSQL settings and experim
 python exp/L-error/main.py
 ```
 
-**Only PostgreSQL is supported.** The experimental results will be saved in the `data/L-error_results/<experiment>_results/`.
+Only PostgreSQL is supported. Each selected experiment archives `results.csv` and `l_error_summary.txt` in `data/L-error_results/<experiment>_results/`.
+
+**Database Initialization**
+
+Initialize the database table using the database connection settings and `table_name` in `configuration.json`:
+
+```bash
+python exp/db_initializer/db_initializer.py
+```
+
+The selected database must already exist. Each run drops the existing table with the configured name, recreates it, and populates it with test data.
