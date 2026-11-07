@@ -43,25 +43,25 @@ def encode_sentence(
 
 def run_encoding():
     device = torch.device("cuda" if USE_GPU else "cpu")
-    print(f"[信息] 使用设备: {device}")
+    print(f'[INFO] Device: {device}')
 
     if not os.path.exists(MODEL_DIR):
-        raise FileNotFoundError(f"未找到本地模型目录：{MODEL_DIR}，请检查路径。")
+        raise FileNotFoundError(f'Local model directory not found: {MODEL_DIR}. Please check the path.')
     if not os.path.exists(INPUT_FILE):
-        raise FileNotFoundError(f"未找到输入文件：{INPUT_FILE}，请检查路径或文件名。")
+        raise FileNotFoundError(f'Input file not found: {INPUT_FILE}. Please check the path or filename.')
 
-    print(f"[信息] 正在加载 CodeT5 Encoder-only 模型: {MODEL_DIR}")
+    print(f'[INFO] Loading CodeT5 Encoder-only model: {MODEL_DIR}')
     model = CodeT5Encoder(
         model_name_or_path=MODEL_DIR,
         device=device,
     )
     if os.path.exists(ENCODER_STATE_FILE):
-        print(f"[信息] 加载 Encoder checkpoint: {ENCODER_STATE_FILE}")
+        print(f'[INFO] Loading Encoder checkpoint: {ENCODER_STATE_FILE}')
         model.load_encoder_state_dict(
             torch.load(ENCODER_STATE_FILE, map_location=device)
         )
     else:
-        print("[信息] 未发现 encoder_state.pt，本轮从原始 CodeT5-small 权重开始。")
+        print('[INFO] encoder_state.pt not found; starting this round with original CodeT5-small weights.')
 
     model.eval()
     tokenizer = model.tokenizer
@@ -89,13 +89,13 @@ def run_encoding():
 
     if len(all_sent_embeddings) != len(lines):
         raise RuntimeError(
-            f"编码结果数量 {len(all_sent_embeddings)} 与谓词行数 {len(lines)} 不一致。"
+            f'The number of encoded results ({len(all_sent_embeddings)}) does not match the number of predicate lines ({len(lines)}).'
         )
 
     sent_embeddings_matrix = np.stack(all_sent_embeddings, axis=0).astype(np.float32)
     if sent_embeddings_matrix.shape[1] != 512:
         raise RuntimeError(
-            f"CodeT5 Encoder hidden size 应为 512，实际为 {sent_embeddings_matrix.shape[1]}。"
+            f'CodeT5 Encoder hidden size should be 512, but is {sent_embeddings_matrix.shape[1]}.'
         )
 
     os.makedirs(os.path.dirname(OUTPUT_SENT_EMB_FILE), exist_ok=True)

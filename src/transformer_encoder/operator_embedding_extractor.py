@@ -437,7 +437,7 @@ def _encode_operator_occurrences(
 
 def load_predicates(path: str) -> List[str]:
     if not os.path.exists(path):
-        raise FileNotFoundError(f"未找到谓词文件: {path}")
+        raise FileNotFoundError(f'Predicate file not found: {path}')
 
     with open(path, "r", encoding="utf-8") as f:
         return [line.strip() for line in f if line.strip()]
@@ -445,7 +445,7 @@ def load_predicates(path: str) -> List[str]:
 
 def load_model(model_dir: str, state_path: str, device: torch.device) -> CodeT5Encoder:
     if not os.path.exists(model_dir):
-        raise FileNotFoundError(f"未找到模型目录: {model_dir}")
+        raise FileNotFoundError(f'Model directory not found: {model_dir}')
 
     model = CodeT5Encoder(
         model_name_or_path=model_dir,
@@ -456,7 +456,7 @@ def load_model(model_dir: str, state_path: str, device: torch.device) -> CodeT5E
         state_dict = torch.load(state_path, map_location=device)
         model.load_encoder_state_dict(state_dict)
     else:
-        print(f"[operator_embedding_extractor 警告] 未找到 Encoder 权重，将使用原始 CodeT5 权重: {state_path}")
+        print(f'[operator_embedding_extractor Warning] Encoder checkpoint not found; using original CodeT5 weights: {state_path}')
 
     model.eval()
     return model
