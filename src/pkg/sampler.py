@@ -1880,7 +1880,7 @@ class PredicateSampler:
         # --- 【修改结束】 ---
         # 【新增防御】：如果图中没有任何合法的布尔根节点，直接返回空，防止除零崩溃！
         if not boolean_roots:
-            print("  [Warning] 当前图谱中未找到合法的布尔根节点，跳过采样。")
+            print('  [Warning] No valid Boolean root nodes found in the current graph; skipping sampling.')
             return
 
         if self.localized_random:
