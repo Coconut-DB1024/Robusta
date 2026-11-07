@@ -717,6 +717,30 @@ class SmartInstantiator:
         name = str(column.get("name", "") or "").strip().strip('"')
         return name.lower() == "id"
 
+    def _table_column_cache(self, table_name):
+        source = self.loader.get_columns(table_name)
+        db_type = getattr(DB_CONFIG, "db_type", None)
+        caches = getattr(self, "_table_column_caches", None)
+        if caches is None:
+            caches = self._table_column_caches = {}
+        cached = caches.get(table_name)
+        if (cached is not None and cached["source"] is source
+                and cached["column_count"] == len(source)
+                and cached["db_type"] == db_type):
+            return cached
+        cached = {
+            "source": source,
+            "column_count": len(source),
+            "db_type": db_type,
+            "columns": None,
+            "exact_candidates": None,
+            "ranked_candidates": {},
+            "binding_keys": {},
+            "binding_groups": {},
+        }
+        caches[table_name] = cached
+        return cached
+
 
     def _choose_column_metadata(
         self,
@@ -732,15 +756,19 @@ class SmartInstantiator:
                 table_name, hint_name, predicate_context, capability,
                 binding_candidates=binding_candidates,
             )
-        columns = [
-            column
-            for column in self.loader.get_columns(table_name)
-            if not (
-                self._oracle_is_id_column(column)
-                if _is_oracle_db()
-                else str(column.get("name", "")) == "id"
-            )
-        ]
+        cached = self._table_column_cache(table_name)
+        if cached["columns"] is None:
+            oracle_db = _is_oracle_db()
+            cached["columns"] = [
+                column
+                for column in cached["source"]
+                if not (
+                    self._oracle_is_id_column(column)
+                    if oracle_db
+                    else str(column.get("name", "")) == "id"
+                )
+            ]
+        columns = cached["columns"]
         if not columns:
             return None
 
@@ -754,33 +782,36 @@ class SmartInstantiator:
             # configured fraction remains measurable across long experiments.
             if random.random() < self.column_type_exploration_ratio:
                 return random.choice(columns)
-            exact_candidates = [
-                column
-                for column in columns
-                if _normalize_column_type(column.get("type")) == exact_type
-            ]
+            if cached["exact_candidates"] is None:
+                by_type = {}
+                for column in columns:
+                    dtype = _normalize_column_type(column.get("type"))
+                    by_type.setdefault(dtype, []).append(column)
+                cached["exact_candidates"] = by_type
+            exact_candidates = cached["exact_candidates"].get(exact_type, [])
             if exact_candidates:
                 if binding_candidates is not None:
                     binding_candidates.extend(exact_candidates)
                 return random.choice(exact_candidates)
 
         op_type = self._resolve_hint_operator_type(hint_name, predicate_context)
-        candidates = []
-        for column in columns:
-            col_type = str(column.get("type", "") or "").upper()
-            is_match = False
-            if op_type in self.type_category_mapping:
-                valid_keywords = self.type_category_mapping[op_type]
+        valid_keywords = tuple(self.type_category_mapping.get(op_type, ()))
+        ranking_key = (op_type, valid_keywords)
+        candidates = cached["ranked_candidates"].get(ranking_key)
+        if candidates is None:
+            candidates = []
+            for column in columns:
+                col_type = str(column.get("type", "") or "").upper()
                 is_match = any(keyword in col_type for keyword in valid_keywords)
-            if is_match:
-                score = 50
-            elif op_type == "ANY":
-                score = 20
-            else:
-                score = 10
-            candidates.append((column, score))
-
-        candidates.sort(key=lambda item: item[1], reverse=True)
+                if is_match:
+                    score = 50
+                elif op_type == "ANY":
+                    score = 20
+                else:
+                    score = 10
+                candidates.append((column, score))
+            candidates.sort(key=lambda item: item[1], reverse=True)
+            cached["ranked_candidates"][ranking_key] = candidates
         top_k = min(len(candidates), 3)
         # Preserve legacy behavior for old coarse placeholders and DBMS providers
         # that do not yet expose concrete column-type variants.
@@ -983,6 +1014,24 @@ class SmartInstantiator:
             column.get("character_set_name"),
         )
 
+    def _compatible_columns(self, table_name, selected, candidates):
+        cached = self._table_column_cache(table_name)
+        keys = cached["binding_keys"]
+        selected_id = id(selected)
+        if selected_id not in keys:
+            keys[selected_id] = self._column_binding_key(selected)
+        pool_key = tuple(id(column) for column in candidates)
+        groups = cached["binding_groups"].get(pool_key)
+        if groups is None:
+            groups = {}
+            for column in candidates:
+                column_id = id(column)
+                if column_id not in keys:
+                    keys[column_id] = self._column_binding_key(column)
+                groups.setdefault(keys[column_id], []).append(column)
+            cached["binding_groups"][pool_key] = groups
+        return groups.get(keys[selected_id], [])
+
     def _instantiate_independent_where_columns(self, raw_predicate, table_name):
         bindings = {}
 
@@ -1002,8 +1051,7 @@ class SmartInstantiator:
                 # single choice for every occurrence, without another decision.
                 compatible = []
                 if selected is not None and selected in candidates:
-                    key = self._column_binding_key(selected)
-                    compatible = [c for c in candidates if self._column_binding_key(c) == key]
+                    compatible = self._compatible_columns(table_name, selected, candidates)
                 bindings[hint] = (selected, compatible)
                 return render(selected)
             selected, compatible = bindings[hint]
