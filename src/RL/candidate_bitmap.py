@@ -199,7 +199,7 @@ def _load_json(path: Path) -> Dict[str, Any]:
     with Path(path).open("r", encoding="utf-8") as f:
         data = json.load(f)
     if not isinstance(data, dict):
-        raise ValueError(f"JSON 根节点必须是对象: {path}")
+        raise ValueError(f'JSON root must be an object: {path}')
     return data
 
 
@@ -334,7 +334,7 @@ def _scan_initial_predicate_files_for_rule_issues(
                 report["fatal_hits"].append({
                     "file": str(path),
                     "token": pattern,
-                    "message": "初始谓词集合中出现已废弃的占位符或 HOLE 节点。",
+                    "message": 'The initial predicate collection contains deprecated placeholders or HOLE nodes.',
                 })
 
         for token in excluded_scan_tokens:
@@ -357,13 +357,13 @@ def _scan_initial_predicate_files_for_rule_issues(
                     report["syntax_sugar_hits"].append({
                         "file": str(path),
                         "token": token_text,
-                        "message": "该 token 是可由 IS + NULL/TRUE/FALSE 表达的语法糖；仅记录，不作为 warning。",
+                        "message": 'This token is syntactic sugar expressible with IS + NULL/TRUE/FALSE; recorded only, not treated as a warning.',
                     })
                 else:
                     report["warning_hits"].append({
                         "file": str(path),
                         "token": token_text,
-                        "message": "初始谓词集合中出现 excluded_tokens 中的 token；在精简规则下 parser/type_inference 可能无法处理。",
+                        "message": 'The initial predicate collection contains tokens in excluded_tokens; parser/type_inference may not support them under the reduced rules.',
                     })
 
     return report
@@ -395,7 +395,7 @@ def validate_candidate_rules_preflight(
     if not isinstance(definitions, dict):
         errors.append({
             "kind": "definitions_not_object",
-            "message": "rules.definitions 必须是对象。",
+            "message": 'rules.definitions must be an object.',
         })
         definitions = {}
 
@@ -405,7 +405,7 @@ def validate_candidate_rules_preflight(
             errors.append({
                 "kind": "empty_definition_token",
                 "token": raw_token,
-                "message": "definitions 中存在空 token。",
+                "message": 'definitions contains an empty token.',
             })
             continue
 
@@ -417,7 +417,7 @@ def validate_candidate_rules_preflight(
                 "kind": "invalid_definition_signature",
                 "token": token,
                 "rule": raw_rule,
-                "message": "每个 definition 必须形如 [return_type, [arg_types...]]。",
+                "message": 'Each definition must have the form [return_type, [arg_types...]].',
             })
             continue
 
@@ -426,13 +426,13 @@ def validate_candidate_rules_preflight(
                 "kind": "invalid_definition_args",
                 "token": token,
                 "rule": raw_rule,
-                "message": "definition 的第 2 项必须是参数类型列表。",
+                "message": 'The second item in a definition must be an argument-type list.',
             })
 
     if not isinstance(terminal_tokens, dict):
         errors.append({
             "kind": "terminal_tokens_not_object",
-            "message": "candidate_bitmap.terminal_tokens 必须是对象。",
+            "message": 'candidate_bitmap.terminal_tokens must be an object.',
         })
         terminal_tokens = {}
 
@@ -446,7 +446,7 @@ def validate_candidate_rules_preflight(
         errors.append({
             "kind": "bad_terminal_tokens",
             "tokens": sorted(bad_terminal_tokens),
-            "message": "terminal_tokens 中禁止出现 HOLE_* 或 VALUE_SINGULAR_* token。",
+            "message": 'HOLE_* and VALUE_SINGULAR_* tokens are not allowed in terminal_tokens.',
         })
 
     group_names = [
@@ -464,7 +464,7 @@ def validate_candidate_rules_preflight(
             warnings.append({
                 "kind": "empty_group",
                 "group": group_name,
-                "message": f"candidate_bitmap.{group_name} 为空或不存在。",
+                "message": f'candidate_bitmap.{group_name} is empty or missing.',
             })
             continue
 
@@ -478,7 +478,7 @@ def validate_candidate_rules_preflight(
                 "kind": "group_token_missing",
                 "group": group_name,
                 "tokens": missing,
-                "message": f"{group_name} 中存在 definitions / terminal_tokens 未定义的 token。",
+                "message": f'{group_name} contains tokens not defined in definitions / terminal_tokens.',
             })
 
     excluded_tokens = _as_token_list(bitmap_cfg.get("excluded_tokens", []))
@@ -492,7 +492,7 @@ def validate_candidate_rules_preflight(
         errors.append({
             "kind": "excluded_token_is_active",
             "tokens": sorted(excluded_present),
-            "message": "excluded_tokens 中的 token 不应同时出现在 definitions 或 terminal_tokens 中。",
+            "message": 'Tokens in excluded_tokens should not also appear in definitions or terminal_tokens.',
         })
 
     precedence = rules.get("precedence", {}) or {}
@@ -506,7 +506,7 @@ def validate_candidate_rules_preflight(
             warnings.append({
                 "kind": "precedence_token_not_in_definitions",
                 "tokens": sorted(set(precedence_unknown)),
-                "message": "precedence 中存在 definitions / terminal_tokens 未定义的 token；仅作为 warning。",
+                "message": 'precedence contains tokens not defined in definitions / terminal_tokens; warning only.',
             })
 
     unary_operators = rules.get("unary_operators", []) or []
@@ -519,7 +519,7 @@ def validate_candidate_rules_preflight(
         warnings.append({
             "kind": "unary_token_not_in_definitions",
             "tokens": sorted(set(unary_unknown)),
-            "message": "unary_operators 中存在 definitions / terminal_tokens 未定义的 token；仅作为 warning。",
+            "message": 'unary_operators contains tokens not defined in definitions / terminal_tokens; warning only.',
         })
 
     terminal_null_type = str(terminal_tokens.get("NULL", "")).strip().upper()
@@ -529,7 +529,7 @@ def validate_candidate_rules_preflight(
             "kind": "null_type_alias_mismatch",
             "terminal_tokens.NULL": terminal_null_type,
             "coarse_type_aliases.NULL": alias_null_type,
-            "message": "NULL 在 terminal_tokens 与 coarse_type_aliases 中类型不同；仅记录 note。",
+            "message": 'NULL has different types in terminal_tokens and coarse_type_aliases; note only.',
         })
 
     predicate_scan = {}
@@ -544,7 +544,7 @@ def validate_candidate_rules_preflight(
             warnings.append({
                 "kind": "initial_predicate_excluded_token_hits",
                 "hits": predicate_scan.get("warning_hits", [])[:30],
-                "message": "初始谓词集合中出现 excluded_tokens 中的 token；建议确认这些谓词是否仍属于当前阶段。",
+                "message": 'The initial predicate collection contains tokens in excluded_tokens; check whether these predicates still belong to the current stage.',
             })
 
     report = {
@@ -582,7 +582,7 @@ def validate_candidate_rules_preflight(
 
     if errors and raise_on_error:
         detail = json.dumps(report["summary"], ensure_ascii=False)
-        raise ValueError(f"[candidate_rules_preflight] db rules JSON 检查失败: {detail}")
+        raise ValueError(f'[candidate_rules_preflight] Database rules JSON validation failed: {detail}')
 
     return report
 def _normalize_type(raw_type: Any, aliases: Dict[str, str]) -> str:
@@ -1508,13 +1508,13 @@ def _load_edge_index_records(edge_index_path: Path) -> List[Dict[str, Any]]:
     path = Path(edge_index_path)
     if not path.exists():
         raise FileNotFoundError(
-            f"candidate edge index 不存在，请先构建 candidate bitmap: {path}"
+            f'Candidate edge index is missing; build the candidate bitmap first: {path}'
         )
 
     data = _load_json(path)
     records = data.get("edges", [])
     if not isinstance(records, list):
-        raise ValueError(f"candidate_edge_index.json 字段 'edges' 必须是 list: {path}")
+        raise ValueError(f"The 'edges' field in candidate_edge_index.json must be a list: {path}")
 
     return [x for x in records if isinstance(x, dict)]
 
@@ -1523,7 +1523,7 @@ def _load_npz_bitmaps(bitmap_npz_path: Path, expected_size: int) -> Dict[str, np
     path = Path(bitmap_npz_path)
     if not path.exists():
         raise FileNotFoundError(
-            f"candidate bitmap npz 不存在，请先构建 candidate bitmap: {path}"
+            f'Candidate bitmap NPZ is missing; build the candidate bitmap first: {path}'
         )
 
     result: Dict[str, np.ndarray] = {}
@@ -1545,8 +1545,7 @@ def _load_npz_bitmaps(bitmap_npz_path: Path, expected_size: int) -> Dict[str, np
                 arr = np.asarray(loaded[name], dtype=np.uint8)
                 if arr.shape[0] != expected_size:
                     raise ValueError(
-                        f"{name} 长度与 candidate edge 数量不一致: "
-                        f"{arr.shape[0]} != {expected_size}"
+                        f'{name} length does not match the number of candidate edges: {arr.shape[0]} != {expected_size}'
                     )
                 result[name] = arr.copy()
             else:
@@ -1559,15 +1558,13 @@ def _iter_graph_edges_from_json(graph_path: Path) -> Tuple[List[str], List[Tuple
     path = Path(graph_path)
     if not path.exists():
         raise FileNotFoundError(
-            "global_knowledge_graph.json 不存在。期望路径: "
-            "pkg/knowledge_graph/global_knowledge_graph.json; "
-            f"当前路径: {path}"
+            f'global_knowledge_graph.json is missing. Expected location: pkg/knowledge_graph/global_knowledge_graph.json; current path: {path}'
         )
 
     data = _load_json(path)
     nodes = data.get("nodes", {})
     if not isinstance(nodes, dict):
-        raise ValueError(f"global_knowledge_graph.json 字段 'nodes' 必须是 dict: {path}")
+        raise ValueError(f"The 'nodes' field in global_knowledge_graph.json must be a dict: {path}")
 
     node_ids = sorted(str(node_id) for node_id in nodes.keys())
     edges: List[Tuple[str, int, str]] = []
@@ -1797,10 +1794,10 @@ def build_and_save_observed_bitmap(graph_path: Optional[Path] = None) -> Dict[st
             for name, bitmap in bitmaps.items()
         },
         "notes": [
-            "observed_bitmap 标记已在正式知识图中验证过的候选边。",
+            'observed_bitmap marks candidate edges already verified in the formal knowledge graph.',
             "missing_candidate_bitmap = candidate_union & ~observed & ~failed & ~probing。",
-            "available_initial_bitmap 根据 open_strict/weak/try 设置计算；strict 默认开启。",
-            "global_knowledge_graph.json 默认位于 pkg/knowledge_graph，而不是 output。",
+            'available_initial_bitmap is calculated from the open_strict/weak/try settings; strict is enabled by default.',
+            'global_knowledge_graph.json is located under pkg/knowledge_graph by default, not output.',
         ],
     }
 
@@ -1930,7 +1927,7 @@ def sync_observed_bitmap_to_global_graph(graph_path: Optional[Path] = None) -> D
     graph_data = _load_json(graph_file)
     nodes = graph_data.get("nodes", {})
     if not isinstance(nodes, dict):
-        raise ValueError(f"global_knowledge_graph.json 字段 'nodes' 必须是 dict: {graph_file}")
+        raise ValueError(f"The 'nodes' field in global_knowledge_graph.json must be a dict: {graph_file}")
     graph_data["nodes"] = nodes
 
     roots = graph_data.get("roots", [])
@@ -2230,26 +2227,23 @@ def _select_probe_edge_record(
     if explicit_record is not None:
         idx = int(explicit_record.get("edge_index", -1))
         if idx < 0 or idx >= len(edge_records):
-            raise ValueError(f"显式指定的 probe edge index 非法: {idx}")
+            raise ValueError(f'The explicitly specified probe edge index is invalid: {idx}')
 
         if not allow_observed:
             if idx < len(observed_bitmap) and int(observed_bitmap[idx]) > 0:
                 raise ValueError(
-                    f"显式指定的 probe edge 已在 observed_bitmap 中，不应作为 missing edge 测试: "
-                    f"{explicit_record.get('edge_id')}"
+                    f"The explicitly specified probe edge is already in observed_bitmap and should not be tested as a missing edge: {explicit_record.get('edge_id')}"
                 )
             if idx < len(failed_bitmap) and int(failed_bitmap[idx]) > 0:
                 raise ValueError(
-                    f"显式指定的 probe edge 已在 failed_bitmap 中，不应作为 missing edge 测试: "
-                    f"{explicit_record.get('edge_id')}"
+                    f"The explicitly specified probe edge is already in failed_bitmap and should not be tested as a missing edge: {explicit_record.get('edge_id')}"
                 )
 
         # allow_observed=True 只允许 observed/failed 边重复构造；
         # probing 表示其他环境正在探索该边，无论开关值如何都必须拒绝。
         if idx < len(probing_bitmap) and int(probing_bitmap[idx]) > 0:
             raise ValueError(
-                f"显式指定的 probe edge 已在 probing_bitmap 中，不应重复测试: "
-                f"{explicit_record.get('edge_id')}"
+                f"The explicitly specified probe edge is already in probing_bitmap and should not be tested again: {explicit_record.get('edge_id')}"
             )
 
         return explicit_record
@@ -2319,7 +2313,7 @@ def _select_probe_edge_record(
         if best_record is not None:
             return best_record
 
-    raise ValueError("未找到可用于 probe_graph 的 missing / available edge；请先运行 --build-observed 并检查 bitmaps。")
+    raise ValueError('No missing / available edge was found for probe_graph; run --build-observed and check the bitmaps first.')
 
 
 def _refresh_missing_and_available_bitmaps(bitmaps: Dict[str, np.ndarray]) -> None:
@@ -2370,7 +2364,7 @@ def _candidate_bitmap_file_lock(target_path: Path, timeout_seconds: float = 30.0
             break
         except FileExistsError:
             if time.time() - start > timeout_seconds:
-                raise TimeoutError(f"等待 candidate bitmap 文件锁超时: {lock_path}")
+                raise TimeoutError(f'Time limit exceeded while waiting for the candidate bitmap file lock: {lock_path}')
             time.sleep(poll_interval)
 
     try:
@@ -2753,7 +2747,7 @@ def refresh_candidate_edge_scores_by_pattern_transfer(
         edge_index_data = _load_json(edge_index_file)
         edge_records = edge_index_data.get("edges", [])
         if not isinstance(edge_records, list):
-            raise ValueError(f"candidate_edge_index.json 字段 'edges' 必须是 list: {edge_index_file}")
+            raise ValueError(f"The 'edges' field in candidate_edge_index.json must be a list: {edge_index_file}")
 
         node_info = _build_pattern_node_info(graph_data, edge_records)
         observed_slot_index, token_to_outer_node_ids = _build_observed_slot_pattern_index(
@@ -2937,10 +2931,9 @@ def refresh_candidate_edge_scores_by_pattern_transfer(
             else "candidate_level_base_only"
         )
         edge_index_data["score_strategy_note"] = (
-            "pattern_transfer_score 使用 sim(current_outer, observed_outer) "
-            "以及已 observed 的同 slot inner 模式；不使用直接的 sim(outer, inner)。"
+            'pattern_transfer_score uses sim(current_outer, observed_outer) and observed inner patterns in the same slot; it does not use direct sim(outer, inner).'
             if representation_guidance_enabled
-            else "表示迁移评分已关闭；pattern_transfer_score=0，edge_score只保留候选层级基础分。"
+            else 'Representation transfer scoring is disabled; pattern_transfer_score=0, and edge_score retains only the candidate-level base score.'
         )
 
         _candidate_bitmap_atomic_write_json(edge_index_file, edge_index_data)
@@ -2970,11 +2963,11 @@ def refresh_candidate_edge_scores_by_pattern_transfer(
         ),
         "top_positive_samples": top_samples,
         "notes": [
-            "本次刷新不会重建 candidate edge 全集。",
-            "本次刷新不会修改 observed_bitmap / failed_bitmap / probing_bitmap。",
-            "pattern_transfer_score 基于相似的已 observed outer operator 和同 slot 已接受 inner node。",
-            "这里有意不使用直接的 sim(outer, inner)。",
-            "如果 candidate_edge_index 记录中存在旧的 direct outer-inner similarity 字段，会在刷新时移除。",
+            'This refresh does not rebuild the candidate edge universe.',
+            'This refresh does not modify observed_bitmap / failed_bitmap / probing_bitmap.',
+            'pattern_transfer_score is based on similar observed outer operators and accepted inner nodes in the same slot.',
+            'Direct sim(outer, inner) is intentionally not used here.',
+            'Legacy direct outer-inner similarity fields in candidate_edge_index records are removed during refresh.',
         ],
     }
 
@@ -3035,7 +3028,7 @@ def update_candidate_bitmaps_from_results(
             "input_result_count": 0,
             "applied_count": 0,
             "skipped_count": 0,
-            "note": "没有需要更新的 candidate bitmap 结果",
+            "note": 'No candidate bitmap results to update',
         }
         report_file.parent.mkdir(parents=True, exist_ok=True)
         _candidate_bitmap_atomic_write_json(report_file, report)
@@ -3045,7 +3038,7 @@ def update_candidate_bitmaps_from_results(
         edge_index_data = _load_json(edge_index_file)
         edge_records = edge_index_data.get("edges", [])
         if not isinstance(edge_records, list):
-            raise ValueError(f"candidate_edge_index.json 字段 'edges' 必须是 list: {edge_index_file}")
+            raise ValueError(f"The 'edges' field in candidate_edge_index.json must be a list: {edge_index_file}")
 
         n = len(edge_records)
         bitmaps = _load_npz_bitmaps(bitmap_file, n)
@@ -3094,7 +3087,7 @@ def update_candidate_bitmaps_from_results(
             if edge_index is None or edge_index < 0 or edge_index >= n:
                 skipped_rows.append({
                     "time": now,
-                    "reason": "未找到 edge index",
+                    "reason": 'Edge index not found',
                     "edge_id": edge_id,
                     "raw_edge_index": raw_idx,
                     "result": result,
@@ -3106,7 +3099,7 @@ def update_candidate_bitmaps_from_results(
             if edge_id and record_edge_id and edge_id != record_edge_id:
                 skipped_rows.append({
                     "time": now,
-                    "reason": "edge_id 不匹配",
+                    "reason": 'edge_id mismatch',
                     "edge_id": edge_id,
                     "record_edge_id": record_edge_id,
                     "edge_index": edge_index,
@@ -3336,14 +3329,14 @@ def update_candidate_bitmaps_from_results(
             "applied_sample": applied_rows[:20],
             "skipped_sample": skipped_rows[:20],
             "notes": [
-                "observed 表示 DB success、parser success 且 target edge hit。",
-                "只有 DB failed、parser success 且 target edge hit 的不同 predicate 才累计 fail_count；达到统一阈值 N 后设置 failed_bitmap。",
-                "每次回写都会清理 probing_bitmap，并重新计算 missing / available bitmaps。",
-                "db_connection_failed / environment_error 不计入 failed_bitmap。",
-                "使用临时非目标 slot 补全后发生的 DB 失败记为 context_inconclusive，不计入目标边失败证据。",
-                "如果某条边已经 observed，后续失败会记录为 observed_failure_ignored。",
-                "结果按 edge 分组，并优先应用成功结果，避免同批次污染。",
-                "stage20_5_update_summary 只是日志统计元数据，不影响 bitmap 更新。",
+                'observed means DB success, parser success, and a target-edge hit.',
+                'Only distinct predicates with DB failure, parser success, and a target-edge hit increase fail_count; failed_bitmap is set at the shared threshold N.',
+                'Each writeback clears probing_bitmap and recalculates missing / available bitmaps.',
+                'db_connection_failed / environment_error are not counted in failed_bitmap.',
+                'DB failures after temporary completion of non-target slots are recorded as context_inconclusive and do not count as target-edge failure evidence.',
+                'If an edge is already observed, subsequent failures are recorded as observed_failure_ignored.',
+                'Results are grouped by edge, with successful results applied first to avoid contamination within a batch.',
+                'stage20_5_update_summary is logging metadata only and does not affect bitmap updates.',
             ],
         }
 
@@ -3372,11 +3365,11 @@ def build_probe_graph_data(
     probe_graph_report.json 或 candidate_bitmaps.npz。
     """
     if not isinstance(formal_graph_data, dict):
-        raise ValueError("formal_graph_data 必须是 dict")
+        raise ValueError('formal_graph_data must be a dict')
 
     formal_nodes = formal_graph_data.get("nodes", {})
     if not isinstance(formal_nodes, dict):
-        raise ValueError("global_knowledge_graph.json 的 nodes 必须是 dict")
+        raise ValueError('The nodes field in global_knowledge_graph.json must be a dict')
 
     formal_node_ids = set(str(node_id) for node_id in formal_nodes.keys())
     formal_node_count = len(formal_nodes)
@@ -3418,7 +3411,7 @@ def build_probe_graph_data(
     )
 
     if target_edge_existed_before and not allow_observed:
-        raise ValueError(f"target edge 已存在于正式图中: {target_record.get('edge_id')}")
+        raise ValueError(f"The target edge already exists in the formal graph: {target_record.get('edge_id')}")
 
     outer_node_preexisting = outer_node_id in nodes
     inner_node_preexisting = inner_node_id in nodes
@@ -3485,7 +3478,7 @@ def build_probe_graph_data(
         "target_edge_existed_in_formal_graph_before": target_edge_existed_before,
         "added_target_edge_to_probe_graph": added_target_edge,
         "created_nodes": created_nodes,
-        "note": "内存态 probe_graph，不是正式 global_knowledge_graph.json",
+        "note": 'In-memory probe_graph, not the formal global_knowledge_graph.json',
     }
 
     probe_node_count = len(probe_graph_data.get("nodes", {}))
@@ -3535,9 +3528,9 @@ def build_probe_graph_data(
             "persisted_to_disk": False,
         },
         "notes": [
-            "probe_graph 是插入一条目标边后的临时正式图副本。",
-            "该函数不会修改 global_knowledge_graph.json。",
-            "阶段17-11 的正式 RL 使用内存态 probe_graph，避免 runtime_probe 文件增长。",
+            'probe_graph is a temporary copy of the formal graph with one target edge inserted.',
+            'This function does not modify global_knowledge_graph.json.',
+            'Stage 17-11 RL uses in-memory probe_graph to avoid growth of runtime_probe files.',
         ],
     }
 
@@ -3576,7 +3569,7 @@ def build_and_save_probe_graph(
     formal_graph_data = _load_json(graph_file)
     formal_nodes = formal_graph_data.get("nodes", {})
     if not isinstance(formal_nodes, dict):
-        raise ValueError(f"global_knowledge_graph.json 字段 'nodes' 必须是 dict: {graph_file}")
+        raise ValueError(f"The 'nodes' field in global_knowledge_graph.json must be a dict: {graph_file}")
 
     formal_node_ids = set(str(node_id) for node_id in formal_nodes.keys())
     formal_node_count = len(formal_nodes)
@@ -3601,7 +3594,7 @@ def build_and_save_probe_graph(
 
     nodes = probe_graph_data.setdefault("nodes", {})
     if not isinstance(nodes, dict):
-        raise ValueError(f"global_knowledge_graph.json 字段 'nodes' 必须是 dict: {graph_file}")
+        raise ValueError(f"The 'nodes' field in global_knowledge_graph.json must be a dict: {graph_file}")
 
     roots = probe_graph_data.setdefault("roots", [])
     if not isinstance(roots, list):
@@ -3617,8 +3610,7 @@ def build_and_save_probe_graph(
 
     if target_edge_existed_before and not allow_observed:
         raise ValueError(
-            f"目标边已存在于正式图中，不应构造为 probe edge: "
-            f"{target_record.get('edge_id')}"
+            f"The target edge already exists in the formal graph and should not be used as a probe edge: {target_record.get('edge_id')}"
         )
 
     outer_node_preexisting = outer_node_id in nodes
@@ -3674,7 +3666,7 @@ def build_and_save_probe_graph(
         "target_edge_existed_in_formal_graph_before": target_edge_existed_before,
         "added_target_edge_to_probe_graph": added_target_edge,
         "created_nodes": created_nodes,
-        "note": "该文件是临时 probe_graph，不是正式 global_knowledge_graph.json。",
+        "note": 'This file is a temporary probe_graph, not the formal global_knowledge_graph.json.',
     }
 
     output_graph_path.parent.mkdir(parents=True, exist_ok=True)
@@ -3735,11 +3727,11 @@ def build_and_save_probe_graph(
             "probing_bitmap_updated": bool(mark_probing),
         },
         "notes": [
-            "probe_graph 是正式图的临时副本，只额外加入当前目标边。",
-            "该函数不会修改 pkg/knowledge_graph/global_knowledge_graph.json。",
-            "如果目标边引用缺失节点，只会在 probe_graph 中创建骨架节点。",
-            "未显式指定 edge 时，会优先选择可由现有正式节点支撑的 missing edge。",
-            "后续阶段构造的谓词必须在 probe_graph 上包含目标边。",
+            'probe_graph is a temporary copy of the formal graph with only the current target edge added.',
+            'This function does not modify pkg/knowledge_graph/global_knowledge_graph.json.',
+            'If the target edge references missing nodes, skeleton nodes are created only in probe_graph.',
+            'When no edge is explicitly specified, missing edges supported by existing formal nodes are preferred.',
+            'Predicates built in later stages must contain the target edge in probe_graph.',
         ],
     }
 
@@ -3753,20 +3745,20 @@ def build_and_save_probe_graph(
 def _load_probe_graph_data(probe_graph_path: Path) -> Dict[str, Any]:
     path = Path(probe_graph_path)
     if not path.exists():
-        raise FileNotFoundError(f"probe_graph.json 不存在，请先运行 --build-probe: {path}")
+        raise FileNotFoundError(f'probe_graph.json is missing; run --build-probe first: {path}')
 
     data = _load_json(path)
     nodes = data.get("nodes", {})
     if not isinstance(nodes, dict):
-        raise ValueError(f"probe_graph.json 的 nodes 字段必须是 dict: {path}")
+        raise ValueError(f'The nodes field in probe_graph.json must be a dict: {path}')
 
     metadata = data.get("probe_metadata", {})
     if not isinstance(metadata, dict):
-        raise ValueError(f"probe_graph.json 缺少 probe_metadata，无法确定目标边: {path}")
+        raise ValueError(f'probe_graph.json has no probe_metadata; cannot determine the target edge: {path}')
 
     target_edge = metadata.get("target_edge", {})
     if not isinstance(target_edge, dict):
-        raise ValueError(f"probe_graph.json 的 probe_metadata.target_edge 必须是 dict: {path}")
+        raise ValueError(f'probe_metadata.target_edge in probe_graph.json must be a dict: {path}')
 
     return data
 
@@ -3848,7 +3840,7 @@ def _terminal_to_probe_sql(token: str, return_type: str) -> str:
         return token_upper
 
     if token_upper.startswith("HOLE"):
-        raise ValueError(f"已废弃的 HOLE token 不应出现在 probe SQL 中: {token_text}")
+        raise ValueError(f'The deprecated HOLE token should not appear in probe SQL: {token_text}')
 
     if token_upper.startswith("VALUE_"):
         if sqlserver:
@@ -4552,19 +4544,19 @@ def build_probe_predicate_from_graph_data(
     但不会写入 probe_predicate.txt 或 probe_predicate_report.json。
     """
     if not isinstance(probe_graph_data, dict):
-        raise ValueError("probe_graph_data 必须是 dict")
+        raise ValueError('probe_graph_data must be a dict')
 
     nodes = probe_graph_data.get("nodes", {})
     if not isinstance(nodes, dict):
-        raise ValueError("probe_graph_data 的 nodes 必须是 dict")
+        raise ValueError('The nodes field in probe_graph_data must be a dict')
 
     metadata = probe_graph_data.get("probe_metadata", {})
     if not isinstance(metadata, dict):
-        raise ValueError("probe_graph_data 缺少 probe_metadata")
+        raise ValueError('probe_graph_data has no probe_metadata')
 
     target_edge = metadata.get("target_edge", {})
     if not isinstance(target_edge, dict):
-        raise ValueError("probe_metadata.target_edge 必须是 dict")
+        raise ValueError('probe_metadata.target_edge must be a dict')
 
     depth_limit = int(
         max_depth
@@ -4577,7 +4569,7 @@ def build_probe_predicate_from_graph_data(
     target_slot_index = int(target_edge.get("slot_index", -1))
 
     if not target_outer_node_id or not target_inner_node_id or target_slot_index < 0:
-        raise ValueError("probe_metadata.target_edge 缺少 outer_node_id / inner_node_id / slot_index")
+        raise ValueError('probe_metadata.target_edge is missing outer_node_id / inner_node_id / slot_index')
 
     if edge_records is None:
         edge_records = _load_edge_index_records(
@@ -4650,7 +4642,7 @@ def build_probe_predicate_from_graph_data(
 
     if build_result is None:
         status = "blocked"
-        blocked_reason = "在 max_depth 内未能填充所有参数 slot"
+        blocked_reason = 'Not all argument slots could be filled within max_depth'
         if variant_enabled and variant_duplicate_count > 0:
             blocked_reason = "probe_variant_exhausted"
     else:
@@ -4660,7 +4652,7 @@ def build_probe_predicate_from_graph_data(
 
         if target_edge_id not in used_edges:
             status = "blocked"
-            blocked_reason = "构造出的谓词不包含目标边"
+            blocked_reason = 'The constructed predicate does not contain the target edge'
 
     report = {
         "version": "stage17_4_probe_predicate_v1",
@@ -4704,9 +4696,9 @@ def build_probe_predicate_from_graph_data(
             "construct_failed_count": int(variant_construct_failed_count),
         },
         "notes": [
-            "predicate 基于本地 probe_graph 构造，用于验证目标边。",
-            "目标 outer slot 会被强制使用一次目标 inner node；目标边消费后，其余 slot 正常填充，以避免递归自边扩张。",
-            "阶段17-11 的正式 RL 使用内存态 probe predicate，避免 runtime_probe 文件增长。",
+            'The predicate is built from the local probe_graph to validate the target edge.',
+            'The target outer slot is forced to use the target inner node once; after consuming the target edge, the remaining slots are filled normally to avoid recursive self-edge expansion.',
+            'Stage 17-11 RL uses in-memory probe predicates to avoid growth of runtime_probe files.',
         ],
     }
 
@@ -4724,7 +4716,7 @@ def _find_smoke_edge_record(
     for record in edge_records:
         if str(record.get("edge_id", "")) == target_edge_id:
             return record
-    raise ValueError(f"内存态 candidate edges 中未找到 smoke 目标边: {target_edge_id}")
+    raise ValueError(f'The smoke-test target edge was not found among in-memory candidate edges: {target_edge_id}')
 
 
 def _make_smoke_terminal_node(node_id: str, token: str, return_type: str) -> Dict[str, Any]:
@@ -4779,7 +4771,7 @@ def _build_safe_closure_smoke_graph(
         "probe_metadata": {
             "version": "stage20_4_safe_closure_smoke_v1",
             "target_edge": target_record,
-            "note": "内存态 smoke graph；不会修改正式 global_knowledge_graph.json",
+            "note": 'In-memory smoke graph; the formal global_knowledge_graph.json is not modified',
         },
     }
 
@@ -5004,10 +4996,10 @@ def run_candidate_safe_closure_smoke(
         },
         "results": results,
         "notes": [
-            "该 smoke 测试只在内存中构建 candidate edges。",
-            "它不会调用 save_outputs，也不会重建 candidate_edge_index.json 或 candidate_bitmaps.npz。",
-            "它不会连接数据库，也不会运行 RL。",
-            "它验证 target-inner-only safe closure，并确认成功 case 的 parser target-edge hit。",
+            'This smoke test builds candidate edges only in memory.',
+            'It does not call save_outputs or rebuild candidate_edge_index.json or candidate_bitmaps.npz.',
+            'It does not connect to the database or run RL.',
+            'It validates target-inner-only safe closure and confirms parser target-edge hits for successful cases.',
         ],
     }
 
@@ -5019,7 +5011,7 @@ def run_candidate_safe_closure_smoke(
 
     if failed and raise_on_error:
         detail = json.dumps(report["summary"], ensure_ascii=False)
-        raise ValueError(f"[safe_closure_smoke] 检查失败: {detail}")
+        raise ValueError(f'[safe_closure_smoke] Validation failed: {detail}')
 
     return report
 
@@ -5161,7 +5153,7 @@ def _parse_probe_predicate_edges(predicate_sql: str, rules_path: Path) -> Dict[s
         if ast is None:
             return {
                 "success": False,
-                "error": "parser 返回 None",
+                "error": 'The parser returned None',
                 "edges": [],
                 "ast": None,
             }
@@ -5319,19 +5311,19 @@ def build_and_save_probe_validation(
 
     if not predicate_sql:
         status = "blocked"
-        blocked_reason = "probe_predicate.txt 为空。"
+        blocked_reason = 'probe_predicate.txt is empty.'
     elif not parse_result.get("success", False):
         status = "parser_failed"
-        blocked_reason = str(parse_result.get("error", "parser 失败"))
+        blocked_reason = str(parse_result.get("error", 'Parser failed'))
     elif not target_edge_hit:
         status = "target_edge_miss"
-        blocked_reason = "Parser edge extraction 未命中目标边。"
+        blocked_reason = 'Parser edge extraction did not hit the target edge.'
     elif not execution_result.get("completion_success", False):
         status = "completion_failed"
-        blocked_reason = "heuristic_completion 未生成可执行 SQL。"
+        blocked_reason = 'heuristic_completion produced no executable SQL.'
     elif not execution_result.get("db_success", False):
         status = "execution_failed"
-        blocked_reason = str(execution_result.get("db_error", "数据库执行失败"))
+        blocked_reason = str(execution_result.get("db_error", 'Database execution failed'))
     else:
         status = "success"
         blocked_reason = ""
@@ -5357,7 +5349,7 @@ def build_and_save_probe_validation(
             "extracted_edge_count": len(extracted_edges),
             "extracted_edges": extracted_edges,
             "typed_ast": parse_result.get("ast"),
-            "note": "Parser 从原始 probe predicate 抽取边，而不是从 heuristic-completed SQL 抽取。",
+            "note": 'The parser extracts edges from the original probe predicate, not from heuristic-completed SQL.',
         },
         "completion": {
             "success": bool(execution_result.get("completion_success", False)),
@@ -5377,10 +5369,10 @@ def build_and_save_probe_validation(
                if str(getattr(DB_CONFIG, "db_type", "")).lower().strip() == "sqlserver" else {}),
         },
         "notes": [
-            "该 validation 是第二阶段 probe edge dry-run，不是第三阶段 BugFinding。",
-            "该函数不会更新 Correct_Collection / Incorrect_Collection，也不会更新正式 global_knowledge_graph.json。",
-            "success 表示谓词构造、parser target edge hit、heuristic SQL completion 和 DB execution 全部成功。",
-            "后续 RL 集成逻辑决定如何更新 observed / failed / probing bitmaps。",
+            'This validation is a Stage 2 probe-edge dry run, not Stage 3 BugFinding.',
+            'This function does not update Correct_Collection / Incorrect_Collection or the formal global_knowledge_graph.json.',
+            'success means predicate construction, parser target-edge hit, heuristic SQL completion, and DB execution all succeeded.',
+            'Subsequent RL integration logic determines how to update observed / failed / probing bitmaps.',
         ],
     }
 
@@ -5415,130 +5407,130 @@ def build_and_save_candidate_bitmap(rules_path: Optional[Path] = None) -> Dict[s
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="阶段17：构建候选边全集、observed bitmap 和 probe graph。")
+    parser = argparse.ArgumentParser(description='Stage 17: build the candidate edge universe, observed bitmap, and probe graph.')
     parser.add_argument(
         "--rules",
         type=str,
         default=str(getattr(CANDIDATE_BITMAP_CONFIG, "rules_path")),
-        help="db rules JSON 路径，默认使用 CANDIDATE_BITMAP_CONFIG.rules_path。",
+        help='Database rules JSON path; defaults to CANDIDATE_BITMAP_CONFIG.rules_path.',
     )
     parser.add_argument(
         "--build-observed",
         action="store_true",
-        help="重建 candidate bitmaps 后，将 global_knowledge_graph.json 中的边映射到 observed_bitmap。",
+        help='After rebuilding candidate bitmaps, map edges from global_knowledge_graph.json to observed_bitmap.',
     )
     parser.add_argument(
         "--build-probe",
         action="store_true",
-        help="向图副本插入一条 missing candidate edge，构建临时 probe_graph。",
+        help='Insert one missing candidate edge into a graph copy to build a temporary probe_graph.',
     )
     parser.add_argument(
         "--graph",
         type=str,
         default=str(getattr(CANDIDATE_BITMAP_CONFIG, "global_knowledge_graph_path", GLOBAL_KNOWLEDGE_GRAPH_PATH)),
-        help="pkg/knowledge_graph/global_knowledge_graph.json 路径。",
+        help='Path to pkg/knowledge_graph/global_knowledge_graph.json.',
     )
     parser.add_argument(
         "--probe-edge-id",
         type=str,
         default=None,
-        help="可选：指定要插入 probe_graph 的精确 candidate edge_id。",
+        help='Optional: specify the exact candidate edge_id to insert into probe_graph.',
     )
     parser.add_argument(
         "--probe-edge-index",
         type=int,
         default=None,
-        help="可选：指定要插入 probe_graph 的 candidate edge_index。",
+        help='Optional: specify the candidate edge_index to insert into probe_graph.',
     )
     parser.add_argument(
         "--allow-observed-probe",
         action="store_true",
-        help="允许为已 observed 的边构建 probe graph。默认 False。",
+        help='Allow building a probe graph for an already observed edge. Defaults to False.',
     )
     parser.add_argument(
         "--mark-probing",
         action="store_true",
-        help="如果设置，则在 probing_bitmap 中标记选中边，并刷新 missing/available 派生 bitmaps。",
+        help='If set, mark the selected edge in probing_bitmap and refresh the derived missing/available bitmaps.',
     )
     parser.add_argument(
         "--probe-graph-output",
         type=str,
         default=str(getattr(CANDIDATE_BITMAP_CONFIG, "probe_graph_path", CANDIDATE_PROBE_GRAPH_PATH)),
-        help="临时 probe_graph.json 输出路径。",
+        help='Output path for temporary probe_graph.json.',
     )
     parser.add_argument(
         "--probe-report-output",
         type=str,
         default=str(getattr(CANDIDATE_BITMAP_CONFIG, "probe_report_path", CANDIDATE_PROBE_REPORT_PATH)),
-        help="probe_graph_report.json 输出路径。",
+        help='Output path for probe_graph_report.json.',
     )
     parser.add_argument(
         "--build-probe-predicate",
         action="store_true",
-        help="构建必须包含 probe_graph.json 目标边的 predicate 表达式。",
+        help='Build a predicate expression that must contain the target edge from probe_graph.json.',
     )
     parser.add_argument(
         "--probe-input",
         type=str,
         default=str(getattr(CANDIDATE_BITMAP_CONFIG, "probe_graph_path", CANDIDATE_PROBE_GRAPH_PATH)),
-        help="--build-probe-predicate 使用的 probe_graph.json 输入路径。",
+        help='Input probe_graph.json path for --build-probe-predicate.',
     )
     parser.add_argument(
         "--probe-predicate-output",
         type=str,
         default=str(getattr(CANDIDATE_BITMAP_CONFIG, "probe_predicate_path", CANDIDATE_PROBE_PREDICATE_PATH)),
-        help="生成的 probe predicate 文本输出路径。",
+        help='Output text path for the generated probe predicate.',
     )
     parser.add_argument(
         "--probe-predicate-report-output",
         type=str,
         default=str(getattr(CANDIDATE_BITMAP_CONFIG, "probe_predicate_report_path", CANDIDATE_PROBE_PREDICATE_REPORT_PATH)),
-        help="probe_predicate_report.json 输出路径。",
+        help='Output path for probe_predicate_report.json.',
     )
     parser.add_argument(
         "--probe-predicate-max-depth",
         type=int,
         default=int(getattr(CANDIDATE_BITMAP_CONFIG, "probe_predicate_max_depth", 3)),
-        help="构造 probe predicate 时的最大递归深度。",
+        help='Maximum recursion depth when constructing a probe predicate.',
     )
     parser.add_argument(
         "--validate-probe-predicate",
         action="store_true",
-        help="通过 parser edge extraction、heuristic SQL completion 和 DB execution 验证 probe predicate。",
+        help='Validate the probe predicate through parser edge extraction, heuristic SQL completion, and DB execution.',
     )
     parser.add_argument(
         "--probe-predicate-input",
         type=str,
         default=str(getattr(CANDIDATE_BITMAP_CONFIG, "probe_predicate_path", CANDIDATE_PROBE_PREDICATE_PATH)),
-        help="--validate-probe-predicate 使用的 probe_predicate.txt 输入路径。",
+        help='Input probe_predicate.txt path for --validate-probe-predicate.',
     )
     parser.add_argument(
         "--probe-predicate-report-input",
         type=str,
         default=str(getattr(CANDIDATE_BITMAP_CONFIG, "probe_predicate_report_path", CANDIDATE_PROBE_PREDICATE_REPORT_PATH)),
-        help="--validate-probe-predicate 使用的 probe_predicate_report.json 输入路径。",
+        help='Input probe_predicate_report.json path for --validate-probe-predicate.',
     )
     parser.add_argument(
         "--probe-completed-sql-output",
         type=str,
         default=str(getattr(CANDIDATE_BITMAP_CONFIG, "probe_completed_sql_path", CANDIDATE_PROBE_COMPLETED_SQL_PATH)),
-        help="heuristic-completed SQL 输出路径。",
+        help='Output path for heuristic-completed SQL.',
     )
     parser.add_argument(
         "--probe-validation-report-output",
         type=str,
         default=str(getattr(CANDIDATE_BITMAP_CONFIG, "probe_validation_report_path", CANDIDATE_PROBE_VALIDATION_REPORT_PATH)),
-        help="probe_validation_report.json 输出路径。",
+        help='Output path for probe_validation_report.json.',
     )
     parser.add_argument(
         "--preflight-only",
         action="store_true",
-        help="只校验 db rules JSON 并写入 candidate_rules_preflight_report.json；不构建 candidate bitmaps。",
+        help='Only validate database rules JSON and write candidate_rules_preflight_report.json; do not build candidate bitmaps.',
     )
     parser.add_argument(
         "--smoke-safe-closure",
         action="store_true",
-        help="运行阶段20-4 target-inner-only safe closure 的内存态 smoke 测试；不重建 candidate bitmaps。",
+        help='Run the Stage 20-4 in-memory smoke test for target-inner-only safe closure; do not rebuild candidate bitmaps.',
     )
     args = parser.parse_args()
 
@@ -5551,7 +5543,7 @@ def main() -> None:
             write_report=True,
             raise_on_error=True,
         )
-        print("[candidate_bitmap] 规则 preflight 检查完成")
+        print('[candidate_bitmap] Rules preflight check completed')
         print(json.dumps(preflight_report, indent=2, ensure_ascii=False))
         return
 
@@ -5561,18 +5553,18 @@ def main() -> None:
             write_report=True,
             raise_on_error=True,
         )
-        print("[candidate_bitmap] safe closure smoke 检查完成")
+        print('[candidate_bitmap] Safe closure smoke check completed')
         print(json.dumps(smoke_report, indent=2, ensure_ascii=False))
         return
 
     report = build_and_save_candidate_bitmap(Path(args.rules))
 
-    print("[candidate_bitmap] candidate bitmap 构建完成")
+    print('[candidate_bitmap] Candidate bitmap construction completed')
     print(json.dumps(report, indent=2, ensure_ascii=False))
 
     if args.build_observed or args.build_probe:
         observed_report = build_and_save_observed_bitmap(Path(args.graph))
-        print("[candidate_bitmap] observed bitmap 构建完成")
+        print('[candidate_bitmap] Observed bitmap construction completed')
         print(json.dumps(observed_report, indent=2, ensure_ascii=False))
 
     if args.build_probe:
@@ -5585,7 +5577,7 @@ def main() -> None:
             allow_observed=bool(args.allow_observed_probe),
             mark_probing=bool(args.mark_probing),
         )
-        print("[candidate_bitmap] probe graph 构建完成")
+        print('[candidate_bitmap] Probe graph construction completed')
         print(json.dumps(probe_report, indent=2, ensure_ascii=False))
 
     if args.build_probe_predicate:
@@ -5596,7 +5588,7 @@ def main() -> None:
             predicate_report_path=Path(args.probe_predicate_report_output),
             max_depth=int(args.probe_predicate_max_depth),
         )
-        print("[candidate_bitmap] probe predicate 构建完成")
+        print('[candidate_bitmap] Probe predicate construction completed')
         print(json.dumps(predicate_report, indent=2, ensure_ascii=False))
 
     if args.validate_probe_predicate:
@@ -5614,7 +5606,7 @@ def main() -> None:
             validation_report_path=Path(args.probe_validation_report_output),
             rules_path=Path(args.rules),
         )
-        print("[candidate_bitmap] probe validation 完成")
+        print('[candidate_bitmap] Probe validation completed')
         print(json.dumps(validation_report, indent=2, ensure_ascii=False))
 
 

@@ -119,7 +119,7 @@ def load_pkg_config() -> Optional[Dict[str, Any]]:
                 return _PKG_CONFIG_CACHE
             except Exception as exc:
                 print(
-                    f"[predicate_structure] 配置文件解析失败: {config_path} | {exc}",
+                    f'[predicate_structure] Failed to parse configuration: {config_path} | {exc}',
                     flush=True,
                 )
                 _PKG_CONFIG_CACHE = None
@@ -205,7 +205,7 @@ def _get_datatype_mapping() -> Dict[str, List[str]]:
             return mapping
         except Exception as exc:
             print(
-                f"[predicate_structure] 类型映射读取失败: {config_path} | {exc}",
+                f'[predicate_structure] Failed to read type mappings: {config_path} | {exc}',
                 flush=True,
             )
 
@@ -775,6 +775,6 @@ if __name__ == "__main__":
 
     print("=" * 80)
     print("[SelfTest Hint]")
-    print("请重点检查：")
-    print("1. NOT (...) 是否被解析为 NOT::T_BOOL，而不是 NOT()::T_BOOL。")
-    print("2. col(name) LIKE string('%abc%') 是否抽象为 COL_STRING::STRING，而不是 COL_INT::INT。")
+    print('Please check:')
+    print('1. Check whether NOT (...) is parsed as NOT::T_BOOL instead of NOT()::T_BOOL.')
+    print("2. Check whether col(name) LIKE string('%abc%') is abstracted as COL_STRING::STRING instead of COL_INT::INT.")

@@ -62,9 +62,7 @@ def _load_json_file(path: Path, *, allow_missing: bool = False, default: Any = N
         if allow_missing:
             return default
         raise FileNotFoundError(
-            f"未找到算子相似表相关文件: {path}\\n"
-            "请先运行第一阶段 pre_rl / recycle_pre_rl，"
-            "或手动运行 python -m transformer_encoder.operator_embedding_extractor。"
+            f'Operator-similarity file not found: {path}\\nRun Stage 1 pre_rl / recycle_pre_rl first, or run python -m transformer_encoder.operator_embedding_extractor manually.'
         )
 
     with path.open("r", encoding="utf-8") as f:
@@ -301,7 +299,7 @@ class OperatorSimilarityIndex:
         if key not in self._similarity:
             if allow_missing:
                 return []
-            raise KeyError(f"operator_similarity 中不存在算子: {op!r} -> {key!r}")
+            raise KeyError(f'Operator not present in operator_similarity: {op!r} -> {key!r}')
 
         excluded: Set[str] = {normalize_operator_key(x) for x in (exclude_ops or [])}
         if not include_self:

@@ -182,7 +182,7 @@ def _load_json(path: Path, default: Any) -> Any:
         with path.open("r", encoding="utf-8") as f:
             return json.load(f)
     except Exception as e:
-        print(f"[PredicateRecycle] WARN: JSON 读取失败: {path} | {e}")
+        print(f'[PredicateRecycle] WARN: Failed to read JSON: {path} | {e}')
         return default
 
 
@@ -1169,8 +1169,7 @@ def run_select_recycle_candidates(
 def build_arg_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description=(
-            "阶段 6A/6B：从 predicate_contribution.json 中筛选高价值谓词候选；"
-            "默认只筛选，传入 --apply 时才追加到 predicate.txt。"
+            'Stage 6A/6B: select high-value predicate candidates from predicate_contribution.json; selection only by default. Append to predicate.txt only when --apply is specified.'
         )
     )
 
@@ -1178,65 +1177,64 @@ def build_arg_parser() -> argparse.ArgumentParser:
         "--top-k",
         type=int,
         default=100,
-        help="最多输出多少条候选。",
+        help='Maximum number of candidates to output.',
     )
     parser.add_argument(
         "--min-score",
         type=float,
         default=1.0,
-        help="最低候选分数。",
+        help='Minimum candidate score.',
     )
     parser.add_argument(
         "--include-initial",
         action="store_true",
-        help="是否允许纯 pkg_initial 的初始谓词进入候选。",
+        help='Allow initial predicates whose only source is pkg_initial to become candidates.',
     )
     parser.add_argument(
         "--allow-no-new-contribution",
         action="store_true",
-        help="允许没有新边/新算子/低频算子的谓词进入候选。",
+        help='Allow predicates with no new edges, new operators, or low-frequency operators to become candidates.',
     )
     parser.add_argument(
         "--predicate-txt",
         type=str,
         default=str(DEFAULT_PREDICATE_TXT_PATH),
-        help="当前 predicate.txt 路径，默认 output/predicate.txt。",
+        help='Current predicate.txt path; defaults to output/predicate.txt.',
     )
     parser.add_argument(
         "--output",
         type=str,
         default=str(DEFAULT_RECYCLE_OUTPUT_PATH),
-        help="候选输出 JSON 路径。",
+        help='Output JSON path for candidates.',
     )
     parser.add_argument(
         "--apply",
         action="store_true",
-        help="阶段 6B：将筛选出的候选追加写入 predicate.txt。默认不启用。",
+        help='Stage 6B: append selected candidates to predicate.txt. Disabled by default.',
     )
     parser.add_argument(
         "--apply-top-k",
         type=int,
         default=800,
-        help="阶段 6B：最多追加多少条候选到 predicate.txt。",
+        help='Stage 6B: maximum number of candidates to append to predicate.txt.',
     )
     parser.add_argument(
         "--novel-structure-target-count",
         type=int,
         default=None,
         help=(
-            "阶段 6B：novel_structure 通道目标数量。"
-            "不传时使用 RECYCLE_CONFIG.recycle_novel_structure_target_count。"
+            'Stage 6B: target count for the novel_structure channel. Uses RECYCLE_CONFIG.recycle_novel_structure_target_count when omitted.'
         ),
     )
     parser.add_argument(
         "--dry-run",
         action="store_true",
-        help="阶段 6B：只生成 apply 日志，不实际修改 predicate.txt。",
+        help='Stage 6B: generate the apply log without modifying predicate.txt.',
     )
     parser.add_argument(
         "--no-backup",
         action="store_true",
-        help="阶段 6B：应用前不备份 predicate.txt。默认会备份。",
+        help='Stage 6B: do not back up predicate.txt before applying. A backup is created by default.',
     )
 
     return parser

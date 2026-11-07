@@ -109,7 +109,7 @@ def _load_candidate_records_for_nodes_only() -> list:
         payload = json.load(f)
     records = payload.get("edges", []) if isinstance(payload, dict) else []
     if not isinstance(records, list):
-        raise ValueError(f"candidate edge index 的 edges 必须为 list: {edge_index_path}")
+        raise ValueError(f'The edges field in the candidate edge index must be a list: {edge_index_path}')
     return [record for record in records if isinstance(record, dict)]
 
 
@@ -424,7 +424,7 @@ def _build_sampled_initial_graph(
     builder.initial_seed_report = seed_report
 
     if STAGE2_MODE == "base":
-        print("普通随机实验")
+        print('Random experiment')
     if blocked_outers and require_multislot_scaffold:
         raise ValueError(
             "sampled_llm_seeded preflight failed: operators have neither a verified "
@@ -524,25 +524,24 @@ def _prepare_initial_global_graph_builder(
             builder.load_from_json(str(resolved_graph_path))
             known_texts = _load_known_texts_from_txt(correct_path)
             if STAGE2_MODE == "base":
-                print("普通随机实验")
+                print('Random experiment')
             else:
-                print(f"{log_prefix} 已从缓存图谱加载: {resolved_graph_path.name}。")
+                print(f'{log_prefix} Loaded cached knowledge graph: {resolved_graph_path.name}.')
         except Exception as e:
-            print(f"{log_prefix} 缓存图谱加载失败，将执行一次性基础图谱构建: {e}")
+            print(f'{log_prefix} Failed to load the cached graph; building the base graph once: {e}')
 
     if not builder.nodes:
         if initial_graph_mode == "nodes_only":
             candidate_records = _load_candidate_records_for_nodes_only()
             builder.initialize_nodes_from_candidate_records(candidate_records)
             print(
-                f"{log_prefix} nodes_only 初始图谱构建完成："
-                f"nodes={len(builder.nodes)}，edges={builder.total_edges}。"
+                f'{log_prefix} nodes_only initial graph built: nodes={len(builder.nodes)}, edges={builder.total_edges}.'
             )
             try:
                 builder.save_to_json(str(resolved_graph_path))
-                print(f"{log_prefix} nodes_only 初始图谱已成功保存至: {resolved_graph_path}")
+                print(f'{log_prefix} nodes_only initial graph saved to: {resolved_graph_path}')
             except Exception as e:
-                print(f"{log_prefix} nodes_only 初始图谱保存失败: {e}")
+                print(f'{log_prefix} Failed to save the nodes_only initial graph: {e}')
         elif initial_graph_mode == "sampled_llm_seeded":
             candidate_records = _load_candidate_records_for_nodes_only()
             builder, known_texts = _build_sampled_initial_graph(
@@ -557,7 +556,7 @@ def _prepare_initial_global_graph_builder(
             except Exception as e:
                 print(f"{log_prefix} sampled initial graph save failed: {e}")
         else:
-            print(f"{log_prefix} 未加载到缓存图谱，执行一次性基础图谱构建。")
+            print(f'{log_prefix} No cached graph loaded; building the base graph once.')
             if correct_path.exists():
                 with correct_path.open("r", encoding="utf-8") as f:
                     for line in f:
@@ -579,16 +578,15 @@ def _prepare_initial_global_graph_builder(
                             print(f"{log_prefix} warning: initial base predicate skipped '{s}' | error: {e}")
 
                 print(
-                    f"{log_prefix} 基础图谱构建完成！共加载 {len(known_texts)} 条初始谓词。"
-                    f"初始总边数: {builder.total_edges}"
+                    f'{log_prefix} Base graph built. Loaded {len(known_texts)} initial predicates. Initial edge count: {builder.total_edges}'
                 )
                 try:
                     builder.save_to_json(str(resolved_graph_path))
-                    print(f"{log_prefix} 初始基础图谱已成功保存至: {resolved_graph_path}")
+                    print(f'{log_prefix} Initial base graph saved to: {resolved_graph_path}')
                 except Exception as e:
-                    print(f"{log_prefix} 初始图谱保存失败: {e}")
+                    print(f'{log_prefix} Failed to save the initial graph: {e}')
             else:
-                print(f"{log_prefix} 未找到初始集合，将从零开始构建。")
+                print(f'{log_prefix} Initial collection not found; building from scratch.')
 
     return builder, analyzer, known_texts, resolved_graph_path, correct_path
 
@@ -631,7 +629,7 @@ def global_graph_manager(queue, batch_size, correct_txt_path, progress_total_ste
     Master 进程的核心循环函数。
     由 train_actor_critic.py 在独立进程中启动。
     """
-    print("[Master Process] PKG 增量建图管理器已启动。")
+    print('[Master Process] PKG incremental graph manager started.')
 
     builder, analyzer, known_texts, graph_path, correct_path = _prepare_initial_global_graph_builder(
         correct_txt_path=correct_txt_path,
@@ -1098,7 +1096,7 @@ def global_graph_manager(queue, batch_size, correct_txt_path, progress_total_ste
         print("[Master Process] Exiting. Global knowledge graph saved.", flush=True)
     except Exception as e:
         import traceback
-        print(f"[Master Process 致命错误] 保存全局大图时发生异常，未能成功写入磁盘: {e}", flush=True)
+        print(f'[Master Process Fatal Error] Failed to save the global knowledge graph to disk: {e}', flush=True)
         traceback.print_exc()
 
     if parse_pool is not None:

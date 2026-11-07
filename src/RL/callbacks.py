@@ -101,10 +101,10 @@ class RecycleIntervalStopCallback(BaseCallback):
                 print(f"[Recycle Trigger Warning] Failed to send SYNC_PRINT: {e}")
 
         if self.stop_training_after_trigger:
-            print("触发回流重训。", flush=True)
+            print('Triggering recycle retraining.', flush=True)
             return False
 
-        print("已记录回流触发，继续训练。", flush=True)
+        print('Recycle trigger recorded; continuing training.', flush=True)
         return True
 
 

@@ -36,7 +36,7 @@ class HeuristicCompletionClient:
         config_path = os.path.join(PROJECT_ROOT, "RL", "datatype", f"{db_type}.json")
 
         if not os.path.exists(config_path):
-            print(f"[Heuristic] 警告: 未找到 {db_type}.json，将使用最小化默认映射。")
+            print(f'[Heuristic] Warning: {db_type}.json not found; using the minimal default mapping.')
             # 兜底默认映射
             return {
                 "int": ["int"], "float": ["float", "decimal"],

@@ -124,7 +124,7 @@ def _file_lock(target_path: Path, timeout_seconds: float = 10.0, poll_interval: 
             break
         except FileExistsError:
             if time.time() - start > timeout_seconds:
-                raise TimeoutError(f"等待文件锁超时: {lock_path}")
+                raise TimeoutError(f'Time limit exceeded while waiting for the file lock: {lock_path}')
             time.sleep(poll_interval)
 
     try:

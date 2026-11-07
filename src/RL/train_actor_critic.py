@@ -48,14 +48,14 @@ from RL.runtime_logging import runtime_warning_scope, suppress_sb3_logging_desti
 def master_data_processor(shared_queue, graph_queue, io_batch_size, global_correct_txt_path):
     """将验证成功的候选边事件和进度消息转发给图谱管理器。"""
     print(
-        "[Master Worker] 候选边事件转发器已启动。",
+        '[Master Worker] Candidate edge event forwarder started.',
         flush=True,
     )
     while True:
         try:
             msg = shared_queue.get()
             if msg == "DONE":
-                print("[Master Worker] 收到 DONE，转发给图谱管理器。", flush=True)
+                print('[Master Worker] Received DONE; forwarding it to the graph manager.', flush=True)
                 graph_queue.put("DONE")
                 break
 
@@ -72,7 +72,7 @@ def master_data_processor(shared_queue, graph_queue, io_batch_size, global_corre
                     else str(payload or "")
                 )
                 if _contains_forbidden_placeholder(predicate):
-                    print(f"[Master Worker] 跳过 placeholder 谓词: {predicate}", flush=True)
+                    print(f'[Master Worker] Skipping placeholder predicate: {predicate}', flush=True)
                     continue
                 if label == "a":
                     # target_edge 元数据原样交给 PKG，确保成功边仍进入正式知识图。
@@ -86,10 +86,10 @@ def master_data_processor(shared_queue, graph_queue, io_batch_size, global_corre
             if isinstance(msg, str) and msg and not _contains_forbidden_placeholder(msg):
                 graph_queue.put(msg)
         except (EOFError, BrokenPipeError):
-            print("[Master Worker] 主管道已断开，后台进程安全退出。", flush=True)
+            print('[Master Worker] Main pipe disconnected; background process exiting safely.', flush=True)
             break
         except Exception as exc:
-            print(f"[Master Worker Warning] 事件转发失败: {exc}", flush=True)
+            print(f'[Master Worker Warning] Event forwarding failed: {exc}', flush=True)
             time.sleep(1)
 
 
@@ -407,10 +407,8 @@ def _run_training():
 
         except Exception as e:
             print(f"\n[Env Check] FAILED: {e}")
-            print("请检查 gymnasium 版本或 env_sql_dependency.py 中的 reset/step 返回值格式。")
+            print('Check the gymnasium version and the reset/step return-value formats in env_sql_dependency.py.')
             raise
-    else:
-        print("[Env Check] Skipped by RL_ENV_CONFIG.enable_env_compliance_check=False.")
 
     # ==================== [多进程环境配置] ====================
     target_n_envs = RL_ALGO_CONFIG.n_envs
@@ -590,12 +588,12 @@ def _run_training():
 
             master_data_p.join()
             if master_data_p.is_alive():
-                print("[Main Process] Warning: Master Data Process 卡死，强制终止...")
+                print('[Main Process] Warning: Master Data Process is unresponsive; terminating...')
                 master_data_p.terminate()
 
             master_graph_p.join()
             if master_graph_p.is_alive():
-                print("[Main Process] Warning: Master Graph Process 卡死，强制终止...")
+                print('[Main Process] Warning: Master Graph Process is unresponsive; terminating...')
                 master_graph_p.terminate()
 
             try:

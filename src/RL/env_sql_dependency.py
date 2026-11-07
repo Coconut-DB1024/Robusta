@@ -689,7 +689,7 @@ class SqlDependencyEnv(gym.Env):#
             edge_index_data = self._candidate_bitmap_load_json(edge_index_path)
             edge_records = edge_index_data.get("edges", [])
             if not isinstance(edge_records, list):
-                raise ValueError(f"candidate_edge_index.json 中 edges 字段必须是 list: {edge_index_path}")
+                raise ValueError(f'The edges field in candidate_edge_index.json must be a list: {edge_index_path}')
             self.candidate_bitmap_edge_records = [x for x in edge_records if isinstance(x, dict)]
             self.candidate_bitmap_edge_id_to_index = {
                 str(record.get("edge_id", "")): int(record.get("edge_index", -1))
@@ -2031,21 +2031,24 @@ class SqlDependencyEnv(gym.Env):#
         retry_items.sort(key=lambda item: (-float(item[0]), int(item[1])))
         return [int(idx) for _, idx in retry_items[:max_retry]]
 
-    def _candidate_bitmap_edge_priority(self, record: Dict[str, Any]) -> float:
-        edge_id = str(record.get("edge_id", ""))
-        support_rank = self._candidate_bitmap_support_rank(record)
-
-        edge_score = self._candidate_bitmap_effective_edge_score(record)
-        pattern_transfer_score = self._candidate_bitmap_effective_pattern_transfer_score(record)
-
-        level_text = self._candidate_bitmap_record_level(record)
-        level_value = self._candidate_bitmap_level_value(level_text)
-
+    def _candidate_bitmap_other_base_priority_score(
+        self, support_rank: int, level_value: float,
+    ) -> float:
         score = 0.0
         score += 2.0 * (support_rank / 60.0)
         score += 1.0 * level_value
+        return score
+
+    def _candidate_bitmap_representation_priority_score(
+        self, score: float, edge_score: float, pattern_transfer_score: float,
+    ) -> float:
         score += 0.6 * edge_score
         score += 0.2 * pattern_transfer_score
+        return score
+
+    def _candidate_bitmap_other_frontier_priority_score(
+        self, score: float, record: Dict[str, Any], level_text: str,
+    ) -> Tuple[float, Dict[str, Any]]:
         score += self._candidate_bitmap_core_extension_priority_bonus(record)
 
         frontier_flags = self._candidate_bitmap_frontier_open_flags()
@@ -2070,27 +2073,36 @@ class SqlDependencyEnv(gym.Env):#
             ):
                 score -= strict_penalty * pressure
 
-        if bool(getattr(CANDIDATE_BITMAP_CONFIG, "candidate_organization_enabled", True)):
-            if bool(getattr(CANDIDATE_BITMAP_CONFIG, "candidate_hnsw_enabled", True)):
-                # 0.5为中性；成功邻居多则加分，失败邻居多则减分。
-                hnsw_tendency = self._candidate_bitmap_hnsw_tendency(record)
-                hnsw_weight = float(
-                    getattr(CANDIDATE_BITMAP_CONFIG, "candidate_hnsw_priority_weight", 1.0)
-                )
-                score += hnsw_weight * (2.0 * hnsw_tendency - 1.0)
+        return score, frontier_flags
 
-            if bool(getattr(CANDIDATE_BITMAP_CONFIG, "candidate_entropy_enabled", True)):
-                # 前期优先低熵简单边；停滞压力升高后逐渐放开复杂边。
-                entropy = self._candidate_bitmap_structural_entropy(record)
-                entropy_weight = float(
-                    getattr(CANDIDATE_BITMAP_CONFIG, "candidate_entropy_priority_weight", 1.0)
-                )
-                pressure = float(
-                    frontier_flags.get("pressure", self._frontier_stagnation_pressure())
-                )
-                score -= entropy_weight * (1.0 - np.clip(pressure, 0.0, 1.0)) * entropy
+    def _candidate_bitmap_hnsw_priority_score(
+        self, score: float, record: Dict[str, Any],
+    ) -> float:
+        if bool(getattr(CANDIDATE_BITMAP_CONFIG, "candidate_hnsw_enabled", True)):
+            hnsw_tendency = self._candidate_bitmap_hnsw_tendency(record)
+            hnsw_weight = float(
+                getattr(CANDIDATE_BITMAP_CONFIG, "candidate_hnsw_priority_weight", 1.0)
+            )
+            score += hnsw_weight * (2.0 * hnsw_tendency - 1.0)
+        return score
 
-        # 自底向上信号只影响评分模式。纯随机 base 不会调用本评分函数。
+    def _candidate_bitmap_entropy_priority_score(
+        self, score: float, record: Dict[str, Any], frontier_flags: Dict[str, Any],
+    ) -> float:
+        if bool(getattr(CANDIDATE_BITMAP_CONFIG, "candidate_entropy_enabled", True)):
+            entropy = self._candidate_bitmap_structural_entropy(record)
+            entropy_weight = float(
+                getattr(CANDIDATE_BITMAP_CONFIG, "candidate_entropy_priority_weight", 1.0)
+            )
+            pressure = float(
+                frontier_flags.get("pressure", self._frontier_stagnation_pressure())
+            )
+            score -= entropy_weight * (1.0 - np.clip(pressure, 0.0, 1.0)) * entropy
+        return score
+
+    def _candidate_bitmap_other_state_priority_score(
+        self, score: float, record: Dict[str, Any], edge_id: str,
+    ) -> float:
         if self._candidate_bitmap_inner_ready(record):
             score += float(
                 getattr(RL_ENV_CONFIG, "candidate_bitmap_inner_ready_priority_weight", 1.0)
@@ -2101,13 +2113,11 @@ class SqlDependencyEnv(gym.Env):#
         except Exception:
             edge_index = -1
 
-        # 成功和确认失败统一视为探索结束，只做软降权，不从候选池硬排除。
         if self._candidate_bitmap_exploration_done_for_index(edge_index, edge_id):
             score += float(
                 getattr(RL_ENV_CONFIG, "candidate_bitmap_exploration_done_penalty", -1.0)
             )
 
-        # 本地测试过只轻微降权；失败未达到确认阈值时仍然可以继续探索。
         if edge_id in self.candidate_bitmap_tested_edges:
             score += float(
                 getattr(RL_ENV_CONFIG, "candidate_bitmap_local_tested_penalty", -0.2)
@@ -2119,6 +2129,31 @@ class SqlDependencyEnv(gym.Env):#
         if jitter > 0:
             score += float(self.candidate_rng.normal(0.0, jitter))
 
+        return score
+
+    def _candidate_bitmap_edge_priority(self, record: Dict[str, Any]) -> float:
+        edge_id = str(record.get("edge_id", ""))
+        support_rank = self._candidate_bitmap_support_rank(record)
+
+        edge_score = self._candidate_bitmap_effective_edge_score(record)
+        pattern_transfer_score = self._candidate_bitmap_effective_pattern_transfer_score(record)
+
+        level_text = self._candidate_bitmap_record_level(record)
+        level_value = self._candidate_bitmap_level_value(level_text)
+
+        score = self._candidate_bitmap_other_base_priority_score(support_rank, level_value)
+        score = self._candidate_bitmap_representation_priority_score(
+            score, edge_score, pattern_transfer_score,
+        )
+        score, frontier_flags = self._candidate_bitmap_other_frontier_priority_score(
+            score, record, level_text,
+        )
+
+        if bool(getattr(CANDIDATE_BITMAP_CONFIG, "candidate_organization_enabled", True)):
+            score = self._candidate_bitmap_hnsw_priority_score(score, record)
+            score = self._candidate_bitmap_entropy_priority_score(score, record, frontier_flags)
+
+        score = self._candidate_bitmap_other_state_priority_score(score, record, edge_id)
         return float(score)
 
     def _candidate_bitmap_refresh_probe_variant_exhausted_window(self) -> None:
@@ -4100,7 +4135,7 @@ class SqlDependencyEnv(gym.Env):#
                     f.write(f"平均 数据库执行耗时: {(self.profiling_stats['T_DB_Exec'] / steps):.4f} 秒/次\n")
                     f.write(f"平均 奖励计算耗时:   {(self.profiling_stats['T_Reward'] / steps):.4f} 秒/次\n")
         except Exception as e:
-            print(f"[Profiling Error] 写入性能统计数据失败: {e}")
+            print(f'[Profiling Error] Failed to write profiling statistics: {e}')
         # -------------------------------------------------------------
         try:
             self.runtime_stats.flush_joint_signature_evidence()
