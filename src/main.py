@@ -1944,7 +1944,7 @@ if __name__ == "__main__":
                 )
 
             print(
-                f'[Stage 6D] recycle_pre_rl: skipping pre_load; using existing {predicate_txt_path} ({len(existing_predicates)} predicates).'
+                '[Stage 6D] recycle_pre_rl: skipping pre_load; using existing predicate.txt .'
             )
         else:
             print('Starting preprocessing...')
@@ -1965,7 +1965,7 @@ if __name__ == "__main__":
             if is_converged(i):
                 save_final_result(i)
                 print(f"\n{'=' * 50}")
-                print(f'Iteration {i + 1} converged. Results saved to: data/cluster_final_output')
+                print(f'Iteration {i + 1} converged.')
                 print(f"{'=' * 50}")
                 break
             print(f'>>> Clustering completed')
