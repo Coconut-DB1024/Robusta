@@ -43,8 +43,6 @@ def run_contrastive_learning(
     encoder_state_path = model_dir / "encoder_state.pt"
 
     print('========== Encoder-only WeightedSupConLoss stage started ==========')
-    print(f'CodeT5 Encoder directory: {model_dir}')
-    print(f"Encoder checkpoint: {encoder_state_path}")
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
 
