@@ -50,13 +50,13 @@ def run_encoding():
     if not os.path.exists(INPUT_FILE):
         raise FileNotFoundError(f'Input file not found: {INPUT_FILE}. Please check the path or filename.')
 
-    print(f'[INFO] Loading CodeT5 Encoder-only model: {MODEL_DIR}')
+    print('[INFO] Loading CodeT5 Encoder-only model')
     model = CodeT5Encoder(
         model_name_or_path=MODEL_DIR,
         device=device,
     )
     if os.path.exists(ENCODER_STATE_FILE):
-        print(f'[INFO] Loading Encoder checkpoint: {ENCODER_STATE_FILE}')
+        print('[INFO] Loading Encoder checkpoint')
         model.load_encoder_state_dict(
             torch.load(ENCODER_STATE_FILE, map_location=device)
         )
