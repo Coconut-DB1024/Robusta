@@ -1961,10 +1961,6 @@ class TLPBugFinder:
             self.log(
                 f'Oracle argument bounds: {self.resource_argument_bounding_enabled} (LPAD/RPAD/SUBSTR/SUBSTRB=0..{self.string_length_max})'
             )
-        elif _normalized_db_type() == "sqlserver":
-            self.log(
-                f'SQL Server argument bounds: {self.resource_argument_bounding_enabled} (REPLICATE=0..{self.repeat_count_max}, REPLICATE output limit={self.repeat_output_max_chars} chars, LEFT/RIGHT/SUBSTRING/SPACE=0..{self.string_length_max}; NULL preserved; negative REPLICATE/SPACE arguments still return NULL)'
-            )
 
         # 1. 扫描所有旧 .sql 或无损压缩 .sql.gz 文件。
         if self.input_files is None:
