@@ -116,8 +116,6 @@ def _finalize_joint_signature_evidence() -> None:
             f"Joint signature evidence consolidation failed; pending evidence "
             f"was retained next to {store.path}: {exc}"
         ) from exc
-    if merged:
-        print(f"[Joint Signature Evidence] Consolidated {merged} delta files into {store.path}")
 
 
 def _run_predicate_recycle_after_training(trigger_reason: str = "training_end") -> None:
@@ -461,7 +459,6 @@ def _run_training():
     expected_policy_class = CandidateScoringPolicy
 
     if final_model_path.exists():
-        print(f"\n[PPO] Loading existing model: {final_model_path}")
         try:
             model = PPO.load(
                 final_model_path,
