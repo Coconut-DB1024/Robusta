@@ -377,6 +377,26 @@ def _is_oracle_db() -> bool:
     return _normalized_db_type() in ORACLE_DB_TYPES
 
 
+def _has_oracle_tlp_special_nodes(sql_group):
+    if not _is_oracle_db() or len(sql_group or []) < 2:
+        return False
+    sql = re.sub(
+        r"\bN?Q'(?:\[[\s\S]*?\]|\{[\s\S]*?\}|\([\s\S]*?\)|<[\s\S]*?>|"
+        r"(?P<delimiter>[^\s])[\s\S]*?(?P=delimiter))'"
+        r"|'(?:''|[^'])*'|\"(?:\"\"|[^\"])*\"|--[^\r\n]*|/\*[\s\S]*?\*/",
+        " ",
+        str(sql_group[1]),
+        flags=re.IGNORECASE,
+    )
+    return re.search(
+        r"(?<![\w$#])(?:ROWNUM|SYSDATE|SYSTIMESTAMP|CURRENT_DATE|"
+        r"CURRENT_TIMESTAMP|LOCALTIMESTAMP)(?![\w$#])"
+        r"|(?<![\w$#])SYS_GUID\s*\(",
+        sql,
+        re.IGNORECASE,
+    ) is not None
+
+
 def _sqlserver_diagnostics(result):
     return {"sqlstate": getattr(result, "sqlstate", None),
             "cancelled": bool(getattr(result, "cancelled", False))}
@@ -1597,9 +1617,14 @@ class TLPBugFinder:
         """
         self.total_bugs_found += 1
 
+        special_node_notice = (
+            "[TLP] Inconsistency detected; possibly caused by special nodes!"
+            if _has_oracle_tlp_special_nodes(sql_group) else None
+        )
+
         if self.bug_samples_written >= self.bug_sample_limit:
             self.bug_samples_dropped += 1
-            if self.bug_samples_dropped == 1:
+            if self.bug_samples_dropped == 1 and not special_node_notice:
                 print(
                     '[TLP] Detailed logic-bug report limit reached; subsequent bugs will only be counted.'
                 )
@@ -1618,7 +1643,11 @@ class TLPBugFinder:
 
         report_content = [
             "==================================================",
-            f"[BUG FOUND] 在文件: {file_name} (第 {case_idx} 组测试)",
+            (
+                f"{special_node_notice} File: {file_name}; case: {case_idx}"
+                if special_node_notice else
+                f"[BUG FOUND] 在文件: {file_name} (第 {case_idx} 组测试)"
+            ),
             "--------------------------------------------------",
             f"逻辑公式校验失败: Total != True + False + Null",
             f"期望值 (Total) : {counts['total']}",
@@ -1648,7 +1677,8 @@ class TLPBugFinder:
         self.bug_samples_written += 1
 
         # 控制台醒目提示
-        print(f'!!! Suspected BUG found !!! Details written to {self.bug_file}')
+        if not special_node_notice:
+            print(f'!!! Suspected BUG found !!! Details written to {self.bug_file}')
 
     def iter_sql_file(self, file_path: str) -> Iterator[List[str]]:
         """
