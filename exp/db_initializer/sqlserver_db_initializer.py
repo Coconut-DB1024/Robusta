@@ -425,15 +425,12 @@ def random_geometry_wkt():
 
 
 def random_geography_wkt():
-
     longitude = round(random.uniform(-179.0, 179.0), 6)
     latitude = round(random.uniform(-89.0, 89.0), 6)
     return f"POINT ({longitude} {latitude})"
 
 
 def random_sql_variant():
-
-
     generators = [
         ("CAST(CAST(? AS INT) AS SQL_VARIANT)", random_int),
         ("CAST(CAST(? AS BIGINT) AS SQL_VARIANT)", random_bigint),
@@ -593,7 +590,6 @@ INSERT_COLUMNS = [
     "col_binary_2",
     "col_binary_3",
 
-
     "col_uuid_0",
     "col_variant_0",
     "col_xml_0",
@@ -675,7 +671,6 @@ def make_row():
 
         "col_uuid_0": maybe_null(random_uuid_text),
 
-
         "col_variant_0": random_sql_variant(),
 
         "col_xml_0": maybe_null(random_xml_text),
@@ -692,7 +687,6 @@ def insert_row(cursor, row):
     parameters = []
 
     for column_name in INSERT_COLUMNS:
-
         if column_name == "col_variant_0":
             expression, value = row[column_name]
             value_expressions.append(expression)
@@ -700,7 +694,6 @@ def insert_row(cursor, row):
             continue
 
         value = row[column_name]
-
 
         if value is None and column_name == "col_hierarchy_0":
             value_expressions.append("CAST(NULL AS HIERARCHYID)")
@@ -773,7 +766,6 @@ def main():
     try:
         cursor = conn.cursor()
 
-
         cursor.execute(
             """
             SELECT OBJECT_ID(?, 'U')
@@ -786,7 +778,6 @@ def main():
         if existing_object_id is not None:
             cursor.execute(f"DROP TABLE {QUALIFIED_TABLE}")
 
-
         print(
             "[Initializer] Creating table: "
             f"{TABLE_SCHEMA}.{TABLE_NAME}"
@@ -795,7 +786,6 @@ def main():
         cursor.execute(CREATE_TABLE_SQL)
 
         print("[Initializer] Table created.")
-
 
         print(
             "[Initializer] "
@@ -812,7 +802,6 @@ def main():
                     f"Generated and inserted "
                     f"{i}/{INITIAL_ROWS}"
                 )
-
 
         cursor.execute(
             f"""
@@ -831,7 +820,6 @@ def main():
             QUALIFIED_TABLE,
         )
         column_count = cursor.fetchone()[0]
-
 
         conn.commit()
 

@@ -29,8 +29,6 @@ COMMIT_EVERY = 100
 
 
 def maybe_null(generator):
-
-
     if random.random() < NULL_PROBABILITY:
         return None
 
@@ -38,8 +36,6 @@ def maybe_null(generator):
 
 
 def random_int():
-
-
     special_values = [
         -10000,
         -1,
@@ -55,8 +51,6 @@ def random_int():
 
 
 def random_big_int():
-
-
     special_values = [
         -(10 ** 30),
         -(10 ** 18),
@@ -74,8 +68,6 @@ def random_big_int():
 
 
 def random_decimal():
-
-
     special_values = [
         -10000.0,
         -1.0,
@@ -94,8 +86,6 @@ def random_decimal():
 
 
 def random_float():
-
-
     special_values = [
         -10000.0,
         -1.0,
@@ -115,8 +105,6 @@ def random_float():
 
 
 def random_ascii_string(max_len=50):
-
-
     length = random.randint(
         1,
         max_len
@@ -135,8 +123,6 @@ def random_ascii_string(max_len=50):
 
 
 def random_unicode_string(max_len=50):
-
-
     special_values = [
         "测试",
         "数据库",
@@ -156,8 +142,6 @@ def random_unicode_string(max_len=50):
 
 
 def random_lob_text():
-
-
     chunks = [
         random_unicode_string(80)
         for _ in range(
@@ -169,8 +153,6 @@ def random_lob_text():
 
 
 def random_datetime():
-
-
     start = (
         datetime.now()
         - timedelta(days=365 * 10)
@@ -185,8 +167,6 @@ def random_datetime():
 
 
 def random_timestamp_tz_text():
-
-
     dt = random_datetime()
 
     offset_hours = random.choice([
@@ -212,8 +192,6 @@ def random_timestamp_tz_text():
 
 
 def random_interval_ym():
-
-
     years = random.randint(0, 20)
 
     months = random.randint(0, 11)
@@ -229,8 +207,6 @@ def random_interval_ym():
 
 
 def random_interval_ds():
-
-
     days = random.randint(0, 300)
 
     hours = random.randint(0, 23)
@@ -259,8 +235,6 @@ def random_interval_ds():
 
 
 def random_raw(max_len=32):
-
-
     return os.urandom(
         random.randint(
             1,
@@ -270,8 +244,6 @@ def random_raw(max_len=32):
 
 
 def random_blob(max_len=256):
-
-
     return os.urandom(
         random.randint(
             1,
@@ -281,8 +253,6 @@ def random_blob(max_len=256):
 
 
 def random_boolean_text():
-
-
     return random.choice([
         "TRUE",
         "FALSE",
@@ -290,8 +260,6 @@ def random_boolean_text():
 
 
 def random_json_text():
-
-
     obj = {
         "id": random.randint(1, 100),
 
@@ -329,7 +297,6 @@ def random_json_text():
 
 
 def random_xml_text():
-
     row_id = random.randint(
         1,
         10000
@@ -357,8 +324,6 @@ def random_xml_text():
 
 
 def random_vector_text():
-
-
     values = [
         round(
             random.uniform(
@@ -560,10 +525,7 @@ INSERT INTO {TABLE_SQL} (
 
 
 def make_row():
-
     return {
-
-
         "col_integer_0":
             maybe_null(random_int),
 
@@ -572,7 +534,6 @@ def make_row():
 
         "col_integer_2":
             maybe_null(random_big_int),
-
 
         "col_decimal_0":
             maybe_null(random_decimal),
@@ -585,7 +546,6 @@ def make_row():
 
         "col_float_2":
             maybe_null(random_float),
-
 
         "col_string_0":
             maybe_null(
@@ -621,7 +581,6 @@ def make_row():
                 random_lob_text
             ),
 
-
         "col_datetime_0":
             maybe_null(
                 random_datetime
@@ -642,7 +601,6 @@ def make_row():
                 random_timestamp_tz_text
             ),
 
-
         "col_interval_0":
             maybe_null(
                 random_interval_ym
@@ -652,7 +610,6 @@ def make_row():
             maybe_null(
                 random_interval_ds
             ),
-
 
         "col_binary_0":
             maybe_null(
@@ -666,24 +623,20 @@ def make_row():
                 random_blob(256)
             ),
 
-
         "col_boolean_0":
             maybe_null(
                 random_boolean_text
             ),
-
 
         "col_json_0":
             maybe_null(
                 random_json_text
             ),
 
-
         "col_xml_0":
             maybe_null(
                 random_xml_text
             ),
-
 
         "col_vector_0":
             maybe_null(
@@ -693,9 +646,7 @@ def make_row():
 
 
 def main():
-
     if not DB_CONFIG.password:
-
         raise RuntimeError(
             "Database password is empty. Fill in Robusta/configuration.json."
         )
@@ -707,7 +658,6 @@ def main():
     )
 
     conn = oracledb.connect(
-
         user=DB_CONFIG.user,
 
         password=DB_CONFIG.password,
@@ -721,10 +671,7 @@ def main():
     )
 
     try:
-
         with conn.cursor() as cursor:
-
-
             print(
                 "[Initializer] "
                 f"Creating table: {TABLE_NAME}"
@@ -746,14 +693,12 @@ def main():
                 "Table created."
             )
 
-
             cursor.setinputsizes(
                 col_binary_0=oracledb.DB_TYPE_RAW,
                 col_binary_1=oracledb.DB_TYPE_BLOB,
                 col_string_4=oracledb.DB_TYPE_CLOB,
                 col_string_5=oracledb.DB_TYPE_NCLOB,
             )
-
 
             print(
                 "[Initializer] "
@@ -766,7 +711,6 @@ def main():
                 1,
                 INITIAL_ROWS + 1
             ):
-
                 cursor.execute(
                     INSERT_SQL,
                     make_row()
@@ -775,7 +719,6 @@ def main():
                 if (
                     i % COMMIT_EVERY == 0
                 ):
-
                     conn.commit()
 
                     print(
@@ -785,7 +728,6 @@ def main():
                     )
 
             conn.commit()
-
 
             cursor.execute(
                 f"""
@@ -797,7 +739,6 @@ def main():
             row_count = (
                 cursor.fetchone()[0]
             )
-
 
             cursor.execute(
                 """
@@ -814,7 +755,6 @@ def main():
                 cursor.fetchone()[0]
             )
 
-
             print(
                 "[Initializer] "
                 "Initialization completed."
@@ -830,16 +770,12 @@ def main():
                 f"Columns = {column_count}"
             )
 
-
     except Exception:
-
         conn.rollback()
 
         raise
 
-
     finally:
-
         conn.close()
 
         print(
@@ -849,5 +785,4 @@ def main():
 
 
 if __name__ == "__main__":
-
     main()

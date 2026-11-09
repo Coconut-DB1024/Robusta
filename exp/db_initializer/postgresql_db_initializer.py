@@ -69,8 +69,6 @@ COLUMN_DEFINITIONS: Tuple[Tuple[str, str, str], ...] = (
 
 
 class RandomDataFactory:
-
-
     @staticmethod
     def generate_value(category: str) -> Any:
         if random.random() < NULL_PROBABILITY:
@@ -78,10 +76,8 @@ class RandomDataFactory:
 
         category = category.upper()
         if category == "INTEGER":
-
             return random.randint(-10000, 10000)
         if category == "BIG_INTEGER":
-
             return random.randint(-(10 ** 12), 10 ** 12)
         if category == "FLOAT":
             return round(random.uniform(-10000.0, 10000.0), 2)
@@ -97,13 +93,10 @@ class RandomDataFactory:
                 return value.time()
             return value
         if category == "YEAR":
-
             return random.randint(1970, 2038)
         if category == "BINARY":
-
             return bytes(random.getrandbits(8) for _ in range(12))
         if category == "JSON":
-
             return json.dumps({
                 "id": random.randint(1, 100),
                 "tag": "".join(random.choices(string.ascii_lowercase, k=5)),
@@ -124,14 +117,11 @@ class RandomDataFactory:
 
 
 class DatabaseInitializer:
-
-
     def __init__(self):
         self.columns_meta: List[Tuple[str, str, str]] = []
         self.executor = None
 
     def setup_database(self):
-
         if not isinstance(INITIAL_ROWS, int) or not 0 <= INITIAL_ROWS <= 2147483647:
             raise ValueError("INITIAL_ROWS 必须为 0 到 2147483647 之间的整数。")
         if not isinstance(BATCH_SIZE, int) or BATCH_SIZE <= 0:
@@ -152,7 +142,6 @@ class DatabaseInitializer:
                 query_timeout_seconds=DB_CONFIG.query_timeout,
             )
 
-
             with self.executor._conn.transaction():
                 with self.executor._conn.cursor() as cursor:
                     self._recreate_table(cursor)
@@ -171,7 +160,6 @@ class DatabaseInitializer:
         logger.info("元数据准备完成，共 %s 列（包含 id）。", len(self.columns_meta))
 
     def _recreate_table(self, cursor):
-
         cursor.execute(f"DROP TABLE IF EXISTS {QUALIFIED_TABLE};")
         col_defs = [f'  "{name}" {sql_type}' for name, sql_type, _ in self.columns_meta]
         create_sql = f"CREATE TABLE {QUALIFIED_TABLE} (\n" + ",\n".join(col_defs) + "\n)\n;"
@@ -183,8 +171,6 @@ class DatabaseInitializer:
         logger.info("表结构创建完成。")
 
     def _populate_data(self, cursor):
-
-
         target_cols = [meta for meta in self.columns_meta if meta[0] != "id"]
         col_names = ", ".join(f'"{name}"' for name, _, _ in target_cols)
         batch_values = []
