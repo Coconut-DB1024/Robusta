@@ -1,5 +1,3 @@
-"""Start the independent PostgreSQL L-error experiment."""
-
 import json
 import os
 from pathlib import Path
