@@ -1,9 +1,3 @@
-"""Oracle-only, bounded metadata enrichment of Stage-2 evidence copies.
-
-No graph/parser/reward state is changed.  Columns come from the executed SQL,
-not from COL_* guesses.  Result types are described by Oracle (parse only,
-never execute/fetch), cached by the local typed call, not by its descendants.
-"""
 from __future__ import annotations
 
 import copy
@@ -28,17 +22,10 @@ def normalize_oracle_type(value):
     }.get(text, text)
 
 
-# Fixed result types, not merge rules. Other functions require observed
-# complete physical inputs and an unambiguous described output.
 ORACLE_FIXED_RESULTS = {"LENGTH": "number", "TO_NUMBER": "number"}
 
 
 def complete_observed_types(evidence_by_outer):
-    """Enrich private Stage-3 copies, without merging tuples or changing IDs.
-
-    O(8 * evidence entries * arity); no database calls or file writes. A
-    conflicting description is never resolved by guessing a coarse family.
-    """
     result = {key: [dict(r) for r in records]
               for key, records in evidence_by_outer.items()}
     records = [r for group in result.values() for r in group]
@@ -61,7 +48,7 @@ def complete_observed_types(evidence_by_outer):
             if key not in index:
                 index[key] = dtype
             elif index[key] != dtype:
-                index[key] = ""  # permanent conflict for this pass
+                index[key] = ""  
 
     for _ in range(8):
         calls, witnesses = {}, {}
@@ -102,11 +89,9 @@ def complete_observed_types(evidence_by_outer):
 
 
 class _SourceParser(SimpleParser):
-    """Preserve source spans only on a private, evidence-only AST."""
     def __init__(self, config):
         super().__init__(config)
-        # Graph literals hide their sign inside int(-1); the executed SQL
-        # contains a normal unary sign. Only this private parser accepts it.
+
         self.unary_operators = set(self.unary_operators) | {"+", "-"}
 
     def parse_atom(self):
@@ -129,7 +114,6 @@ class _SourceParser(SimpleParser):
 
 
 class OracleEvidenceTyper:
-    # Per process, over its whole lifetime; failed descriptions are cached too.
     MAX_CALL_TYPES = 8192
     MAX_TABLES = 32
     MAX_AST_NODES = 256
@@ -155,7 +139,7 @@ class OracleEvidenceTyper:
             try:
                 from RL.db_executor import create_db_executor
                 self.executor = create_db_executor(autoconnect=True)
-                # Dedicated metadata connection: bounded failure latency.
+
                 self.executor._conn.call_timeout = 1000
             except Exception:
                 self.unavailable = True
@@ -197,7 +181,6 @@ class OracleEvidenceTyper:
         started = time.monotonic()
         try:
             with executor._conn.cursor() as cursor:
-                # cursor.parse describes a SELECT without evaluating values.
                 cursor.parse(f"SELECT {expression} FROM {table} WHERE 1=0")
                 self.stats["description_queries"] += 1
                 info = cursor.description or []
@@ -205,8 +188,7 @@ class OracleEvidenceTyper:
                     self.call_types[key] = normalize_oracle_type(
                         getattr(info[0][1], "name", info[0][1])
                     )
-                    # A generic driver OBJECT tag does not identify the SQL
-                    # object type. Never use it to join unrelated object types.
+
                     if self.call_types[key] == "object":
                         self.call_types[key] = ""
         except Exception:
@@ -216,8 +198,7 @@ class OracleEvidenceTyper:
         return self.call_types[key]
     def enrich(self, parse_result):
         sql = str(getattr(parse_result, "oracle_executed_sql", "") or "")
-        # This is the exact SELECT envelope emitted by HeuristicCompletionClient.
-        # Other envelopes stay legacy evidence; never align guessed SQL to an AST.
+
         match = re.fullmatch(
             r'\s*SELECT\s+1\s+FROM\s+("(?:[^"]|"")+"|[A-Za-z_][\w$#]*)'
             r'\s+WHERE\s+(.+)\s+FETCH\s+FIRST\s+1\s+ROW\s+ONLY\s*;?\s*',
@@ -234,7 +215,7 @@ class OracleEvidenceTyper:
             return parse_result
         canonicalize_ast_tokens(source)
         original = parse_result.ast_root
-        # Non-Boolean probes use the documented IS NOT NULL envelope.
+
         if (str(original.return_type).upper() != "T_BOOL"
                 and source.token == "IS NOT NULL" and len(source.children) == 1):
             source = source.children[0]
@@ -243,9 +224,7 @@ class OracleEvidenceTyper:
         def align(node, raw):
             children = list(getattr(node, "children", []) or [])
             raw_children = list(getattr(raw, "children", []) or [])
-            # The graph abstracts int(-1) to one literal, whereas the SQL
-            # parser represents its sign as a unary node. Preserve this one
-            # leaf's real numeric type without changing either parser.
+
             if (not children and node.node_type != "column"
                     and re.fullmatch(r"[+-]?\s*\d+(?:\.\d*)?", raw.oracle_source_sql.strip())):
                 raw_children = []

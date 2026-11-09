@@ -12,8 +12,6 @@ from stable_baselines3.common.policies import ActorCriticPolicy
 
 
 class CandidateEdgeScorer(nn.Module):
-    """Permutation-equivariant 64-edge actor with a pooled candidate-set critic."""
-
     def __init__(
         self,
         features_dim: int,
@@ -46,8 +44,6 @@ class CandidateEdgeScorer(nn.Module):
             activation_fn(),
         )
 
-        # Actor output is already one logit per candidate edge. Critic consumes
-        # order-invariant mean/max pooling over the same encoded edge rows.
         self.latent_dim_pi = self.candidate_pool_size
         self.latent_dim_vf = value_hidden_dim
 
@@ -82,8 +78,6 @@ class CandidateEdgeScorer(nn.Module):
 
 
 class CandidateScoringPolicy(ActorCriticPolicy):
-    """SB3 policy that applies one shared scorer to every candidate row."""
-
     def __init__(
         self,
         *args: Any,
@@ -108,8 +102,6 @@ class CandidateScoringPolicy(ActorCriticPolicy):
         if not isinstance(self.action_dist, CategoricalDistribution):
             raise TypeError("CandidateScoringPolicy requires a Discrete action space")
 
-        # CandidateEdgeScorer already returns the 64 categorical logits; an
-        # additional dense 64x64 action layer would reintroduce position bias.
         self.action_net = nn.Identity()
         self.value_net = nn.Linear(self.mlp_extractor.latent_dim_vf, 1)
 

@@ -2,12 +2,10 @@ from threading import Lock
 
 
 class EnvironmentReloadError(RuntimeError):
-    """The environment cannot continue with an incomplete bitmap reload."""
+    pass
 
 
 class EnvironmentProgress:
-    """Report startup milestones once without synchronizing worker execution."""
-
     _labels = {
         "initialized": "[Parallel] Initialization progress",
         "bitmap_reloaded": "[CandidateBitmapEnv] reloaded candidate bitmap",
@@ -31,8 +29,7 @@ class EnvironmentProgress:
             if counts[rank]:
                 return
             counts[rank] += 1
-            # Count each worker's first success only. Runtime bitmap reloads
-            # continue normally, but do not repeat the startup progress logs.
+
             while True:
                 done = sum(count > finished_rounds for count in counts)
                 if (

@@ -1,21 +1,20 @@
-# Candidate-bitmap step rewards and diagnostics.
 from __future__ import annotations
 from typing import Dict, Any, Tuple
-from RL.config import RL_ENV_CONFIG  # <--- 【新增】引入配置中的超参数
+from RL.config import RL_ENV_CONFIG  
 
 
 def compute_reward(
-        is_repeated_action: bool = False,  # 动作是否与历史重复
-        is_syntax_error: bool = False,  # 语法是否报错
-        db_success: bool = False,  # 数据库是否执行成功
-        is_new_edge: bool = False,  # 是否发现了图谱新边
-        complexity_score: float = 0.0,  # AST节点数（仅记录）
-        parse_success: bool = False,  # 阶段 5：谓词结构解析是否成功
-        local_new_edges: int = 0,  # 阶段 5：本地图谱新增边数
-        local_new_nodes: int = 0,  # 阶段 5：本地图谱新增节点数
-        structure_operator_count: int = 0,  # 阶段 5：当前谓词结构中的算子数量
-        new_operator_count: int = 0,  # 阶段 5：运行统计中尚未出现过的算子数量
-        low_freq_operator_count: int = 0,  # 阶段 5：运行统计中的低频算子数量
+        is_repeated_action: bool = False,  
+        is_syntax_error: bool = False,  
+        db_success: bool = False,  
+        is_new_edge: bool = False,  
+        complexity_score: float = 0.0,  
+        parse_success: bool = False,  
+        local_new_edges: int = 0,  
+        local_new_nodes: int = 0,  
+        structure_operator_count: int = 0,  
+        new_operator_count: int = 0,  
+        low_freq_operator_count: int = 0,  
         coverage_mode: str = "unrestricted",
         fixed_base_structure: bool = True,
         fixed_base_new_edges: int = 0,
@@ -37,7 +36,6 @@ def compute_reward(
         candidate_bitmap_failure_kind: str = "",
         candidate_bitmap_safe_closure_used: bool = False,
 ) -> Tuple[float, Dict[str, Any]]:
-    """Compute candidate-edge rewards and diagnostics."""
     reward = 0.0
     reasons = []
 
@@ -137,9 +135,6 @@ def compute_reward(
         "frontier_low_freq_scaled_bonus": 0.0,
     }
 
-    # Candidate-bitmap uses a bounded, task-aligned reward. Candidate level,
-    # edge score, support rank, frontier, complexity and operator frequency
-    # remain observable/ranking signals but do not directly pay reward.
     failure_kind = str(candidate_bitmap_failure_kind or "").strip().lower()
     syntax_or_placeholder = bool(is_syntax_error) or failure_kind in {
         "syntax_error",

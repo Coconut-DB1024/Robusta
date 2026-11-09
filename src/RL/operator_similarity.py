@@ -13,7 +13,6 @@ try:
         OPERATOR_EMBEDDING_METADATA_PATH,
     )
 except Exception:
-    # 允许单文件调试时从项目根目录相对定位。
     PROJECT_ROOT = Path(__file__).resolve().parents[1]
     OUTPUT_DIR = PROJECT_ROOT / "output"
     OPERATOR_PROTOTYPES_PATH = OUTPUT_DIR / "operator_prototypes.json"
@@ -22,21 +21,10 @@ except Exception:
 
 
 def normalize_operator_key(op: Any) -> str:
-    """
-    将外部传入的 operator key 归一化到 operator_similarity.json 使用的形式。
-
-    处理例子：
-        ">"             -> ">"
-        ">::T_BOOL"     -> ">"
-        "round()"       -> "ROUND()"
-        "not like"      -> "NOT LIKE"
-        "  NOT   IN  "  -> "NOT IN"
-    """
     text = str(op).strip()
     if not text:
         return ""
 
-    # 运行时统计里可能出现 > :: T_BOOL / ROUND()::T_CMP 这种后缀。
     if "::" in text:
         text = text.split("::", 1)[0].strip()
 
@@ -80,18 +68,6 @@ def _as_float(value: Any, default: float = 0.0) -> float:
 
 
 class OperatorSimilarityIndex:
-    """
-    RL 侧算子相似表读取与查询模块。
-
-    数据来源：
-        output/operator_similarity.json
-        output/operator_prototypes.json
-        output/operator_embedding_metadata.json
-
-    主要用途：
-        候选边的 slot pattern transfer 根据当前算子查询相似算子。
-    """
-
     def __init__(
         self,
         similarity_path: Optional[Path] = None,
@@ -264,34 +240,6 @@ class OperatorSimilarityIndex:
         max_hop: int = 1,
         allow_missing: bool = True,
     ) -> List[Dict[str, Any]]:
-        """
-        查询相似算子。
-
-        参数：
-            op:
-                原算子，例如 ">"、"LIKE"、"ROUND()"、">::T_BOOL"。
-
-            top_k:
-                最多返回多少个候选。None 表示不截断。
-
-            min_sim:
-                最小相似度阈值。None 表示不过滤。
-
-            include_self:
-                是否允许返回自身。默认 False。
-
-            exclude_ops:
-                额外排除的算子集合。
-
-            max_hop:
-                1 表示只返回 operator_similarity.json 中的一跳相似算子；
-                2 表示额外返回 “op -> mid -> candidate” 的二跳候选。
-                二跳候选的 sim 使用两段相似度乘积，hop=2，并记录 via。
-
-            allow_missing:
-                如果查询的 op 不存在，是否返回空列表。
-                False 时会抛出 KeyError。
-        """
         key = normalize_operator_key(op)
         if not key:
             return []
@@ -332,7 +280,6 @@ class OperatorSimilarityIndex:
             if via is not None:
                 item["via"] = via
 
-            # 同一个候选可能由一跳和二跳同时得到，保留 sim 更高的路径。
             if old is None or float(item["sim"]) > float(old.get("sim", 0.0)):
                 candidates[cand_key] = item
 
@@ -393,16 +340,6 @@ class OperatorSimilarityIndex:
         max_hop: int = 2,
         symmetric: bool = True,
     ) -> float:
-        """
-        阶段17-1：查询两个算子之间的相似度分数。
-
-        用途：
-            candidate bitmap 构建时，为 operator -> operator 类型候选边提供 similarity_score。
-
-        注意：
-            - 类型兼容决定候选边是否进入 bitmap；
-            - similarity_score 只决定候选边优先级，不决定是否合法。
-        """
         key_a = normalize_operator_key(op_a)
         key_b = normalize_operator_key(op_b)
 

@@ -1,10 +1,4 @@
-﻿"""
-PKG Manager (Master Process)
-负责在强化学习过程中，后台异步接收 Correct 谓词，
-调用第三阶段的 Parser 和 Builder 进行增量建图，记录发现的新语义依赖（新边），
-并批量刷入 Correct_Collection.txt 和监控日志。
-"""
-import sys
+﻿import sys
 import os
 import time
 import json
@@ -14,16 +8,15 @@ from pathlib import Path
 from random import Random
 from concurrent.futures import ProcessPoolExecutor
 
-# ================= 跨文件夹调用设置 =================
-# 获取项目根目录
+
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
-# 第三阶段的文件夹路径
+
 PKG_DIR = PROJECT_ROOT / "pkg"
-# 将其加入系统路径，使当前文件可以 import 第三阶段的代码
+
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.append(str(PROJECT_ROOT))
 
-# 导入第三阶段的核心建图工具
+
 from pkg.graph_builder import KnowledgeGraphBuilder
 from RL.predicate_structure import (
     PredicateStructureAnalyzer,
@@ -34,20 +27,19 @@ from RL.graph_runtime_stats import get_default_runtime_stats
 from RL.progress import print_rl_progress
 from RL.runtime_logging import report_joint_signature_flush_failure
 
-import re  # 【新增】引入正则表达式模块
+import re  
 from RL.config import (
     CANDIDATE_BITMAP_CONFIG,
     DB_CONFIG,
     MONITOR_CONFIG,
     RL_ALGO_CONFIG,
     STAGE2_MODE,
-)  # 【新增】引入数据库配置，用于动态获取类型映射
-# =================================================
+)  
+
 
 _DATATYPE_MAPPING = None
 
 def _get_datatype_mapping() -> dict:
-    """【新增】全局单例/懒加载：读取数据类型配置文件"""
     global _DATATYPE_MAPPING
     if _DATATYPE_MAPPING is None:
         db_type = getattr(DB_CONFIG, "db_type", "mysql").lower()
@@ -56,7 +48,6 @@ def _get_datatype_mapping() -> dict:
             with open(config_path, "r", encoding="utf-8") as f:
                 _DATATYPE_MAPPING = json.load(f)
         else:
-            # 兜底映射
             _DATATYPE_MAPPING = {
                 "int": ["int", "integer", "hex"], "float": ["float", "decimal", "numeric"],
                 "string": ["char", "varchar", "text", "string"], "date": ["date", "time", "timestamp"]
@@ -65,15 +56,9 @@ def _get_datatype_mapping() -> dict:
 
 
 def abstract_predicate_for_graph(predicate: str) -> str:
-    """
-    Compatibility wrapper for predicate abstraction.
-    """
     return _structure_abstract_predicate_for_graph(predicate)
 
 def load_pkg_config():
-    """
-    Compatibility wrapper for loading PKG parser configuration.
-    """
     return _structure_load_pkg_config()
 
 
@@ -121,14 +106,9 @@ def _build_sampled_initial_graph(
     edge_ratio: float,
     log_prefix: str,
 ):
-    """Build a node-complete graph from verified predicate/subtree scaffolds."""
     builder = KnowledgeGraphBuilder()
     builder.initialize_nodes_from_candidate_records(candidate_records)
 
-    # Initial-graph policy is part of the Stage-2 mode, not user configuration.
-    # Random/enumeration keep ratio-based seeding without mandatory scaffolds.
-    # Other modes retain one verified scaffold per multi-slot operator and the
-    # existing permission to exceed the seed budget when necessary.
     require_multislot_scaffold = STAGE2_MODE not in {"base", "enumeration"}
     min_scaffold_per_operator = 1
     allow_scaffold_over_budget = True
@@ -148,9 +128,6 @@ def _build_sampled_initial_graph(
             record_by_key[key] = record
             slot_counts[key[0]] = max(int(slot_counts.get(key[0], 0)), key[1] + 1)
 
-    # A scaffold is the complete set of candidate edges parsed from one known
-    # correct predicate. Selecting the whole set preserves recursive support to
-    # terminals instead of inserting unrelated independent seed edges.
     known_texts = set()
     scaffolds = []
     if correct_path.exists():
@@ -241,9 +218,6 @@ def _build_sampled_initial_graph(
     )
     missing_scaffold_outers = []
 
-    # Mandatory phase: optionally give each multi-slot operator the configured
-    # number of complete verified scaffolds. A scaffold is added as a whole so
-    # its recursive downstream support enters the formal graph together.
     if require_multislot_scaffold and min_scaffold_per_operator > 0:
         for outer_node_id in multi_slot_outers:
             choices = [
@@ -291,8 +265,6 @@ def _build_sampled_initial_graph(
             if 0 < new_count <= target_count - len(selected_ids):
                 _add_scaffold(scaffold)
 
-    # Remaining budget: prefer verified scaffolds that add new operator/slot
-    # coverage, then smaller predicates and stable text order.
     while STAGE2_MODE != "base" and len(selected_ids) < target_count:
         selected_slot_keys = {
             (str(record.get("outer_node_id", "")), int(record.get("slot_index", -1)))
@@ -340,9 +312,6 @@ def _build_sampled_initial_graph(
         except Exception as exc:
             print(f"{log_prefix} sampled initial edge skipped: {exc}")
 
-    # Validate that every operator can start from the selected formal graph. A
-    # missing verified scaffold is acceptable only when at least one target edge
-    # has a ready inner subtree and every sibling slot is already supported.
     def _node_ready(node_id, depth_remaining, visiting):
         node = builder.nodes.get(str(node_id))
         if node is None:
@@ -457,15 +426,6 @@ _PARSE_WORKER_ANALYZER = None
 
 
 def _parse_predicate_worker(predicate: str):
-    """
-    多进程解析 worker。
-
-    注意：
-        worker 只做 analyzer.analyze()；
-        不修改 KnowledgeGraphBuilder；
-        不写 runtime stats；
-        不访问数据库。
-    """
     global _PARSE_WORKER_ANALYZER
 
     try:
@@ -491,16 +451,6 @@ def _prepare_initial_global_graph_builder(
     graph_path=None,
     log_prefix: str = "[Master Process]",
 ):
-    """
-    复用原先 global_graph_manager 中的初始图谱构建逻辑。
-
-    逻辑保持原样：
-        1. 如果 global_knowledge_graph.json 存在，优先加载缓存图谱；
-        2. 如果没有加载到图谱节点，则读取 Correct_Collection.txt；
-        3. 使用 PredicateStructureAnalyzer 解析谓词；
-        4. 解析成功后调用 KnowledgeGraphBuilder.add_predicate；
-        5. 保存到 global_knowledge_graph.json。
-    """
     pkg_config = load_pkg_config()
     analyzer = PredicateStructureAnalyzer(config=pkg_config, strict_consumption=True)
     builder = KnowledgeGraphBuilder()
@@ -592,14 +542,6 @@ def _prepare_initial_global_graph_builder(
 
 
 def ensure_initial_global_knowledge_graph(correct_txt_path=None, graph_path=None):
-    """
-    确保正式 global_knowledge_graph.json 存在。
-
-    注意：
-        这里不重新实现建图逻辑；
-        只是调用从 global_graph_manager 原始逻辑中抽出的
-        _prepare_initial_global_graph_builder()。
-    """
     from RL.config import RL_ENV_CONFIG
 
     resolved_correct_path = Path(
@@ -625,10 +567,6 @@ def ensure_initial_global_knowledge_graph(correct_txt_path=None, graph_path=None
 
 
 def global_graph_manager(queue, batch_size, correct_txt_path, progress_total_steps=None):
-    """
-    Master 进程的核心循环函数。
-    由 train_actor_critic.py 在独立进程中启动。
-    """
     print('[Master Process] PKG incremental graph manager started.')
 
     builder, analyzer, known_texts, graph_path, correct_path = _prepare_initial_global_graph_builder(
@@ -639,13 +577,11 @@ def global_graph_manager(queue, batch_size, correct_txt_path, progress_total_ste
 
     runtime_stats = get_default_runtime_stats()
 
-    # 本次训练启动时的图边数是所有进度记录的固定基线。
     initial_edge_count = int(builder.total_edges)
     progress_initialized_runs = set()
     progress_last_step_by_run = {}
 
     def _append_progress_snapshot(step: int, payload: dict) -> None:
-        """由持有正式 builder 的图谱进程统一追加消融实验进度 CSV。"""
         if not bool(getattr(RL_ALGO_CONFIG, "progress_log_enabled", True)):
             return
         if not isinstance(payload, dict):
@@ -723,7 +659,6 @@ def global_graph_manager(queue, batch_size, correct_txt_path, progress_total_ste
                 progress_initialized_runs.add(run_id)
                 progress_last_step_by_run[run_id] = 0
 
-            # 同一步只记录一次；训练结束恰逢周期打点时不会产生重复行。
             if step <= int(progress_last_step_by_run.get(run_id, -1)):
                 return
 
@@ -797,7 +732,6 @@ def global_graph_manager(queue, batch_size, correct_txt_path, progress_total_ste
 
             progress_last_step_by_run[run_id] = step
         except Exception as exc:
-            # 统计写入与正式建图隔离，CSV 失败只告警，不中断图谱和训练流程。
             print(f"[Progress Log Warning] Failed to append progress CSV: {exc}", flush=True)
 
     buffer = []
@@ -805,8 +739,7 @@ def global_graph_manager(queue, batch_size, correct_txt_path, progress_total_ste
     graph_buffer = []
     queued_predicates = set()
     start_time = time.time()
-    # 最近一次 SYNC_PRINT 确认的全局 PPO 步数；首次同步前保持 -1。
-    # 该值只写入 monitor_log.csv，不参与正式图解析、加边或奖励计算。
+
     latest_rl_step = -1
 
     parse_workers = int(os.environ.get(
@@ -828,16 +761,13 @@ def global_graph_manager(queue, batch_size, correct_txt_path, progress_total_ste
     else:
         print("[Master Process] PKG parallel parser disabled; using serial parser.")
 
-    # 监控日志路径 (从配置或者手动指定)
     monitor_csv = PROJECT_ROOT / "output" / "monitor_log.csv"
     monitor_csv.parent.mkdir(parents=True, exist_ok=True)
 
-    # 如果是全新运行，写入 CSV 表头
     if not monitor_csv.exists():
         with open(monitor_csv, 'w', encoding='utf-8') as f:
             f.write("Time(s),RL_Step,New_Nodes,New_Edges,Total_Edges\n")
 
-    # 统计信息
     total_received = 0
     total_new_edges_session = 0
 
@@ -859,9 +789,6 @@ def global_graph_manager(queue, batch_size, correct_txt_path, progress_total_ste
             buffer.append(predicate_str)
 
     def _parse_batch(events: list):
-        """
-        批量解析图谱事件中的谓词，并保留事件携带的目标边元数据。
-        """
         nonlocal parse_pool
 
         if not events:
@@ -900,13 +827,6 @@ def global_graph_manager(queue, batch_size, correct_txt_path, progress_total_ste
             return results
 
     def _process_graph_batch(events: list, rl_step: int) -> None:
-        """
-        处理一批本轮新增 Correct 图谱事件。
-
-        analyzer.analyze() 可以并行；
-        正式图写入、stats_buffer、文件写入仍保持主进程串行。
-        rl_step 仅用于 monitor_log.csv，表示最近一次确认的全局 PPO 步数。
-        """
         nonlocal total_received, total_new_edges_session
 
         if not events:
@@ -1010,15 +930,13 @@ def global_graph_manager(queue, batch_size, correct_txt_path, progress_total_ste
     while True:
         data = queue.get()
 
-        # 1. 终止信号
         if data == "DONE":
             break
 
-        # 2. 同步打印信号 (来自 Callbacks)
         if isinstance(data, tuple) and data[0] == "SYNC_PRINT":
             step = data[1]
             progress_payload = data[2] if len(data) > 2 and isinstance(data[2], dict) else None
-            # 二元和三元 SYNC_PRINT 都更新监控步数；三元消息额外写进度 CSV。
+
             latest_rl_step = int(step)
 
             if graph_buffer:
@@ -1037,16 +955,12 @@ def global_graph_manager(queue, batch_size, correct_txt_path, progress_total_ste
             except Exception:
                 pass
 
-            # 必须在待处理谓词入图并保存之后记录，确保 current_edges 使用最新正式图。
             if progress_payload is not None:
                 _append_progress_snapshot(step, progress_payload)
 
-            # 打印对齐日志！
             print_rl_progress(step, progress_total_steps)
             continue
 
-        # 3. 正常接收到谓词字符串或 candidate_bitmap 目标边事件。
-        # 文本去重只控制 Correct_Collection 写入，不能阻止另一条目标边进入正式图。
         is_target_event = isinstance(data, dict) and isinstance(data.get("target_edge"), dict)
         predicate_str = _event_predicate(data)
         if not predicate_str:
@@ -1058,11 +972,8 @@ def global_graph_manager(queue, batch_size, correct_txt_path, progress_total_ste
         if not is_target_event:
             queued_predicates.add(predicate_str)
 
-        # --- 【新增：极其轻量的实时打点，供外部平滑监控】 ---
-        # 无论 batch 缓冲是否满，只要收到全新的正确谓词，立即追加一个 "1"
         with open(PROJECT_ROOT / "output" / "monitor_correct.log", 'a', encoding='utf-8') as f:
             f.write("1\n")
-        # --------------------------------------------------
 
         graph_buffer.append(data)
 
@@ -1073,7 +984,6 @@ def global_graph_manager(queue, batch_size, correct_txt_path, progress_total_ste
 
         continue
 
-    # 循环结束，先处理尚未解析的 graph_buffer，再刷文本和统计。
     if graph_buffer:
         pending = list(graph_buffer)
         graph_buffer.clear()
@@ -1089,9 +999,7 @@ def global_graph_manager(queue, batch_size, correct_txt_path, progress_total_ste
     except Exception as e:
         report_joint_signature_flush_failure(e, final=True)
 
-    # 将全局唯一大图保存为 JSON，第三阶段可以直接读取这个大图，跳过 parse 阶段！
     try:
-        # 【关键修改】：强制将 Path 对象转换为字符串 str()，防止第三方构建器内部报错
         builder.save_to_json(str(graph_path))
         print("[Master Process] Exiting. Global knowledge graph saved.", flush=True)
     except Exception as e:

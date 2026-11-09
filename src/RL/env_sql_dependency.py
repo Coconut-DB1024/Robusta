@@ -1,5 +1,3 @@
-"""Candidate-edge reinforcement learning environment and database validation."""
-
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -11,21 +9,21 @@ import json
 import hashlib
 import re
 import numpy as np
-# 【修改 1】：导入 sqlglot 库，用于专业的 SQL 语法解析
-# 请确保环境中已安装：pip install sqlglot
-import sqlglot
-import time   # <--- 【新增】：引入 time 用于性能统计
-import os     # <--- 【新增】：引入 os 用于路径和多进程处理
 
-# 兼容 gymnasium / gym 两种接口
+
+import sqlglot
+import time   
+import os     
+
+
 try:
     import gymnasium as gym
     from gymnasium import spaces
-except ImportError:  # 如果本机没装 gymnasium，就退回到 gym
+except ImportError:  
     import gym
-    from gym import spaces  # type: ignore
+    from gym import spaces  
 
-# 项目内模块
+
 from RL.config import (
     RL_ENV_CONFIG,
     RL_ALGO_CONFIG,
@@ -40,7 +38,7 @@ class SpaceLabel(str, Enum):
 
 
 from RL.db_executor import BaseDBExecutor, DBQueryResult, create_db_executor
-from RL.heuristic_completion import HeuristicCompletionClient # 【修改】引入极速启发式替换模块
+from RL.heuristic_completion import HeuristicCompletionClient 
 from RL.reward_scheme import compute_reward
 from RL.progress import EnvironmentProgress, EnvironmentReloadError
 from RL.runtime_logging import report_joint_signature_flush_failure
@@ -57,29 +55,19 @@ from RL.candidate_shared_state import (
     advance_completion_variant, completion_retry_needed,
 )
 
-# ====== 导入 pkg_manager 的图谱工具 ======
+
 from pkg.graph_builder import KnowledgeGraphBuilder
-# ===============================================
 
 
-# 【修改 3】：重写语法检查函数，使用 sqlglot 解析器
 def _check_predicate_syntax_simple(predicate_str: str, dialect: str = "mysql") -> Tuple[bool, float]:
-    """
-    使用 sqlglot 解析器检查谓词语法。
-    返回:
-        Tuple[bool, float]: (是否语法合法, 抽象语法树节点数)
-    """
     if not predicate_str or not predicate_str.strip():
         return False, 0.0
 
     normalized_dialect = str(dialect or "").lower().strip()
-    # T-SQL 的字符串和 [标识符] 中也可以包含括号，交由解析器检查括号配对。
+
     if normalized_dialect != "sqlserver" and predicate_str.count('(') != predicate_str.count(')'):
         return False, 0.0
 
-    # Oracle 分支以数据库实际执行结果作为语法权威。sqlglot 对 Oracle 专有
-    # 语法（例如 LIKEC/LIKE2/LIKE4）支持不完整，因此 candidate_bitmap 模式
-    # 不再进行 sqlglot 预检；其他数据库保持原有预检逻辑。
     if (
         normalized_dialect in {"oracle", "oracledb", "oracle_ai26"}
     ):
@@ -89,7 +77,6 @@ def _check_predicate_syntax_simple(predicate_str: str, dialect: str = "mysql") -
     dummy_sql = f"SELECT * FROM t WHERE {test_str}"
 
     try:
-        # 项目内部保留 postgresql/sqlserver 标识，解析时映射为 sqlglot 的方言名。
         sqlglot_dialect = {"postgresql": "postgres", "sqlserver": "tsql"}.get(
             str(dialect).lower(), dialect
         )
@@ -101,17 +88,13 @@ def _check_predicate_syntax_simple(predicate_str: str, dialect: str = "mysql") -
         if not parsed:
             return False, 0.0
 
-        # ================== 【极度优雅的复杂度计算】 ==================
-        # 遍历解析出的 AST 树，计算所有节点的总数。
-        # 嵌套越深、逻辑越复杂，walk() 出来的节点就越多。完美替代正则！
         node_count = sum(1 for _ in parsed.walk())
         return True, float(node_count)
-        # ==========================================================
 
     except Exception:
         return False, 0.0
 
-# 禁止进入 SQL 验证的占位符。
+
 _FORBIDDEN_PLACEHOLDER_RE = re.compile(
     r"(\?\?|\bHOLE(?:_[A-Z0-9_]+)?\b)",
     re.IGNORECASE,
@@ -125,28 +108,25 @@ def _count_forbidden_placeholders(text: str) -> int:
 
 
 @dataclass
-class SqlOutcome: # 记录 SQL 执行成功或失败的分类。
-    label: SpaceLabel          # A_CORRECT / B_INCORRECT
-    reason: str                # 简单说明
+class SqlOutcome: 
+    label: SpaceLabel          
+    reason: str                
 
 
-def classify_sql_outcome(result: DBQueryResult) -> SqlOutcome: # 根据 DBQueryResult 的执行状态分类。
-    # 执行失败的情况
+def classify_sql_outcome(result: DBQueryResult) -> SqlOutcome: 
     if not result.success:
         return SqlOutcome(
-            label=SpaceLabel.B_INCORRECT,  # 【修改】统一归入 B_INCORRECT
+            label=SpaceLabel.B_INCORRECT,  
             reason=f"DB query failed: {result.error or 'unknown error'}",
         )
-    # 只要执行成功 (result.success is True)，无论 rowcount 是多少，都视为 Correct。
+
     if result.success:
         return SqlOutcome(
             label=SpaceLabel.A_CORRECT,
             reason=f"Success (rowcount={result.rowcount})",
         )
-# 环境：SqlDependencyEnv
-class SqlDependencyEnv(gym.Env):#
-    """Select a candidate edge, construct a predicate and validate its SQL."""
 
+class SqlDependencyEnv(gym.Env):
     metadata = {"render.modes": ["human"]}
 
     def __init__(
@@ -155,7 +135,7 @@ class SqlDependencyEnv(gym.Env):#
         db_executor: Optional[BaseDBExecutor] = None,
         worker_rank: int = 0,
         worker_count: int = 1,
-        shared_queue: Optional[Any] = None,  # 【新增】接收跨进程通信队列
+        shared_queue: Optional[Any] = None,  
         shared_reservations: Optional[Any] = None,
         reservation_lock: Optional[Any] = None,
         candidate_shared_state: Optional[CandidateSharedState] = None,
@@ -163,19 +143,18 @@ class SqlDependencyEnv(gym.Env):#
         environment_progress: Optional[EnvironmentProgress] = None,
     ) -> None:
         super().__init__()
-        # worker位置用于PPO分片或枚举模式的无锁批次分配；不改变公共构造流程。
+
         self.worker_count = max(1, int(worker_count))
         self.worker_rank = int(worker_rank) % self.worker_count
         self._environment_progress = environment_progress or EnvironmentProgress()
         self._progress_worker_rank = self.worker_rank if environment_progress is not None else 0
-        self.shared_queue = shared_queue  # 【新增】保存队列实例
+        self.shared_queue = shared_queue  
         self.candidate_shared_state = candidate_shared_state
         self.candidate_bitmap_enumeration_enabled = bool(
             getattr(RL_ENV_CONFIG, "candidate_bitmap_enumeration_enabled", False)
         )
         self.enumeration_cycle_index = int(enumeration_cycle_index)
-        # 旧参数只用于兼容独立环境测试；正式 candidate_bitmap 训练统一使用
-        # CandidateSharedState 中的 reservations/lock。
+
         self.shared_reservations = (
             candidate_shared_state.reservations
             if candidate_shared_state is not None
@@ -191,10 +170,9 @@ class SqlDependencyEnv(gym.Env):#
         self.reservation_timeout_release_count = 0
         self.candidate_shared_state_version = -1
         self.current_candidate_bitmap_selected_reservation_token = ""
-        # 每步只统计 PPO 最终目标边的单次预占；base 固定为0。
+
         self.current_candidate_bitmap_reservation_attempts = 0
 
-        # Episode 步数上限
         self.max_steps: int = (
             max_steps_per_episode
             if max_steps_per_episode is not None
@@ -212,24 +190,18 @@ class SqlDependencyEnv(gym.Env):#
             dtype=np.float32,
         )
 
-        # 组件初始化
-        # DB 执行器
         self.db_exec: BaseDBExecutor = db_executor or create_db_executor(autoconnect=True)
         if not hasattr(self.db_exec, "ping"):
             self.db_exec.ping = lambda: False
 
-        # 将类型标记谓词补全为可执行 SQL。
         self.heuristic_client = HeuristicCompletionClient(self.db_exec)
 
-        # 【本地局域图谱校验器】
         self.structure_analyzer = PredicateStructureAnalyzer(strict_consumption=False)
         self.local_builder = KnowledgeGraphBuilder()
 
         self.runtime_stats = get_default_runtime_stats()
         self.runtime_stats_source = f"env_pid_{os.getpid()}"
 
-
-        # ================== 阶段17-6：candidate bitmap 候选边状态 ==================
         self.candidate_bitmap_edge_records: list[Dict[str, Any]] = []
         self.candidate_bitmap_bitmaps: Dict[str, np.ndarray] = {}
         self.candidate_bitmap_formal_node_ids: set[str] = set()
@@ -240,15 +212,14 @@ class SqlDependencyEnv(gym.Env):#
         self.candidate_bitmap_tested_edges: set[str] = set()
         self.candidate_bitmap_success_edges: set[str] = set()
         self.candidate_bitmap_failed_edges: set[str] = set()
-        # 由 observed_bitmap | failed_bitmap 缓存得到的全局探索结束状态。
-        # 只有确认成功或确认失败的边为 1；失败次数未达到上限时不会在这里标记为结束。
+
         self.candidate_bitmap_exploration_done = np.zeros((0,), dtype=np.uint8)
         self.candidate_bitmap_probing = np.zeros((0,), dtype=np.uint8)
         self.candidate_bitmap_candidate_union_indices = np.zeros((0,), dtype=np.int32)
         self.candidate_bitmap_unfinished_indices = np.zeros((0,), dtype=np.int32)
         self.candidate_bitmap_edge_id_to_index: Dict[str, int] = {}
         self.current_candidate_bitmap_pool_unfinished_count: int = 0
-        # PPO 分片在一个 worker 生命周期内保持稳定；正式图/HNSW刷新不会重新分配目标边。
+
         self.candidate_bitmap_ppo_shard_indices = np.zeros((0,), dtype=np.int32)
         self.candidate_bitmap_ppo_shard_index_set: set[int] = set()
         self.candidate_bitmap_ppo_shard_signature = ""
@@ -256,31 +227,23 @@ class SqlDependencyEnv(gym.Env):#
         self.candidate_bitmap_enumeration_order = np.zeros((0,), dtype=np.int32)
         self.candidate_bitmap_enumeration_batch_count: int = 0
         self.candidate_bitmap_enumeration_idle: bool = False
-        # 每个 env 独立统计当前全局步数窗口内的变体耗尽次数；不在 Gym reset() 中清空。
-        # 达到配置阈值后只对候选排序软降权，不改变 bitmap 或全局失败签名。
+
         self.candidate_bitmap_probe_variant_exhausted_counts: Dict[str, int] = {}
         self.candidate_bitmap_probe_variant_exhausted_window_index: int = -1
         self.candidate_bitmap_probe_template_cache: Dict[str, Dict[str, Any]] = {}
         self.candidate_bitmap_probe_template_cache_order: list[str] = []
 
-        # 阶段17-14：candidate bitmap 静态结构缓存。
-        # required_slot_count / support_rank / inner_ready 只依赖 candidate_edge_index
-        # 和正式图，不需要在每次候选池采样时反复扫描全部 edge_records。
         self.candidate_bitmap_required_slot_count_cache: Dict[str, int] = {}
         self.candidate_bitmap_support_rank_cache: Dict[str, int] = {}
         self.candidate_bitmap_inner_ready_cache: Dict[Tuple[str, int], bool] = {}
 
-        # 候选边组织缓存：近邻关系是每轮RL前预计算的静态数据；
-        # 成功倾向会在每次Bitmap reload后根据最新 observed/failed 状态重算。
         self.candidate_edge_neighbor_indices = np.full((0, 0), -1, dtype=np.int32)
         self.candidate_edge_neighbor_distances = np.full((0, 0), np.inf, dtype=np.float32)
         self.candidate_edge_hnsw_tendencies = np.full((0,), 0.5, dtype=np.float32)
 
         self.candidate_bitmap_master_enqueued_edges: set[str] = set()
         self.candidate_bitmap_soft_retry_counts: Dict[str, int] = {}
-        # ======================================================================
 
-        # ================== 阶段 11：frontier-aware 覆盖反馈状态 ==================
         self.frontier_mode_active: bool = False
         self.frontier_window_steps: int = 0
         self.frontier_window_db_successes: int = 0
@@ -288,31 +251,23 @@ class SqlDependencyEnv(gym.Env):#
         self.frontier_window_new_edges: int = 0
         self.frontier_steps_since_new_edge: int = 0
 
-
-        # 候选执行窗口内 predicted_new_edge 的实际命中统计。
         self.frontier_window_predicted_positive_steps: int = 0
         self.frontier_window_predicted_new_edges: int = 0
         self.frontier_window_prediction_hit_steps: int = 0
         self.frontier_window_prediction_miss_steps: int = 0
 
-
-        # env 生命周期内累计 step，不在 reset() 中清零。
-        # current_step 是 episode 内步数，会随 reset() 归零；
         self.env_total_steps: int = 0
-        # ======================================================================
+
         self.candidate_rng = np.random.default_rng(
             int(RL_ALGO_CONFIG.seed) + (os.getpid() % 100000)
         )
 
-
         self._reload_candidate_bitmap_state(force=True)
         self._rebuild_candidate_bitmap_enumeration_order()
-        # =====================================================================
 
-        # Episode 内部状态
-        self.current_step: int = 0           # 当前步编号（从 0 开始）
-        self.last_reward: float = 0.0        # 上一次 step 的 reward
-        # --- 【新增：性能分析计时器】 ---
+        self.current_step: int = 0           
+        self.last_reward: float = 0.0        
+
         self.profiling_stats = {
             "T_Syntax_Check": 0.0,
             "T_Heuristic_Completion": 0.0,
@@ -320,14 +275,11 @@ class SqlDependencyEnv(gym.Env):#
             "T_Reward": 0.0,
             "Total_Steps": 0
         }
-        # ---------------------------------
-        self._environment_progress.completed("initialized", self._progress_worker_rank)
 
-    # 构造观测向量
+        self._environment_progress.completed("initialized", self._progress_worker_rank)
 
     def _build_obs(self) -> np.ndarray:
         return self._build_obs_candidate_bitmap()
-
 
     def _candidate_bitmap_load_json(self, path: Path) -> Dict[str, Any]:
         with Path(path).open("r", encoding="utf-8") as f:
@@ -337,7 +289,6 @@ class SqlDependencyEnv(gym.Env):#
         return data
 
     def _reload_candidate_edge_organization(self, edge_count: int) -> None:
-        """加载静态近邻，并用最新Bitmap计算每条边的历史成功倾向。"""
         neutral = np.full((edge_count,), 0.5, dtype=np.float32)
         organization_enabled = bool(
             getattr(CANDIDATE_BITMAP_CONFIG, "candidate_organization_enabled", True)
@@ -403,7 +354,6 @@ class SqlDependencyEnv(gym.Env):#
         return float(np.clip(value, 0.0, 1.0))
 
     def _refresh_candidate_bitmap_exploration_state_cache(self, edge_count: int) -> None:
-        """Cache candidate-universe, exploration-done and probing states after bitmap reload."""
         n = max(0, int(edge_count))
 
         def _bitmap(name: str) -> np.ndarray:
@@ -434,7 +384,6 @@ class SqlDependencyEnv(gym.Env):#
         )[0].astype(np.int32)
 
     def _candidate_bitmap_apply_incremental_graph_edge(self, edge_index: int) -> bool:
-        """Apply one DB-verified target edge to this worker's in-memory formal graph."""
         if edge_index < 0 or edge_index >= len(self.candidate_bitmap_edge_records):
             return False
         record = self.candidate_bitmap_edge_records[int(edge_index)]
@@ -468,7 +417,6 @@ class SqlDependencyEnv(gym.Env):#
         return True
 
     def _candidate_bitmap_refresh_changed_hnsw_rows(self, changed_indices: set[int]) -> None:
-        """Incrementally refresh only HNSW rows that reference changed labels."""
         if not changed_indices:
             return
         neighbor_indices = np.asarray(self.candidate_edge_neighbor_indices, dtype=np.int32)
@@ -530,7 +478,6 @@ class SqlDependencyEnv(gym.Env):#
         self.candidate_edge_hnsw_tendencies = tendencies
 
     def _sync_candidate_shared_state(self, force: bool = False) -> None:
-        """Merge immediate cross-worker completion state without disk reload."""
         shared_state = getattr(self, "candidate_shared_state", None)
         if shared_state is None or not self.candidate_bitmap_edge_records:
             return
@@ -617,7 +564,6 @@ class SqlDependencyEnv(gym.Env):#
         edge_index: int,
         edge_id: str = "",
     ) -> bool:
-        """Return confirmed global completion; local success is also immediately treated as done."""
         if edge_id and edge_id in getattr(self, "candidate_bitmap_success_edges", set()):
             return True
 
@@ -669,7 +615,6 @@ class SqlDependencyEnv(gym.Env):#
         return bool(0 <= idx < len(probing) and int(probing[idx]) > 0)
 
     def _reload_candidate_bitmap_state(self, force: bool = False) -> None:
-
         current_step = int(getattr(self, "env_total_steps", getattr(self, "current_step", 0)))
         reload_interval = int(getattr(RL_ENV_CONFIG, "candidate_bitmap_reload_interval_steps", 200))
 
@@ -769,7 +714,6 @@ class SqlDependencyEnv(gym.Env):#
         return 0.0
 
     def _candidate_bitmap_representation_guidance_enabled(self) -> bool:
-        """只控制pattern transfer对第二阶段的帮助，不控制HNSW或结构熵。"""
         return bool(
             getattr(
                 CANDIDATE_BITMAP_CONFIG,
@@ -797,7 +741,6 @@ class SqlDependencyEnv(gym.Env):#
             except Exception:
                 return 0.0
 
-        # 关闭表示迁移帮助时，忽略文件中可能残留的旧加分，只保留层级基础分。
         level = str(record.get("candidate_level", "try") or "try").lower()
         if level == "strict":
             return float(getattr(CANDIDATE_BITMAP_CONFIG, "strict_base_score", 1.0))
@@ -806,13 +749,11 @@ class SqlDependencyEnv(gym.Env):#
         return float(getattr(CANDIDATE_BITMAP_CONFIG, "try_base_score", 0.15))
 
     def _candidate_bitmap_enumeration_active(self) -> bool:
-        """Enumeration owns target selection and never uses PPO/scored candidate pools."""
         return bool(
             getattr(self, "candidate_bitmap_enumeration_enabled", False)
         )
 
     def _rebuild_candidate_bitmap_enumeration_order(self) -> None:
-        """Build the configured fixed full-universe enumeration order."""
         if not self._candidate_bitmap_enumeration_active():
             self.candidate_bitmap_enumeration_order = np.zeros((0,), dtype=np.int32)
             self.candidate_bitmap_enumeration_batch_count = 0
@@ -882,11 +823,6 @@ class SqlDependencyEnv(gym.Env):#
 
         random_order = np.argsort(-random_scores, kind="stable")
         if order_mode == "cycle_stratified_hard_random":
-            # Enumeration-only scheduling: each worker refreshes an independent
-            # full permutation per RL cycle. The prefix it is expected to execute
-            # interleaves complexity-ordered structural edges and random edges
-            # without reading scores, bitmaps, graph outcomes, reservations, or
-            # PPO actions.
             cycle_index = int(getattr(self, "enumeration_cycle_index", 1))
             structural_ratio = float(np.clip(
                 float(
@@ -942,10 +878,7 @@ class SqlDependencyEnv(gym.Env):#
                 outer_slot_count = int(outer_slot_counts.get(outer_node_id, 0))
                 inner_slot_count = int(outer_slot_counts.get(inner_node_id, 0))
                 edge_id = str(record.get("edge_id", "") or f"edge_index:{idx}")
-                # Enumeration-only ordering: prefer multi-slot outer operators,
-                # then upstream operator-valued inners and their slot complexity.
-                # The digest only breaks equal-complexity ties reproducibly for
-                # each worker and RL cycle; no score or execution result is read.
+
                 digest = self._candidate_bitmap_stable_digest(
                     f"{cycle_worker_seed}:structural_random:{edge_id}"
                 )
@@ -981,9 +914,6 @@ class SqlDependencyEnv(gym.Env):#
             prefix_structural = structural_indices[:structural_target_count]
             prefix_random = random_indices[:random_target_count]
 
-            # If either class is too small, retain a complete prefix by taking
-            # deterministic remaining edges; the normal 20000+ universe has
-            # enough of both classes to preserve the configured structural/random split.
             prefix_selected = set(prefix_structural)
             prefix_selected.update(prefix_random)
             prefix_missing = per_worker_prefix_count - len(prefix_selected)
@@ -1072,10 +1002,6 @@ class SqlDependencyEnv(gym.Env):#
             return
 
         if order_mode == "top_down_operator_block":
-            # Enumeration-only scheduling: workers in one group visit the same
-            # outer-operator blocks, while each worker keeps its own fixed order
-            # inside a block. No score, entropy, bitmap outcome, lock, or shared
-            # cursor participates in this order.
             outer_node_ids = {
                 str(record.get("outer_node_id", "") or "")
                 for record in records
@@ -1164,8 +1090,6 @@ class SqlDependencyEnv(gym.Env):#
             return
 
         if independent_worker_order:
-            # Every worker owns a complete deterministic permutation. Cross-worker
-            # overlap is intentional for the uncoordinated enumeration baseline.
             self.candidate_bitmap_enumeration_order = random_order.astype(
                 np.int32,
                 copy=False,
@@ -1183,9 +1107,6 @@ class SqlDependencyEnv(gym.Env):#
                 )
             return
 
-        # Coordinated mode preserves the existing global non-overlapping batches.
-        # Within equal entropy values and the remaining region, stable hash order
-        # keeps the complete enumeration deterministic across workers and cycles.
         structural_entropies = compute_structural_entropies(records).astype(
             np.float64,
             copy=False,
@@ -1234,7 +1155,6 @@ class SqlDependencyEnv(gym.Env):#
     def _candidate_bitmap_enumeration_assignment(
         self,
     ) -> Tuple[Optional[Dict[str, Any]], bool, int]:
-        """Return this worker's assigned edge, idle flag, and shuffled position."""
         if not self._candidate_bitmap_enumeration_active():
             return None, False, -1
 
@@ -1286,7 +1206,6 @@ class SqlDependencyEnv(gym.Env):#
         return records[record_index], False, shuffled_position
 
     def _candidate_bitmap_ppo_sharding_active(self) -> bool:
-        """PPO uses balanced target-edge shards; base always keeps the full universe."""
         return bool(
             not self._candidate_bitmap_enumeration_active()
             and int(getattr(self, "worker_count", 1)) > 1
@@ -1295,16 +1214,9 @@ class SqlDependencyEnv(gym.Env):#
 
     @staticmethod
     def _candidate_bitmap_stable_digest(text: str) -> str:
-        """Return a process-independent digest; Python hash() is randomized per worker."""
         return hashlib.sha256(str(text).encode("utf-8")).hexdigest()
 
     def _rebuild_candidate_bitmap_ppo_shard_cache(self) -> None:
-        """
-        Build one stable, balanced target-edge shard for this PPO worker.
-
-        Only known candidate metadata is used. Success/failure outcomes never
-        participate, so the partition cannot leak experiment answers.
-        """
         if not self._candidate_bitmap_ppo_sharding_active():
             self.candidate_bitmap_ppo_shard_indices = np.zeros((0,), dtype=np.int32)
             self.candidate_bitmap_ppo_shard_index_set = set()
@@ -1346,9 +1258,6 @@ class SqlDependencyEnv(gym.Env):#
             except Exception:
                 initial_edge_score = 0.0
 
-            # A 0.25-wide initial score band balances score ranges without using
-            # any runtime DB success/failure result. The cached assignment is not
-            # rebuilt when representation or HNSW scores are refreshed.
             score_band = int(np.floor(initial_edge_score * 4.0))
             inner_kind = (
                 "terminal"
@@ -1382,7 +1291,7 @@ class SqlDependencyEnv(gym.Env):#
             ]
             for _digest, edge_index in items:
                 min_load = min(worker_loads)
-                # 每个结构层保持稳定轮转；总负载优先保证9324条边均匀落到32个环境。
+
                 owner = next(worker for worker in worker_order if worker_loads[worker] == min_load)
                 worker_loads[owner] += 1
                 if owner == int(getattr(self, "worker_rank", 0)):
@@ -1421,7 +1330,6 @@ class SqlDependencyEnv(gym.Env):#
         }
 
     def _candidate_bitmap_apply_ppo_shard(self, indices: list[int]) -> list[int]:
-        """Filter target candidates only; graph traversal remains globally shared."""
         if not self._candidate_bitmap_ppo_sharding_active():
             return [int(idx) for idx in indices]
         if not self.candidate_bitmap_ppo_shard_signature:
@@ -1430,16 +1338,6 @@ class SqlDependencyEnv(gym.Env):#
         return [int(idx) for idx in indices if int(idx) in owned]
 
     def _rebuild_candidate_bitmap_static_caches(self) -> None:
-        """
-        阶段17-14：重建 candidate bitmap 静态结构缓存。
-
-        这些缓存只依赖：
-        1. candidate_bitmap_edge_records；
-        2. candidate_bitmap_formal_node_ids。
-
-        不依赖当前 action、reward、DB 执行结果或 parser 结果，
-        因此不会改变探索语义，只减少每步候选池打分时的重复扫描。
-        """
         required_slot_count: Dict[str, int] = {}
 
         for record in self.candidate_bitmap_edge_records:
@@ -1473,8 +1371,6 @@ class SqlDependencyEnv(gym.Env):#
 
         self.candidate_bitmap_support_rank_cache = support_rank_cache
 
-        # inner_ready 是节点级属性：终端节点直接就绪；非终端节点的每个 slot
-        # 都至少存在一条可完整构造的正式图下游时才就绪。环路本身不作为就绪证明。
         nodes = self.candidate_bitmap_formal_graph_data.get("nodes", {})
         if isinstance(nodes, dict):
             inner_depth_limit = max(
@@ -1540,7 +1436,6 @@ class SqlDependencyEnv(gym.Env):#
         depth_remaining: int,
         visiting: set[str],
     ) -> bool:
-        """Return whether one complete subtree already exists in the formal graph."""
         node_key = str(node_id)
         depth_remaining = max(0, int(depth_remaining))
         cache_key = (node_key, depth_remaining)
@@ -1598,11 +1493,9 @@ class SqlDependencyEnv(gym.Env):#
         return True
 
     def _candidate_bitmap_inner_ready(self, record: Dict[str, Any]) -> bool:
-        """Return the bottom-up readiness signal for one candidate target inner."""
         outer_node_id = str(record.get("outer_node_id", ""))
         inner_node_id = str(record.get("inner_node_id", ""))
         if not inner_node_id or outer_node_id == inner_node_id:
-            # 自环仍可被探索，但不获得“下游已经完整”的优先级和 PPO 特征。
             return False
         inner_depth_limit = max(
             0,
@@ -1838,7 +1731,6 @@ class SqlDependencyEnv(gym.Env):#
         }
 
     def _candidate_bitmap_runtime_universe_indices(self) -> list[int]:
-        """Return the strict/weak/try universe, excluding only edges currently being probed."""
         n = len(self.candidate_bitmap_edge_records)
         if n <= 0:
             return []
@@ -1866,11 +1758,9 @@ class SqlDependencyEnv(gym.Env):#
         ]
 
     def _candidate_bitmap_available_indices(self) -> list[int]:
-        # 评分模式不再硬删除 observed/failed；统一通过 exploration_done 软降权。
         return self._candidate_bitmap_runtime_universe_indices()
 
     def _candidate_bitmap_random_available_indices(self) -> list[int]:
-        """Return the full strict/weak/try universe for the pure-random base ablation."""
         return self._candidate_bitmap_runtime_universe_indices()
 
     def _candidate_bitmap_can_retry_failed_core_extension(self, record: Dict[str, Any]) -> bool:
@@ -2157,7 +2047,6 @@ class SqlDependencyEnv(gym.Env):#
         return float(score)
 
     def _candidate_bitmap_refresh_probe_variant_exhausted_window(self) -> None:
-        """Reset local exhaustion counts when the configured global-step window changes."""
         reset_steps = max(
             1,
             int(
@@ -2184,7 +2073,6 @@ class SqlDependencyEnv(gym.Env):#
         edge_id: str,
         construct_error: str,
     ) -> None:
-        """Count only the exact no-new-predicate condition in the current local window."""
         if str(construct_error or "").strip().lower() != "probe_variant_exhausted":
             return
 
@@ -2201,7 +2089,6 @@ class SqlDependencyEnv(gym.Env):#
         self,
         edge_id: str,
     ) -> float:
-        """Return one fixed soft penalty after the local exhaustion threshold is reached."""
         self._candidate_bitmap_refresh_probe_variant_exhausted_window()
         threshold = max(
             1,
@@ -2420,7 +2307,6 @@ class SqlDependencyEnv(gym.Env):#
 
         selected_items = selected_items[:scored_pool_count]
 
-        # 16 条随机候选从评分部分尚未选择的全集中等概率补入。
         remaining_indices = [idx for idx in indices if idx not in selected_indices]
         random_sample_count = min(random_pool_count, len(remaining_indices))
         if random_sample_count > 0:
@@ -2435,7 +2321,6 @@ class SqlDependencyEnv(gym.Env):#
                 selected_items.append((self._candidate_bitmap_edge_priority(record), idx, record))
                 selected_indices.add(idx)
 
-        # PPO 至少看到约 8 条尚未探索结束的边；全局不足 8 条时使用全部可用未结束边。
         configured_min_unfinished = max(
             0,
             int(getattr(RL_ENV_CONFIG, "candidate_bitmap_min_unfinished_per_pool", 8)),
@@ -2483,7 +2368,6 @@ class SqlDependencyEnv(gym.Env):#
                 selected_items[position] = replacement
                 selected_indices.add(int(replacement[1]))
 
-        # 打乱 64 个位置，避免评分候选和随机候选形成固定位置偏差。
         if len(selected_items) > 1:
             order = self.candidate_rng.permutation(len(selected_items)).tolist()
             selected_items = [selected_items[int(pos)] for pos in order]
@@ -2614,8 +2498,6 @@ class SqlDependencyEnv(gym.Env):#
                     )
                 )
 
-            # PPO外壳仍要求固定64xfeature_dim观测；枚举动作被忽略，因此使用全零占位，
-            # 不调用任何候选评分、表示学习、HNSW或结构熵特征。
             features = np.zeros(
                 (
                     self.candidate_bitmap_pool_size,
@@ -2626,8 +2508,6 @@ class SqlDependencyEnv(gym.Env):#
             self.current_candidate_bitmap_features = features
             return features.reshape(-1).astype(np.float32)
 
-        # 每个环境每一步只生成一次64条候选。PPO目标边分片已经避免整池冲突，
-        # 不再为预占失败反复遍历、评分和排序候选全集。
         self.current_candidate_bitmap_pool = self._sample_candidate_bitmap_pool()
 
         features = np.zeros(
@@ -2661,7 +2541,6 @@ class SqlDependencyEnv(gym.Env):#
         return self.current_candidate_bitmap_pool[idx]
 
     def _candidate_bitmap_try_reserve_edge(self, edge_id: str, edge_index: int) -> Dict[str, Any]:
-        """Legacy fallback: atomically reserve only the PPO-selected target edge."""
         reservations = getattr(self, "shared_reservations", None)
         lock = getattr(self, "reservation_lock", None)
         edge_key = str(edge_id or "")
@@ -2704,14 +2583,12 @@ class SqlDependencyEnv(gym.Env):#
         action_index: int,
         selected_edge: Optional[Dict[str, Any]],
     ) -> Tuple[Optional[Dict[str, Any]], int, bool, int, bool]:
-        """Reserve only PPO's final target edge; base deliberately remains unreserved."""
         self.current_candidate_bitmap_selected_reservation_token = ""
         self.current_candidate_bitmap_reservation_attempts = 0
 
         if self._candidate_bitmap_enumeration_active():
             return selected_edge, int(action_index), False, 0, False
 
-        # PPO=False is the full-graph random base: no sharding and no hard coordination.
         if not bool(getattr(RL_ENV_CONFIG, "candidate_bitmap_ppo_selection_enabled", True)):
             return selected_edge, int(action_index), False, 0, False
         if not bool(getattr(CANDIDATE_BITMAP_CONFIG, "candidate_bitmap_shared_reservation_enabled", True)):
@@ -2760,16 +2637,12 @@ class SqlDependencyEnv(gym.Env):#
             self.reservation_claimed_count += 1
         self.current_candidate_bitmap_selected_reservation_token = selected_token
 
-        # The policy action and executed edge must stay identical. A missing
-        # ownership token is a neutral skipped action; never execute B while PPO
-        # is trained as if it selected A, and never count the collision as failure.
         if not selected_token:
             return None, int(action_index), False, conflicts, False
 
         return selected_edge, int(action_index), False, conflicts, True
 
     def _resolve_candidate_bitmap_action_index(self, action: Any) -> Tuple[int, int, str]:
-        """Return PPO-proposed index, executed index, and the action source."""
         try:
             policy_action_index = int(np.asarray(action).reshape(-1)[0])
         except Exception:
@@ -2783,7 +2656,6 @@ class SqlDependencyEnv(gym.Env):#
         if bool(getattr(RL_ENV_CONFIG, "candidate_bitmap_ppo_selection_enabled", True)):
             return policy_action_index, policy_action_index, "ppo"
 
-        # PPO 关闭时按 edge_id 去除池填充产生的重复项，保证每条有效边机会相同。
         valid_indices = []
         seen_edge_ids = set()
         for idx, record in enumerate(self.current_candidate_bitmap_pool or []):
@@ -2803,7 +2675,6 @@ class SqlDependencyEnv(gym.Env):#
 
         valid_indices_array = np.asarray(valid_indices, dtype=np.int64)
 
-        # 纯随机 base 的64条候选和最终64选1都保持均匀随机，不读取任何评分引导开关。
         if bool(getattr(RL_ENV_CONFIG, "candidate_bitmap_random_pool_enabled", False)):
             executed_action_index = int(self.candidate_rng.choice(valid_indices_array))
             return policy_action_index, executed_action_index, "random"
@@ -2822,7 +2693,6 @@ class SqlDependencyEnv(gym.Env):#
             or bool(getattr(CANDIDATE_BITMAP_CONFIG, "candidate_entropy_enabled", True))
         )
 
-        # 所有指导信号关闭时保留均匀随机兜底。
         if not representation_active and not organization_active:
             executed_action_index = int(self.candidate_rng.choice(valid_indices_array))
             return policy_action_index, executed_action_index, "random"
@@ -2841,7 +2711,6 @@ class SqlDependencyEnv(gym.Env):#
             guided_probability = 0.0
         guided_probability = float(np.clip(guided_probability, 0.0, 1.0))
 
-        # 引导模式仍保留均匀随机探索，避免候选长期集中在少数高分边。
         if float(self.candidate_rng.random()) >= guided_probability:
             executed_action_index = int(self.candidate_rng.choice(valid_indices_array))
             return policy_action_index, executed_action_index, "guided_random"
@@ -2890,7 +2759,6 @@ class SqlDependencyEnv(gym.Env):#
             )
             return policy_action_index, executed_action_index, "guided_softmax"
         except Exception:
-            # 同分、NaN、非法温度或 softmax 异常均退回当前64条中的均匀随机。
             executed_action_index = int(self.candidate_rng.choice(valid_indices_array))
             return policy_action_index, executed_action_index, "guided_random"
 
@@ -2916,9 +2784,6 @@ class SqlDependencyEnv(gym.Env):#
         }
 
     def _candidate_bitmap_should_persist_probe_artifacts(self) -> bool:
-        """
-        Stage17-11: formal training does not persist per-step probe artifacts by default.
-        """
         enabled = bool(
             getattr(RL_ENV_CONFIG, "candidate_bitmap_runtime_persist_probe_artifacts", False)
         )
@@ -2976,8 +2841,6 @@ class SqlDependencyEnv(gym.Env):#
         self, selected_edge: Dict[str, Any], result: Dict[str, Any],
     ) -> None:
         if completion_retry_needed(result):
-            # Local progress also works without shared state. The callback advances
-            # the shared/disk counters once per result using its existing batch flow.
             advance_completion_variant(selected_edge)
             self._candidate_bitmap_probe_cache_discard(str(selected_edge.get("edge_id", "")))
 
@@ -3018,9 +2881,6 @@ class SqlDependencyEnv(gym.Env):#
         target_edge_hit: bool,
         target_edge_new_signal: bool,
     ) -> bool:
-        # mark_success() returns True exactly once for the first global success.
-        # Local retry history still affects PPO scoring/reward, but must never
-        # prevent that first successful target edge from reaching the Master.
         if (
             not bool(db_success)
             or not bool(target_edge_hit)
@@ -3050,12 +2910,9 @@ class SqlDependencyEnv(gym.Env):#
 
         return f"{source_node_id}::slot_{slot_index}->{target_node_id}"
 
-
     def _frontier_stagnation_pressure(self) -> float:
         threshold = max(1, int(getattr(RL_ENV_CONFIG, "frontier_stagnation_window_steps", 200)))
         return float(np.clip(self.frontier_steps_since_new_edge / threshold, 0.0, 1.0))
-
-
 
     def _update_frontier_state(
         self,
@@ -3135,14 +2992,12 @@ class SqlDependencyEnv(gym.Env):#
         self.frontier_window_prediction_hit_steps = 0
         self.frontier_window_prediction_miss_steps = 0
 
-
-    # Gym / Gymnasium 接口：reset
     def reset(
         self,
         *,
         seed: Optional[int] = None,
         options: Optional[Dict[str, Any]] = None,
-    ) -> Tuple[np.ndarray, Dict[str, Any]]: # 重置环境：重置 Episode 步数,清零上一动作的一切信息,返回初始观测和 info
+    ) -> Tuple[np.ndarray, Dict[str, Any]]: 
         super().reset(seed=seed)
 
         self.current_step = 0
@@ -3154,10 +3009,6 @@ class SqlDependencyEnv(gym.Env):#
         }
         return obs, info
 
-    # ==================== [新增辅助方法] ====================
-    # =======================================================
-
-    # Gym / Gymnasium 接口：step
     def step(self, action: np.ndarray) -> Tuple[np.ndarray, float, bool, bool, Dict[str, Any]]:
         return self._step_candidate_bitmap(action)
 
@@ -3178,7 +3029,6 @@ class SqlDependencyEnv(gym.Env):#
             reservation_claimed,
         ) = self._candidate_bitmap_select_and_reserve_edge(action_index, selected_edge)
 
-
         if selected_edge is None:
             reservation_conflict_skip = bool(
                 reservation_conflicts > 0 and isinstance(proposed_edge, dict)
@@ -3193,7 +3043,7 @@ class SqlDependencyEnv(gym.Env):#
             self.current_step += 1
             self.env_total_steps += 1
             self.profiling_stats["Total_Steps"] += 1
-            # PPO并发冲突和枚举尾批空位都不是边本身的失败证据，使用中性奖励。
+
             penalty = 0.0 if neutral_skip else float(RL_ENV_CONFIG.reward_execution_error)
             skip_reason = (
                 "PPO target edge reservation conflict"
@@ -3360,8 +3210,6 @@ class SqlDependencyEnv(gym.Env):#
             else 0.0
         )
 
-        # 三条返回路径共享同一组候选状态，只用于奖励解释和消融统计。
-        # exploration_done 表示全局确认成功/失败；local_tested 仅表示当前 env 测试过。
         candidate_bitmap_selection_state_info = {
             "candidate_bitmap_observed_before": bool(candidate_observed_before),
             "candidate_bitmap_failed_before": bool(candidate_failed_before),
@@ -3415,8 +3263,7 @@ class SqlDependencyEnv(gym.Env):#
                     probe_edge_index=edge_index,
                     probe_graph_path=paths["probe_graph"],
                     probe_report_path=paths["probe_graph_report"],
-                    # True：允许 observed/confirmed failed 边重复构造；
-                    # probing 边仍由 candidate_bitmap.py 无条件拒绝。
+
                     allow_observed=True,
                     mark_probing=bool(getattr(RL_ENV_CONFIG, "candidate_bitmap_update_npz_in_env", False)),
                 )
@@ -3443,8 +3290,7 @@ class SqlDependencyEnv(gym.Env):#
                         edge_records=self.candidate_bitmap_edge_records,
                         bitmaps=self.candidate_bitmap_bitmaps,
                         probe_edge_index=edge_index,
-                        # True：允许 observed/confirmed failed 边重复构造；
-                        # probing 边仍由 candidate_bitmap.py 无条件拒绝。
+
                         allow_observed=True,
                         max_depth=int(getattr(CANDIDATE_BITMAP_CONFIG, "probe_predicate_max_depth", 3)),
                         graph_path=Path(getattr(CANDIDATE_BITMAP_CONFIG, "global_knowledge_graph_path")),
@@ -3561,7 +3407,7 @@ class SqlDependencyEnv(gym.Env):#
                 "candidate_bitmap_hnsw_success_tendency": float(candidate_hnsw_tendency),
                 "candidate_bitmap_structural_entropy": float(candidate_structural_entropy),
                 "candidate_bitmap_target_edge_hit": False,
-                # 仅表示 probe 谓词在进入 DB 前构造失败，供消融实验统计使用。
+
                 "candidate_bitmap_construct_failed": True,
                 "failure_kind": (
                     "environment_error" if construct_environment_failure else "downstream_construct_failed"
@@ -3792,10 +3638,6 @@ class SqlDependencyEnv(gym.Env):#
             and not environment_failure
         )
 
-        # Evidence only: no reward, bitmap, graph, or queue decision reads it.
-        # The DBMS-specific classifier records definite type/value failures;
-        # MySQL also retains ordinary execution errors as weak evidence.
-        # Timeouts and environment failures are always excluded.
         if (not db_result.success) and parse_success and target_edge_hit:
             try:
                 if current_db_type in {"oracle", "oracledb", "oracle_ai26"}:
@@ -3828,8 +3670,6 @@ class SqlDependencyEnv(gym.Env):#
 
         if self.shared_queue is not None:
             if should_enqueue_to_master:
-                # Correct 文本仍交给第一阶段向量数据流程；target_edge 元数据只供
-                # PKG 把本次验证成功的目标边写入正式图，不能把补全边一并入图。
                 self.shared_queue.put((
                     "a",
                     {
@@ -3882,8 +3722,6 @@ class SqlDependencyEnv(gym.Env):#
         elif environment_failure:
             failure_kind = "environment_error"
         elif not db_result.success and safe_closure_used:
-            # Temporary sibling completion only proves that this context failed;
-            # it is not reliable evidence that the selected target edge is invalid.
             failure_kind = "context_inconclusive"
         elif not db_result.success and parse_success and target_edge_hit:
             failure_kind = "target_db_invalid"
@@ -4086,8 +3924,7 @@ class SqlDependencyEnv(gym.Env):#
         self._candidate_bitmap_record_completion_retry(selected_edge, info)
         return obs, float(reward), terminated, truncated, info
 
-
-    def render(self, mode: str = "human") -> None: # 简单的 render：打印当前步的一些关键信息。
+    def render(self, mode: str = "human") -> None: 
         if mode != "human":
             return
         print(
@@ -4095,29 +3932,21 @@ class SqlDependencyEnv(gym.Env):#
             f"last_reward={self.last_reward:.3f}"
         )
 
-    def close(self) -> None: # 关闭 DBExecutor
-        # --- 【新增：将性能统计数据写入 txt 文档】 ---
+    def close(self) -> None: 
         try:
             steps = self.profiling_stats["Total_Steps"]
             if steps > 0:
-                # 每个工作进程独立保存性能统计。
                 pid = os.getpid()
                 worker_id = str(pid)
 
-                # 获取当前代码运行所在的文件夹路径 (即 RL 目录)
                 current_dir = os.path.dirname(os.path.abspath(__file__))
 
-                # 【修改】定义新的目标子文件夹路径: RL/time_collect
                 time_collect_dir = os.path.join(current_dir, "time_collect")
 
-                # 【修改】如果文件夹不存在，则创建它
-                # exist_ok=True 非常重要，防止多个进程同时创建文件夹时报错
                 os.makedirs(time_collect_dir, exist_ok=True)
 
-                # 【修改】将文件名拼接在新的文件夹路径下
                 txt_filename = os.path.join(time_collect_dir, f"profiling_stats_worker_{worker_id}_pid_{pid}.txt")
 
-                # 写入统计报告
                 with open(txt_filename, "w", encoding="utf-8") as f:
                     f.write(f"=== 强化学习环境性能统计报告 ===\n")
                     f.write(f"Worker PID: {worker_id} | Process ID: {pid}\n")
@@ -4136,7 +3965,7 @@ class SqlDependencyEnv(gym.Env):#
                     f.write(f"平均 奖励计算耗时:   {(self.profiling_stats['T_Reward'] / steps):.4f} 秒/次\n")
         except Exception as e:
             print(f'[Profiling Error] Failed to write profiling statistics: {e}')
-        # -------------------------------------------------------------
+
         try:
             self.runtime_stats.flush_joint_signature_evidence()
         except Exception as e:
@@ -4148,7 +3977,6 @@ class SqlDependencyEnv(gym.Env):#
             pass
 
 
-# 简单自测：随机动作跑一个 Episode
 if __name__ == "__main__":
     print("=== SqlDependencyEnv SelfTest ===")
 
@@ -4161,8 +3989,7 @@ if __name__ == "__main__":
     done = False
     step_idx = 0
 
-    while not done and step_idx < 5:  # 只跑前 5 步
-        # 随机采样一个动作（真实训练时由 PPO 给出）
+    while not done and step_idx < 5:  
         action = env.action_space.sample()
         obs, reward, terminated, truncated, info = env.step(action)
 

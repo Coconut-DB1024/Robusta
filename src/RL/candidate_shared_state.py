@@ -11,7 +11,6 @@ import numpy as np
 
 
 def completion_retry_needed(result: Mapping[str, Any]) -> bool:
-    """A failed sibling completion advances rotation, never target-failure evidence."""
     return (
         bool(result.get("safe_closure_used", False))
         and not bool(result.get("db_success", False))
@@ -26,14 +25,12 @@ def completion_retry_needed(result: Mapping[str, Any]) -> bool:
 
 
 def advance_completion_variant(record: Dict[str, Any]) -> int:
-    # One bounded integer per edge; no accumulating predicates or Cartesian products.
     index = (int(record.get("completion_variant_index", 0) or 0) + 1) % (1 << 63)
     record["completion_variant_index"] = index
     return index
 
 
 def normalize_failure_signature(predicate: Any) -> str:
-    """Normalize one probe predicate for cross-environment failure de-duplication."""
     text = str(predicate or "").strip()
     if not text:
         return ""
@@ -42,8 +39,6 @@ def normalize_failure_signature(predicate: Any) -> str:
 
 @dataclass
 class CandidateSharedState:
-    """Small Manager-backed state shared by candidate-bitmap workers and callback."""
-
     observed: Any
     confirmed_failed: Any
     reservations: Any
@@ -66,7 +61,6 @@ class CandidateSharedState:
         return int(self.metadata.get("state_version", 0))
 
     def snapshot_if_changed(self, last_version: int) -> Optional[Dict[str, Any]]:
-        """Return completed-edge and incremental-graph state only when it changed."""
         current = self.state_version()
         if current == int(last_version):
             return None
@@ -97,7 +91,6 @@ class CandidateSharedState:
         return str(edge_id or "") in self.confirmed_failed
 
     def mark_success(self, edge_id: str, edge_index: int) -> bool:
-        """Atomically mark success and return True only for the first global success."""
         edge_key = str(edge_id or "")
         if not edge_key:
             return False
@@ -135,7 +128,6 @@ class CandidateSharedState:
         predicate: Any,
         threshold: int,
     ) -> Dict[str, Any]:
-        """Record one distinct target-DB failure and confirm failure at threshold N."""
         edge_key = str(edge_id or "")
         signature = normalize_failure_signature(predicate)
         limit = max(1, int(threshold))
@@ -174,7 +166,6 @@ class CandidateSharedState:
             }
 
     def record_result(self, result: Mapping[str, Any], threshold: int) -> Dict[str, Any]:
-        """Apply one callback result to memory without replacing the disk callback."""
         edge_id = str(result.get("edge_id", "") or "")
         try:
             edge_index = int(result.get("edge_index", -1))
@@ -197,7 +188,7 @@ class CandidateSharedState:
                 record = {"completion_variant_index": self.get_completion_variant(edge_id)}
                 index = advance_completion_variant(record)
                 self.completion_variants[edge_id] = index
-            # Do not append state_events: rotation is fetched only for the selected edge.
+
             return {"applied": True, "status": "completion_retry", "completion_variant_index": index}
         if (
             (not db_success)
@@ -229,7 +220,6 @@ class CandidateSharedState:
         owner: str,
         timeout_seconds: float,
     ) -> Dict[str, Any]:
-        """Atomically reserve one PPO-selected edge without scanning the whole map."""
         edge_key = str(edge_id or "")
         if not edge_key:
             return {"token": "", "conflict_count": 0, "expired_count": 0}
@@ -266,7 +256,6 @@ class CandidateSharedState:
         }
 
     def release_reservations(self, claims: Mapping[str, str]) -> int:
-        """Release only reservations whose ownership token still matches."""
         released = 0
         with self.lock:
             for raw_edge_id, raw_token in dict(claims or {}).items():
@@ -284,7 +273,6 @@ def create_candidate_shared_state(
     edge_records: Sequence[Mapping[str, Any]],
     bitmaps: Mapping[str, np.ndarray],
 ) -> CandidateSharedState:
-    """Create and seed the shared state from the candidate files loaded by the main process."""
     records = [dict(record) for record in edge_records if isinstance(record, Mapping)]
     n = len(records)
     observed_bitmap = np.asarray(bitmaps.get("observed_bitmap", np.zeros(n)), dtype=np.uint8)
@@ -336,7 +324,6 @@ def create_candidate_shared_state_from_files(
     edge_index_path: Path,
     bitmap_npz_path: Path,
 ) -> CandidateSharedState:
-    """Load candidate artifacts once in the main process and seed Manager proxies."""
     edge_path = Path(edge_index_path)
     bitmap_path = Path(bitmap_npz_path)
     with edge_path.open("r", encoding="utf-8") as stream:

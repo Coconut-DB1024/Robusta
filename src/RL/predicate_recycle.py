@@ -1,46 +1,5 @@
 from __future__ import annotations
 
-"""
-predicate_recycle.py
-
-阶段 6A / 6B：Correct 谓词回炉候选筛选与安全应用工具。
-
-默认情况下，本模块只负责“筛选哪些 Correct 谓词值得回炉到 predicate.txt”，
-只生成 recycle_candidates.json，不直接修改 predicate.txt。
-
-只有显式传入 --apply 时，才会进入阶段 6B：
-1. 备份 predicate.txt；
-2. 去重追加候选谓词；
-3. 写入 recycle_apply_log.json；
-4. 标记 predicate_contribution.json 中的 added_to_predicate=True。
-
-本模块不会触发第一阶段训练，不重建 HNSW，不启动 RL。
-
-输入：
-1. output/graph_runtime_stats/predicate_contribution.json
-   阶段 3 记录的谓词贡献统计。
-
-2. output/graph_runtime_stats/operator_stats.json
-   阶段 3 记录的算子统计。
-
-3. output/predicate.txt
-   第一阶段当前使用的谓词训练文本。
-
-输出：
-1. output/graph_runtime_stats/recycle_candidates.json
-   按 score 排序后的回炉候选列表。
-
-2. output/graph_runtime_stats/recycle_apply_log.json
-   仅在 --apply 或 --apply --dry-run 时生成，用于记录本次应用结果。
-
-设计原则：
-- 只使用系统真实运行统计；
-- 不维护人工候选边全集；
-- 不使用数据库弱类型规则；
-- 不修改 Correct_Collection；
-- 默认不修改 predicate.txt，只有显式 --apply 时才安全追加；
-- 不影响现有 main.py / pre_load / RL 训练流程。
-"""
 
 from dataclasses import dataclass, asdict
 from pathlib import Path
@@ -59,37 +18,17 @@ DEFAULT_PREDICATE_TXT_PATH = OUTPUT_DIR / "predicate.txt"
 DEFAULT_CORRECT_COLLECTION_PATH = get_database_data_path("Correct_Collection.txt")
 DEFAULT_RECYCLE_OUTPUT_PATH = OUTPUT_DIR / "graph_runtime_stats" / "recycle_candidates.json"
 
-# 阶段 6B：真正应用回炉候选时使用的日志与备份路径。
+
 DEFAULT_RECYCLE_APPLY_LOG_PATH = OUTPUT_DIR / "graph_runtime_stats" / "recycle_apply_log.json"
 DEFAULT_PREDICATE_BACKUP_DIR = OUTPUT_DIR / "graph_runtime_stats" / "predicate_backups"
 
 
 @dataclass
 class RecycleCandidate:
-    """
-    一个可回炉谓词候选。
-
-    predicate:
-        原始谓词文本，例如 col(age) > int(10)。
-
-    score:
-        回炉优先级分数。越高越值得优先加入 predicate.txt。
-
-    reasons:
-        为什么它被选中，例如 has_new_edges / has_new_operators / has_low_freq_operators。
-
-    注意：
-        这里只保存候选信息，不直接写 predicate.txt。
-    """
     predicate_key: str
     predicate: str
     score: float
 
-    # 阶段 6A 补丁：候选类别。
-    # strong_contribution：贡献过新边 / 新算子 / graph_new_edges；
-    # low_freq_structure：包含低频算子；
-    # diverse_structure：结构较丰富，适合作为 decoder 学习样本；
-    # stable_success：DB 成功、parser 成功、结构正常，但未必贡献新边。
     category: str
 
     reasons: List[str]
@@ -124,12 +63,6 @@ class RecycleCandidate:
 
 @dataclass
 class RecycleApplyResult:
-    """
-    阶段 6B：候选谓词应用结果。
-
-    注意：
-        这个结果会写入 recycle_apply_log.json，方便检查本次到底追加了哪些谓词。
-    """
     applied_count: int
     skipped_duplicate_count: int
     skipped_invalid_count: int
@@ -146,7 +79,6 @@ class RecycleApplyResult:
 
 
 def _safe_int(value: Any, default: int = 0) -> int:
-    """安全转 int，避免 JSON 中的异常值影响筛选流程。"""
     try:
         return int(value)
     except Exception:
@@ -154,7 +86,6 @@ def _safe_int(value: Any, default: int = 0) -> int:
 
 
 def _safe_float(value: Any, default: float = 0.0) -> float:
-    """安全转 float。"""
     try:
         return float(value)
     except Exception:
@@ -162,16 +93,10 @@ def _safe_float(value: Any, default: float = 0.0) -> float:
 
 
 def _timestamp_for_filename() -> str:
-    """
-    生成适合放进文件名的时间戳。
-
-    用于 predicate.txt 备份文件名，避免多次 apply 时互相覆盖。
-    """
     return time.strftime("%Y%m%d_%H%M%S", time.localtime())
 
 
 def _load_json(path: Path, default: Any) -> Any:
-    """安全读取 JSON。文件不存在或损坏时返回 default。"""
     path = Path(path)
     if not path.exists():
         return default
@@ -187,7 +112,6 @@ def _load_json(path: Path, default: Any) -> Any:
 
 
 def _write_json(path: Path, data: Any) -> None:
-    """写 JSON，保证父目录存在。"""
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -197,7 +121,6 @@ def _write_json(path: Path, data: Any) -> None:
 
 
 def _read_text_lines(path: Path) -> List[str]:
-    """读取文本文件的非空行。文件不存在时返回空列表。"""
     path = Path(path)
     if not path.exists():
         return []
@@ -212,21 +135,10 @@ def _read_text_lines(path: Path) -> List[str]:
 
 
 def _normalize_predicate_text(text: str) -> str:
-    """
-    用于去重的轻量规范化。
-
-    注意：
-        这里不做语义解析，不改变谓词内容，只压缩首尾空白。
-    """
     return "" if text is None else str(text).strip()
 
 
 def _operator_frequency(op_id: str, operator_stats: Dict[str, Any]) -> int:
-    """
-    计算某个算子的出现频率。
-
-    使用 success_count + failure_count，和阶段 5 reward 中低频算子的判断保持一致。
-    """
     item = operator_stats.get(op_id)
     if not isinstance(item, dict):
         return 0
@@ -412,12 +324,6 @@ def _candidate_abstract_key(cand: RecycleCandidate) -> str:
 
 
 def _category_priority(category: str) -> int:
-    """
-    回炉候选类别优先级。
-
-    分数 score 仍然是主排序依据；
-    category_priority 只在分数接近时辅助排序。
-    """
     priority = {
         "strong_contribution": 4,
         "low_freq_structure": 3,
@@ -429,17 +335,6 @@ def _category_priority(category: str) -> int:
 
 
 class PredicateRecycler:
-    """
-    回炉候选筛选与安全应用器。
-
-    阶段 6A：
-        只筛选候选，生成 recycle_candidates.json，不修改 predicate.txt。
-
-    阶段 6B：
-        只有显式调用 apply_candidates_to_predicate_txt() 或命令行传入 --apply 时，
-        才会备份并追加写入 predicate.txt。
-    """
-
     def __init__(
         self,
         predicate_txt_path: Optional[Path] = None,
@@ -455,7 +350,6 @@ class PredicateRecycler:
         )
         self.output_path = Path(output_path) if output_path else DEFAULT_RECYCLE_OUTPUT_PATH
 
-        # 阶段 6B：apply 日志与 predicate.txt 备份目录。
         self.apply_log_path = DEFAULT_RECYCLE_APPLY_LOG_PATH
         self.predicate_backup_dir = DEFAULT_PREDICATE_BACKUP_DIR
 
@@ -466,11 +360,6 @@ class PredicateRecycler:
         )
 
     def load_existing_predicates(self) -> Set[str]:
-        """
-        读取当前 predicate.txt 中已有谓词，用于避免重复回炉。
-
-        当前 pre_load/runner.py 会生成 output/predicate.txt，因此默认读取 output/predicate.txt。
-        """
         existing = set()
 
         for line in _read_text_lines(self.predicate_txt_path):
@@ -481,13 +370,6 @@ class PredicateRecycler:
         return existing
 
     def load_correct_collection(self) -> Set[str]:
-        """
-        读取 Correct_Collection。
-
-        阶段 6A 默认不强制候选必须存在于 Correct_Collection，
-        因为 predicate_contribution.json 本身就是由 SQL 成功谓词统计得来。
-        这个函数先保留，后续 6B/6C 可用于额外校验。
-        """
         correct = set()
 
         for line in _read_text_lines(self.correct_collection_path):
@@ -498,15 +380,6 @@ class PredicateRecycler:
         return correct
 
     def _backup_predicate_txt(self) -> Optional[Path]:
-        """
-        备份当前 predicate.txt。
-
-        返回：
-            备份文件路径；如果 predicate.txt 当前不存在，则返回 None。
-
-        说明：
-            6B 会真正修改 predicate.txt，因此应用前必须备份。
-        """
         if not self.predicate_txt_path.exists():
             return None
 
@@ -524,11 +397,6 @@ class PredicateRecycler:
         *,
         dry_run: bool,
     ) -> int:
-        """
-        将 predicate_contribution.json 中对应谓词标记为 added_to_predicate=True。
-
-        dry_run=True 时不写文件，只返回理论会更新的数量。
-        """
         if not applied_predicate_keys:
             return 0
 
@@ -566,11 +434,6 @@ class PredicateRecycler:
         include_initial: bool = False,
         require_new_contribution: bool = True,
     ) -> Optional[RecycleCandidate]:
-        """
-        对一条 predicate_contribution 记录打分。
-
-        返回 None 表示该谓词不适合作为回炉候选。
-        """
         if not isinstance(item, dict):
             return None
 
@@ -622,9 +485,6 @@ class PredicateRecycler:
             if freq <= self.low_freq_threshold or _operator_matches_target_sparse(str(op_id)):
                 low_freq_ops.append(str(op_id))
 
-        # ================== 阶段 6A 补丁：分层价值信号 ==================
-        # strong_contribution：
-        #   真正贡献过新边 / 新算子 / graph_new_edges 的谓词，优先级最高。
         frontier_as_strong = bool(getattr(RECYCLE_CONFIG, "recycle_frontier_new_edges_as_strong", True))
         if mode == "fixed_base":
             has_strong_contribution = (
@@ -640,19 +500,13 @@ class PredicateRecycler:
 
         has_target_sparse_operator = _candidate_has_sparse_target_operator([str(x) for x in operators])
 
-        # low_freq_structure：
-        #   没有新边也没关系，只要包含低频算子，就有助于扩大训练分布。
         has_low_freq_structure = len(low_freq_ops) > 0
 
-        # diverse_structure：
-        #   结构稍复杂、边数或算子数较多的可执行谓词，可以帮助 decoder 学到更多组合形式。
         has_diverse_structure = (
             len(edges) >= 4
             or len(operators) >= 2
         )
 
-        # stable_success：
-        #   DB 成功、parser 成功、有结构边、有算子，即使没有新边，也可以作为稳定正确样本回炉。
         has_stable_success = (
             success_count >= 1
             and len(edges) > 0
@@ -675,8 +529,6 @@ class PredicateRecycler:
             and frontier_new_edges > 0
         )
 
-        # 历史参数名仍保留为 require_new_contribution，避免影响旧调用。
-        # 但这里的“contribution”已经扩展为“有价值信号”，不再只等价于新边/新算子。
         if mode == "fixed_base" and bool(getattr(RECYCLE_CONFIG, "recycle_fixed_base_require_base_signal", True)):
             if not fixed_base_structure and not allow_frontier_non_fixed_base:
                 return None
@@ -714,7 +566,6 @@ class PredicateRecycler:
             score_frontier_new_edges = 0
             score_graph_new_edges = int(graph_new_edges)
 
-        # 1. 强贡献信号：仍然是最高价值。
         if score_fixed_base_new_edges > 0:
             fixed_weight = float(getattr(RECYCLE_CONFIG, "recycle_fixed_base_new_edges_score_weight", 5.0))
             score += fixed_weight * score_fixed_base_new_edges
@@ -737,7 +588,6 @@ class PredicateRecycler:
             score += 3.0 * len(new_operators)
             reasons.append(f"new_operators={len(new_operators)}")
 
-        # 2. 低频结构信号。
         if len(low_freq_ops) > 0:
             score += 1.0 * len(low_freq_ops)
             reasons.append(f"low_freq_operators={len(low_freq_ops)}")
@@ -746,7 +596,6 @@ class PredicateRecycler:
             score += 3.0
             reasons.append("target_sparse_operator")
 
-        # 3. 结构多样性信号。
         if has_diverse_structure:
             diverse_bonus = 0.0
 
@@ -760,8 +609,6 @@ class PredicateRecycler:
 
             score += diverse_bonus
 
-        # 4. 稳定正确样本信号。
-        # 这部分是本次补丁重点：没有新边也可以进入候选，避免几十条新边样本被 5000+ 原始 predicate 淹没。
         if has_stable_success:
             stable_bonus = 0.1 * min(success_count, 5)
             score += stable_bonus
@@ -771,7 +618,6 @@ class PredicateRecycler:
             score *= 0.1
             reasons.append("high_freq_zero_signal_penalty")
 
-        # 5. 边数量的小额平滑加分。
         if len(edges) > 0:
             score += 0.05 * min(len(edges), 20)
 
@@ -917,16 +763,6 @@ class PredicateRecycler:
         dry_run: bool = False,
         create_backup: bool = True,
     ) -> RecycleApplyResult:
-        """
-        阶段 6B：将筛选出的候选谓词安全追加到 predicate.txt。
-
-        重要规则：
-        - 只追加，不覆盖；
-        - 自动去重；
-        - 默认先备份 predicate.txt；
-        - dry_run=True 时只生成日志，不修改 predicate.txt；
-        - 应用成功后，将 predicate_contribution.json 中对应记录标记为 added_to_predicate=True。
-        """
         existing_lines = _read_text_lines(self.predicate_txt_path)
         existing_set = {
             _normalize_predicate_text(line)

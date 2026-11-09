@@ -28,25 +28,7 @@ class PercentageLogCallback(BaseCallback):
         return True
 
 
-# ==================== [自定义回调函数类 (从原文件剪切过来)] ====================
 class RecycleIntervalStopCallback(BaseCallback):
-    """
-    阶段 6C 补丁：周期性回炉触发器。
-
-    注意：
-        这个 callback 不直接修改 predicate.txt，也不直接重训第一阶段。
-        它只负责在达到 recycle_interval_steps 后优雅停止当前 RL cycle。
-
-    为什么不在 callback 内直接运行 predicate_recycle？
-        因为 callback 触发时，后台 Master Data / PKG Graph 进程可能还有队列数据没刷完。
-        更安全的做法是：
-            callback 返回 False 停止 learn()
-            -> train_actor_critic.py 的 finally 保存模型
-            -> 关闭 env 和后台进程
-            -> 后台统计文件完全落盘
-            -> 再调用 predicate_recycle
-    """
-
     def __init__(
             self,
             interval_steps: Optional[int] = None,
@@ -73,13 +55,6 @@ class RecycleIntervalStopCallback(BaseCallback):
         self.trigger_step: Optional[int] = None
 
     def _on_step(self) -> bool:
-        """
-        SB3 每次环境交互后调用。
-
-        返回：
-            True  -> 继续训练；
-            False -> 优雅停止 model.learn()。
-        """
         if not RECYCLE_CONFIG.recycle_enable_periodic_trigger:
             return True
 
@@ -92,8 +67,6 @@ class RecycleIntervalStopCallback(BaseCallback):
         self.has_triggered = True
         self.trigger_step = int(self.num_timesteps)
 
-        # 通知后台进程尽量做一次同步打印/刷盘。
-        # 真正完整刷盘仍然依赖 train_actor_critic.py finally 中发送 DONE 并 join 后台进程。
         if self.shared_queue is not None:
             try:
                 self.shared_queue.put(("SYNC_PRINT", self.trigger_step))
@@ -109,15 +82,6 @@ class RecycleIntervalStopCallback(BaseCallback):
 
 
 class CandidateBitmapUpdateCallback(BaseCallback):
-    """
-    阶段17-6B：主进程集中回写 candidate bitmap。
-
-    该 callback 从 SB3 locals["infos"] 中收集每个 env step 的 candidate edge 结果，
-    然后集中调用 candidate_bitmap.update_candidate_bitmaps_from_results()。
-
-    这样可以避免 32 个 env worker 同时写 candidate_bitmaps.npz。
-    """
-
     def __init__(
         self,
         flush_every_steps: Optional[int] = None,
@@ -165,9 +129,6 @@ class CandidateBitmapUpdateCallback(BaseCallback):
         self.reservation_timeout_by_worker: Dict[int, int] = {}
         self.ppo_shard_sizes: Dict[int, int] = {}
 
-        # 阶段18-4：运行中低频刷新 pattern_transfer_score。
-        # RL 开始前已经由 main.run_candidate_bitmap_bootstrap() 强制刷新一次；
-        # 这里仅在运行中累计足够多新 observed edge 后低频刷新。
         self.last_pattern_transfer_refresh_step: int = 0
         self.observed_added_since_pattern_refresh: int = 0
         self.last_pattern_transfer_refresh_report: Dict[str, Any] = {}
@@ -197,8 +158,6 @@ class CandidateBitmapUpdateCallback(BaseCallback):
         if not isinstance(reward_info, dict):
             reward_info = {}
 
-        # 下游无法沿正式图完成构造时，env 会在进入数据库前标记构造失败。
-        # 这些字段仅随现有集中回写结果传递，供日志和后续实验分析使用。
         downstream_construct_failed = bool(
             info.get("candidate_bitmap_construct_failed", False)
         )
@@ -338,20 +297,6 @@ class CandidateBitmapUpdateCallback(BaseCallback):
         self.reservation_conflict_count += int(conflicts)
 
     def _maybe_refresh_pattern_transfer_scores(self, observed_added_count: int) -> bool:
-        """
-        阶段18-4：运行中低频刷新 pattern_transfer_score / edge_score。
-
-        刷新条件：
-            1. 距离上次刷新 >= CANDIDATE_BITMAP_CONFIG.pattern_transfer_refresh_steps；
-            2. 期间新增 observed edge >= CANDIDATE_BITMAP_CONFIG.pattern_transfer_refresh_min_observed_added。
-
-        注意：
-            - 每轮 RL 开始前的强制刷新由 main.run_candidate_bitmap_bootstrap() 负责；
-            - 这里不重建 candidate edge universe；
-            - 这里不修改 observed/failed/probing bitmap；
-            - observed / confirmed failed / 新增正式图边由共享状态立即同步；
-            - 只有表示迁移/HNSW 文件刷新或显式调试开关开启时，worker 才执行全量 reload。
-        """
         if not bool(
             getattr(
                 candidate_bitmap_tools.CANDIDATE_BITMAP_CONFIG,
@@ -434,9 +379,6 @@ class CandidateBitmapUpdateCallback(BaseCallback):
                 int(self.last_report.get("observed_added_count", 0) or 0)
             )
 
-            # Shared completion state is immediate. A full JSON/NPZ reload is
-            # event-driven only when representation/HNSW artifacts changed, or
-            # when the explicit debug switch requests every-flush synchronization.
             should_sync_workers = bool(refreshed_pattern_scores) or bool(
                 getattr(RL_ENV_CONFIG, "candidate_bitmap_callback_sync_workers_after_flush", False)
             )
@@ -504,13 +446,10 @@ class CandidateBitmapUpdateCallback(BaseCallback):
                 self.buffer.append(result)
                 completed_results.append(result)
 
-        # 单边预占只覆盖实际 probe 的执行窗口。内存共享状态更新后立即释放，
-        # 正式 bitmap 仍保留原来的集中批量回写频率，不增加磁盘I/O。
         if completed_results:
             try:
                 self._release_result_reservations(completed_results)
             except Exception as release_exc:
-                # 释放异常不改变边结果；300秒单边超时负责异常兜底。
                 if self.verbose > 0:
                     print(
                         f"[CandidateBitmap Callback Warning] immediate reservation release failed: {release_exc}",
@@ -532,17 +471,6 @@ class CandidateBitmapUpdateCallback(BaseCallback):
 
 
 class CandidateBitmapProgressCallback(BaseCallback):
-    """
-    candidate_bitmap 模式的独立消融进度统计 callback。
-
-    该 callback 只读取每步 infos 并发送轻量 SYNC_PRINT 消息：
-    - progress_log_enabled=True：按 progress_log_interval_steps 记录进度；
-    - progress_log_enabled=False：不发送消息，也不生成进度 CSV；
-    - progress_log_interval_steps 是 SB3 汇总所有并行环境后的全局步数间隔。
-
-    它不参与 PPO 选边、奖励、candidate bitmap 更新或正式图写入。
-    """
-
     def __init__(
             self,
             shared_queue: Optional[Any] = None,
@@ -551,11 +479,10 @@ class CandidateBitmapProgressCallback(BaseCallback):
         super().__init__(verbose=verbose)
         self.shared_queue = shared_queue
 
-        # True 启用周期统计，False 完全关闭统计消息和进度 CSV。
         self.progress_log_enabled = bool(
             getattr(RL_ALGO_CONFIG, "progress_log_enabled", True)
         )
-        # 该间隔使用 SB3 全局步数，不是单个并行环境的局部步数。
+
         self.progress_log_interval_steps = max(
             1,
             int(getattr(RL_ALGO_CONFIG, "progress_log_interval_steps", 2048)),
@@ -584,7 +511,6 @@ class CandidateBitmapProgressCallback(BaseCallback):
         self.last_progress_step: int = -1
 
     def _on_training_start(self) -> None:
-        """初始化本次运行的唯一标识和墙钟计时起点。"""
         self.progress_start_time = time.perf_counter()
         timestamp = time.strftime("%Y%m%d_%H%M%S")
         self.progress_run_id = (
@@ -595,7 +521,6 @@ class CandidateBitmapProgressCallback(BaseCallback):
 
     def _on_step(self) -> bool:
         for info in self.locals.get("infos", []):
-            # 单边预占统计也覆盖“冲突后中性跳过”的无 edge 结果。
             self.progress_reservation_attempt_count += max(
                 0,
                 int(info.get("candidate_bitmap_reservation_attempt_count", 0) or 0),
@@ -617,11 +542,9 @@ class CandidateBitmapProgressCallback(BaseCallback):
                     int(info.get("candidate_bitmap_ppo_shard_size", 0) or 0),
                 )
 
-            # 只统计 env 明确标记的 probe 谓词构造失败，其他失败不计入。
             if bool(info.get("candidate_bitmap_construct_failed", False)):
                 self.progress_construct_failures += 1
 
-            # 只统计实际选中了 candidate bitmap edge 的步骤。
             if bool(info.get("candidate_bitmap_edge_id", "")):
                 self.progress_candidate_selection_count += 1
                 if bool(info.get("candidate_bitmap_exploration_done", False)):
@@ -662,7 +585,6 @@ class CandidateBitmapProgressCallback(BaseCallback):
         return True
 
     def _send_progress_sync(self, step: int) -> None:
-        """将统计快照送入现有主进程管道，由图谱进程统一写 CSV。"""
         if not self.progress_log_enabled or self.shared_queue is None:
             return
 
@@ -741,7 +663,7 @@ class CandidateBitmapProgressCallback(BaseCallback):
             "reservation_action_substitution_count": int(
                 self.progress_reservation_action_substitution_count
             ),
-            # 单独保留冲突跳过数，便于控制台和后续诊断读取。
+
             "reservation_conflict_skip_count": int(
                 self.progress_reservation_conflict_skip_count
             ),
@@ -763,14 +685,10 @@ class CandidateBitmapProgressCallback(BaseCallback):
             self.shared_queue.put(("SYNC_PRINT", step, payload))
             self.last_progress_step = step
         except Exception as exc:
-            # 统计失败不能中断训练；保留旧 step 以便后续步骤重试。
             if self.verbose > 0:
                 print(f"[Progress Log Warning] Failed to send progress snapshot: {exc}")
 
     def _on_training_end(self) -> None:
-        """补记非周期边界上的最终训练步，周期边界不重复发送。"""
         final_step = int(self.num_timesteps)
         if self.progress_log_enabled and final_step != int(self.last_progress_step):
             self._send_progress_sync(final_step)
-
-

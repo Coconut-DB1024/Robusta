@@ -1,9 +1,3 @@
-"""SQL Server physical types for private evidence copies, never graph identities.
-
-Result-set description compiles expressions without executing/fetching them.
-The bounded cache includes the SQL text: lengths, precision and literal-dependent
-return metadata must not be guessed from a coarse operator name.
-"""
 from __future__ import annotations
 
 import copy
@@ -42,7 +36,6 @@ def base_type(value):
 
 
 def column_type(row):
-    """Resolve aliases using sys.types' base type, retaining declared typmods."""
     row = {str(k).lower(): v for k, v in row.items()}
     base = base_type(row.get("base_type") or row.get("data_type") or row.get("type"))
     if not base:
@@ -62,7 +55,6 @@ def column_type(row):
 
 
 def stable_cast(source, target):
-    """Type-only relations safe to share; value-sensitive coercions stay closed."""
     source, target = normalize_sqlserver_type(source), normalize_sqlserver_type(target)
     if not source or not target:
         return False
@@ -77,7 +69,6 @@ def stable_cast(source, target):
 
 
 def fixed_result_type(token, inputs=()):
-    """Small exact return rules, not merge policies or invented overload tables."""
     token = str(token).upper()
     if token in {"AND", "OR", "NOT", "=", "<>", "!=", ">", ">=", "<", "<=", "!<", "!>",
                  "IS DISTINCT FROM", "IS NOT DISTINCT FROM", "IN", "NOT IN", "LIKE", "NOT LIKE",
@@ -98,15 +89,13 @@ def fixed_result_type(token, inputs=()):
         return "bigint"
     if token == "GET_BIT()":
         return "bit"
-    # Literal NULL is distinct from a typed null; ISNULL(NULL, x) uses x's type.
+
     if token == "ISNULL()" and len(inputs) == 2:
         return inputs[1] if inputs[0] == "null" else inputs[0]
     if token == "NULLIF()" and inputs:
         return inputs[0] if inputs[0] != "null" else ""
     values = list(inputs[1:] if token in {"IIF()", "CHOOSE()"} else inputs)
     if token in {"COALESCE()", "IIF()", "CHOOSE()", "GREATEST()", "LEAST()"}:
-        # Mixed types require SQL Server's precedence/precision rules, obtained
-        # by description. Do not infer them from independent sets of children.
         concrete = {v for v in values if v != "null"}
         if len(concrete) == 1 and "" not in concrete:
             return next(iter(concrete))

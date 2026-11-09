@@ -133,13 +133,10 @@ except Exception:
 class TokenSignature:
     token: str
 
-    # 正式图 node id 使用的返回类型，例如 COL_INT::INT。
     return_type: str
 
-    # candidate edge 兼容性判断使用的粗粒度类型，例如 INT -> T_CMP。
     coarse_return_type: str
 
-    # 归一化到粗粒度类型后的 slot 需求。
     arg_types: Tuple[str, ...]
 
     is_terminal: bool
@@ -648,7 +645,6 @@ def _build_terminal_tokens(rules: Dict[str, Any]) -> Dict[str, str]:
     )
 
     if _is_sqlserver():
-        # SQL Server 的节点范围由规则决定，不让全局类型扩展开关扩大固定基准。
         expand_valid_type_terminals = bool(bitmap_cfg.get("expand_valid_type_terminals", False))
 
     if expand_valid_type_terminals:
@@ -660,8 +656,6 @@ def _build_terminal_tokens(rules: Dict[str, Any]) -> Dict[str, str]:
 
             terminal_tokens.setdefault(f"COL_{type_name}", type_name)
             terminal_tokens.setdefault(f"VALUE_TYPICAL_{type_name}", type_name)
-            # 知识图阶段不自动生成 VALUE_SINGULAR_*。
-            # 边界值 / singular value 应交给后续 SQL 实例化阶段处理。
 
     if not _is_sqlserver():
         terminal_tokens.setdefault("NULL", "T_CMP")
@@ -715,7 +709,6 @@ def collect_token_signatures(rules: Dict[str, Any]) -> Dict[str, TokenSignature]
 
 
 def _representation_guidance_enabled() -> bool:
-    """表示迁移评分总开关；不控制第一阶段、HNSW或结构熵。"""
     return bool(
         getattr(
             CANDIDATE_BITMAP_CONFIG,
@@ -1062,7 +1055,6 @@ def _pattern_inner_match_score(
     candidate_kind = str(candidate_info.get("kind") or _pattern_node_kind(candidate_token, is_terminal=True))
     observed_kind = str(observed_info.get("kind") or _pattern_node_kind(observed_token, is_terminal=True))
 
-    # 类 HOLE 节点只通过上面的 exact match 得分。
     if candidate_kind == "hole" or observed_kind == "hole":
         return 0.0
 
@@ -1111,8 +1103,7 @@ def _compute_pattern_transfer_score_for_record(
     token_to_outer_node_ids: Dict[str, set],
     node_info: Dict[str, Dict[str, Any]],
     similarity_index: Any,
-    # 单次刷新内缓存：候选边会反复查询相同的 outer token 和 inner 节点对。
-    # 缓存只保存内存结果，不改变评分规则或跨刷新复用状态。
+
     similar_outer_cache: Optional[Dict[str, List[Dict[str, Any]]]] = None,
     inner_match_cache: Optional[Dict[Tuple[str, str], float]] = None,
 ) -> float:
@@ -1179,7 +1170,6 @@ def _compute_pattern_transfer_score_for_record(
 
 
 def _pattern_transfer_settings_fingerprint() -> Tuple[Any, ...]:
-    """参与评分的配置指纹；配置变化时增量缓存自动失效。"""
     names = (
         "candidate_representation_guidance_enabled",
         "pattern_transfer_score_weight",
@@ -1196,7 +1186,6 @@ def _pattern_transfer_settings_fingerprint() -> Tuple[Any, ...]:
 
 
 def _pattern_transfer_file_fingerprint(similarity_index: Any) -> Tuple[Any, ...]:
-    """算子相似度/原型文件指纹；文件更新时不使用旧分数。"""
     paths = (
         getattr(similarity_index, "similarity_path", None),
         getattr(similarity_index, "prototypes_path", None),
@@ -1213,7 +1202,6 @@ def _pattern_transfer_file_fingerprint(similarity_index: Any) -> Tuple[Any, ...]
 
 
 def _pattern_transfer_edge_fingerprint(edge_records: List[Dict[str, Any]]) -> str:
-    """候选边身份指纹；候选全集重建时强制回退全量评分。"""
     digest = hashlib.sha1()
     for record in edge_records:
         if not isinstance(record, dict):
@@ -1400,7 +1388,6 @@ def build_bitmaps(edges: List[CandidateEdge]) -> Dict[str, np.ndarray]:
 def _apply_candidate_edge_organization(
     edge_records: List[Dict[str, Any]],
 ) -> Dict[str, Any]:
-    """为候选边补充结构熵，并生成独立的HNSW近邻缓存。"""
     try:
         from RL.candidate_edge_organization import build_candidate_edge_organization
 
@@ -1412,7 +1399,7 @@ def _apply_candidate_edge_organization(
             and "preflight failed" in str(exc).lower()
         ):
             raise
-        # 组织模块异常时保留原候选流程；环境会把两个新增信号视为中性值。
+
         print(f"[Candidate Organization Warning] build failed: {exc}", flush=True)
         for record in edge_records:
             record["structural_entropy"] = 0.0
@@ -1815,7 +1802,6 @@ def check_observed_bitmap_graph_consistency(
     bitmap_npz_path: Optional[Path] = None,
     report_path: Optional[Path] = None,
 ) -> Dict[str, Any]:
-    """Compare persisted observed state with the formal graph without repairing either one."""
     resolved_edge_index_path = Path(
         edge_index_path
         or getattr(CANDIDATE_BITMAP_CONFIG, "edge_index_path", CANDIDATE_EDGE_INDEX_PATH)
@@ -1901,7 +1887,6 @@ def check_observed_bitmap_graph_consistency(
         "graph_only_edges": graph_only_edges,
     }
 
-    # Only the diagnostic report is written; bitmap and formal graph stay untouched.
     resolved_report_path.parent.mkdir(parents=True, exist_ok=True)
     with resolved_report_path.open("w", encoding="utf-8") as f:
         json.dump(report, f, indent=2, ensure_ascii=False)
@@ -2005,7 +1990,6 @@ def sync_observed_bitmap_to_global_graph(graph_path: Optional[Path] = None) -> D
                 }
             )
 
-        # observed_bitmap 中出现新的布尔算子 outer 时，同步补入 roots，保证第三阶段可遍历到。
         if (
             str(record.get("outer_return_type", "")).upper() == "T_BOOL"
             and outer_node_id not in roots
@@ -2164,12 +2148,6 @@ def _probe_edge_support_rank(
     formal_node_ids: Iterable[str],
     edge_records: List[Dict[str, Any]],
 ) -> int:
-    """
-    阶段17-3：根据 probe 构造可行性对候选边排序。
-
-    该分数只在未显式指定 probe edge 时使用。
-    它不会修改 candidate bitmap。分数越高，表示越容易从当前正式图构造 probe 谓词。
-    """
     node_set = {str(x) for x in formal_node_ids}
 
     outer_node_id = str(record.get("outer_node_id", ""))
@@ -2179,8 +2157,6 @@ def _probe_edge_support_rank(
     inner_preexisting = inner_node_id in node_set
     is_self_loop = outer_node_id == inner_node_id
 
-    # 如果 inner node 从未在候选全集中作为 outer node 出现，
-    # 则在 probe 构造时把它视作接近终端节点。
     inner_required_slot_count = _required_slot_count_for_node(inner_node_id, edge_records)
     inner_terminal_like = inner_required_slot_count == 0
 
@@ -2239,8 +2215,6 @@ def _select_probe_edge_record(
                     f"The explicitly specified probe edge is already in failed_bitmap and should not be tested as a missing edge: {explicit_record.get('edge_id')}"
                 )
 
-        # allow_observed=True 只允许 observed/failed 边重复构造；
-        # probing 表示其他环境正在探索该边，无论开关值如何都必须拒绝。
         if idx < len(probing_bitmap) and int(probing_bitmap[idx]) > 0:
             raise ValueError(
                 f"The explicitly specified probe edge is already in probing_bitmap and should not be tested again: {explicit_record.get('edge_id')}"
@@ -2278,7 +2252,6 @@ def _select_probe_edge_record(
                 if idx < len(failed_bitmap) and int(failed_bitmap[idx]) > 0:
                     continue
 
-            # 自动选边路径与显式选边保持一致：probing 始终不可重复选择。
             if idx < len(probing_bitmap) and int(probing_bitmap[idx]) > 0:
                 continue
 
@@ -2300,11 +2273,6 @@ def _select_probe_edge_record(
                 "try": 0,
             }.get(level, 0)
 
-            # 默认 probe edge 选择顺序：
-            # 1. 从当前正式图构造 probe 的可行性；
-            # 2. strict / weak / try 层级；
-            # 3. edge_score；
-            # 4. edge_index 越小越稳定。
             key = (support_rank, level_rank, edge_score, -idx)
             if best_key is None or key > best_key:
                 best_key = key
@@ -2345,12 +2313,6 @@ def _refresh_missing_and_available_bitmaps(bitmaps: Dict[str, np.ndarray]) -> No
 
 @contextmanager
 def _candidate_bitmap_file_lock(target_path: Path, timeout_seconds: float = 30.0, poll_interval: float = 0.05):
-    """
-    candidate bitmap 回写文件锁。
-
-    使用旁路 .lock 文件保护 candidate_bitmaps.npz 和
-    candidate_edge_index.json 的成组更新。
-    """
     target_path = Path(target_path)
     lock_path = target_path.with_name(target_path.name + ".lock")
 
@@ -2463,8 +2425,7 @@ def _candidate_bitmap_as_bool(value: Any) -> bool:
 
 def _candidate_bitmap_fail_threshold(level: str) -> int:
     _ = level
-    # 统一失败阈值 N：不再区分 strict / weak / try。
-    # 只有“DB 失败 + parser 成功 + target edge 命中”的不同 predicate 才累计一次失败证据。
+
     return max(1, int(getattr(CANDIDATE_BITMAP_CONFIG, "target_db_failure_signature_threshold", 10)))
 
 
@@ -2529,11 +2490,6 @@ def _candidate_bitmap_result_success(result: Dict[str, Any]) -> bool:
 
 
 def _candidate_bitmap_result_should_skip_failure(result: Dict[str, Any]) -> bool:
-    """
-    环境级失败不应污染 failed_bitmap。
-
-    例如：数据库连接失败、本地 MySQL 密码错误，或与目标候选边无关的环境错误。
-    """
     status = str(result.get("status", "") or result.get("result_status", "")).lower()
     try:
         db_type = str(getattr(DB_CONFIG, "db_type", "") or "").lower().strip()
@@ -2571,8 +2527,6 @@ def _candidate_bitmap_result_should_skip_failure(result: Dict[str, Any]) -> bool
     }:
         return True
 
-    # A DB rejection after probe-only sibling completion is evidence about that
-    # temporary context, not reliable evidence that the selected target edge is invalid.
     if _candidate_bitmap_as_bool(result.get("safe_closure_used")):
         return True
 
@@ -2588,7 +2542,6 @@ def _candidate_bitmap_result_should_skip_failure(result: Dict[str, Any]) -> bool
     ):
         return True
 
-    # Oracle 连接/会话/资源故障不能作为目标边的失败证据。
     if db_type in {"oracle", "oracledb", "oracle_ai26"}:
         try:
             numeric_code = int(db_error_code.replace("ORA-", "").replace("DPY-", ""))
@@ -2626,7 +2579,6 @@ def _candidate_bitmap_result_should_skip_failure(result: Dict[str, Any]) -> bool
 
 
 def candidate_bitmap_environment_failure(result: Dict[str, Any]) -> bool:
-    """判断 candidate_bitmap 结果是否为环境故障（仅影响 Stage 2）。"""
     if not isinstance(result, dict):
         return False
     if str(result.get("status", "") or result.get("result_status", "")).lower() in {
@@ -2714,13 +2666,6 @@ def refresh_candidate_edge_scores_by_pattern_transfer(
     bitmap_npz_path: Optional[Path] = None,
     graph_path: Optional[Path] = None,
 ) -> Dict[str, Any]:
-    """
-    阶段18-2：刷新 pattern_transfer_score / edge_score。
-
-    该分数使用 global_knowledge_graph.json 中已 observed 的同 slot inner 接受模式，
-    以及 outer node 之间的 operator similarity。
-    它有意不使用直接的 sim(outer, inner)。
-    """
     edge_index_file = Path(
         edge_index_path
         or getattr(CANDIDATE_BITMAP_CONFIG, "edge_index_path", CANDIDATE_EDGE_INDEX_PATH)
@@ -2760,14 +2705,10 @@ def refresh_candidate_edge_scores_by_pattern_transfer(
         max_score = 0.0
         score_sum = 0.0
         top_samples: List[Dict[str, Any]] = []
-        # 一次刷新内的候选边共享同一张 observed 图和相似度表。
-        # outer token 及 inner 节点对通常会重复出现，复用纯函数结果可避免
-        # 数百万次重复的相似算子遍历；缓存生命周期限定在本次刷新内。
+
         similar_outer_cache: Dict[str, List[Dict[str, Any]]] = {}
         inner_match_cache: Dict[Tuple[str, str], float] = {}
 
-        # 增量刷新：observed 图只会追加边，因此只有受新增模式影响的候选边
-        # 需要重新评分。首次运行、候选全集/相似度/评分配置变化时自动全量回退。
         current_patterns = sorted(
             (str(outer_id), int(slot), str(inner_id))
             for outer_id, slot_map in observed_slot_index.items()
@@ -2803,8 +2744,7 @@ def refresh_candidate_edge_scores_by_pattern_transfer(
         affected_edge_indices: Optional[set] = None
         if incremental_valid and not removed_patterns:
             affected_edge_indices = set()
-            # 先按 candidate outer token/slot 建索引，再按 inner 匹配分数过滤，
-            # 避免对全部候选边重复展开 observed 模式。
+
             candidate_groups: Dict[Tuple[str, int], List[Tuple[int, Dict[str, Any]]]] = {}
             candidate_outer_tokens = set()
             for idx, candidate in enumerate(edge_records):
@@ -2908,8 +2848,6 @@ def refresh_candidate_edge_scores_by_pattern_transfer(
         )
         top_samples = top_samples[:20]
 
-        # 第一阶段在每轮回流后会更新算子原型；复用本轮已有 edge_records
-        # 重建候选边向量与HNSW邻居，不改变候选全集和任何Bitmap。
         organization_report = _apply_candidate_edge_organization(edge_records)
 
         edge_index_data["edges"] = edge_records
@@ -2983,17 +2921,6 @@ def update_candidate_bitmaps_from_results(
     update_report_path: Optional[Path] = None,
     missing_edges_path: Optional[Path] = None,
 ) -> Dict[str, Any]:
-    """
-    阶段17-6B：在主进程中根据 RL env 结果更新 candidate bitmaps。
-
-    规则：
-    1. DB success + parser success + target edge hit => observed_bitmap=1。
-    2. DB failed + parser success + target edge hit => 记录目标边失败证据。
-    3. 同一 edge_id 下不同 predicate 失败证据达到统一阈值 N 后，才设置 failed_bitmap。
-    4. 每次回写都会清理 probing_bitmap。
-    5. 每次回写后都会重新计算 missing_candidate_bitmap 和 available_initial_bitmap。
-    6. 该函数由主进程 callback 调用，不应由每个 env worker 调用。
-    """
     clean_results = _candidate_bitmap_sort_results_success_first(
         [x for x in (results or []) if isinstance(x, dict)]
     )
@@ -3169,8 +3096,6 @@ def update_candidate_bitmaps_from_results(
                 applied_status = "observed_failure_ignored"
 
             elif (not db_success) and parse_success and target_edge_hit:
-                # 只有目标边已被 parser 命中时，DB 失败才作为该 edge_id 的失败证据。
-                # 同一条 edge_id 下，相同 predicate_template 只计一次，避免重复错误谓词误杀候选边。
                 signature = _candidate_bitmap_normalize_failure_signature(predicate_text)
                 if not signature:
                     record["probe_invalid_count"] = int(record.get("probe_invalid_count", 0)) + 1
@@ -3206,7 +3131,6 @@ def update_candidate_bitmaps_from_results(
                         applied_status = "target_db_failed_duplicate"
 
             else:
-                # 其余情况只能说明本次 probe 没有可靠证明目标边错误，不写 failed_bitmap。
                 record["probe_invalid_count"] = int(record.get("probe_invalid_count", 0)) + 1
 
                 if not predicate_text:
@@ -3230,7 +3154,7 @@ def update_candidate_bitmaps_from_results(
                 "edge_id": edge_id,
                 "status": applied_status,
                 "candidate_level": str(record.get("candidate_level", "")),
-                # 阶段20-5：把软优先相关元信息写入 update log，便于后续统计分析。
+
                 "edge_group": str(result.get("edge_group", record.get("edge_group", "")) or ""),
                 "is_core_to_extension": bool(
                     result.get("is_core_to_extension", record.get("is_core_to_extension", False))
@@ -3247,8 +3171,7 @@ def update_candidate_bitmaps_from_results(
                 "predicate": predicate_text,
                 "db_error": result.get("db_error"),
                 "parse_error": result.get("parse_error"),
-                # callback 已从 env info 提取这些字段；这里只原样写入现有更新日志，
-                # 供下游构造失败和 inner_ready 的消融分析使用，不参与 bitmap 判定。
+
                 "failure_kind": str(result.get("failure_kind", "") or ""),
                 "downstream_construct_failed": bool(
                     _candidate_bitmap_as_bool(result.get("downstream_construct_failed"))
@@ -3358,12 +3281,6 @@ def build_probe_graph_data(
     probe_report_path: Optional[Path] = None,
     bitmap_npz_path: Optional[Path] = None,
 ) -> Tuple[Dict[str, Any], Dict[str, Any]]:
-    """
-    阶段17-11：内存态 probe graph 构造。
-
-    该函数与 build_and_save_probe_graph() 语义一致，但不会写入 probe_graph.json、
-    probe_graph_report.json 或 candidate_bitmaps.npz。
-    """
     if not isinstance(formal_graph_data, dict):
         raise ValueError('formal_graph_data must be a dict')
 
@@ -3389,8 +3306,6 @@ def build_probe_graph_data(
     inner_node_id = str(target_record["inner_node_id"])
     slot_index = int(target_record["slot_index"])
 
-    # 阶段17-12：在 RL 热路径上避免 deepcopy 整个正式图。
-    # 这里只浅拷贝顶层字段和 nodes dict；插入临时边前再拷贝目标 outer node payload/slots。
     probe_graph_data = {
         k: v for k, v in formal_graph_data.items()
         if k not in {"nodes", "roots", "probe_metadata"}
@@ -3589,7 +3504,6 @@ def build_and_save_probe_graph(
     inner_node_id = str(target_record["inner_node_id"])
     slot_index = int(target_record["slot_index"])
 
-    # 使用 JSON round-trip 做深拷贝，避免误改正式图对象。
     probe_graph_data = json.loads(json.dumps(formal_graph_data, ensure_ascii=False))
 
     nodes = probe_graph_data.setdefault("nodes", {})
@@ -3807,7 +3721,6 @@ def _node_is_terminal(payload: Dict[str, Any]) -> bool:
 
 
 def _terminal_to_probe_sql(token: str, return_type: str) -> str:
-    """生成供抽边使用的探测模板；可执行 SQL 由 HeuristicCompletionClient 生成。"""
     token_text = str(token).strip()
     token_upper = token_text.upper()
     return_upper = str(return_type).strip().upper()
@@ -3822,8 +3735,6 @@ def _terminal_to_probe_sql(token: str, return_type: str) -> str:
         return "NULL"
 
     if token_upper == "TRUE":
-        # SQL Server 也保留内部终端。此处改成 (1 = 1) 会改变目标边的 inner node；
-        # 仅补全器在执行边界把 TRUE/FALSE 转换成 T-SQL 条件。
         return "TRUE"
 
     if token_upper == "FALSE":
@@ -3836,7 +3747,6 @@ def _terminal_to_probe_sql(token: str, return_type: str) -> str:
         return token_upper
 
     if token_upper.startswith("COL_"):
-        # 保留抽象列 token，便于 parser edge extraction 仍能识别它们。
         return token_upper
 
     if token_upper.startswith("HOLE"):
@@ -3880,7 +3790,7 @@ def _default_safe_terminal_for_required_type(required_type: Any) -> Tuple[str, s
             required = "T_BOOL"
         elif required == "T_ANY":
             required = "T_CMP"
-        # 只选规则中声明的常量；不虚构节点，也不以 bit/整数填充条件槽位。
+
         defaults = ["TRUE", "FALSE", "VALUE_TYPICAL_INT", "VALUE_TYPICAL_FLOAT", "VALUE_TYPICAL_STRING", "NULL"]
         bool_default = str((_load_sql_render_config().get("literal_profiles", {}) or {}).get("bool", "")).upper()
         if bool_default in {"TRUE", "FALSE"}:
@@ -4023,9 +3933,8 @@ def _non_target_slot_fixed_sql_values(outer_node_id: str, slot_index: int) -> Li
     if not _non_target_slot_safe_fallback_enabled():
         return []
 
-    # Probe-only SQL literals are not candidate terminals and add no graph nodes.
     bitmap_cfg = _load_candidate_bitmap_rule_behavior()
-    # A probe-only profile can narrow Stage 2 without changing Stage 3 literal guidance.
+
     fixed_sql_cfg = bitmap_cfg.get(
         "probe_non_target_slot_fixed_sql", bitmap_cfg.get("non_target_slot_fixed_sql", {})
     ) or {}
@@ -4053,7 +3962,6 @@ def _non_target_slot_fixed_sql_values(outer_node_id: str, slot_index: int) -> Li
         if not fixed_sql_text:
             continue
         if _is_sqlserver():
-            # Keep execution-only condition comparisons out of the abstract target edges.
             condition_constant = re.fullmatch(r"\(\s*1\s*=\s*([01])\s*\)", fixed_sql_text)
             if condition_constant:
                 token = "TRUE" if condition_constant.group(1) == "1" else "FALSE"
@@ -4193,8 +4101,6 @@ def _format_probe_sql(token: str, child_sqls: List[str]) -> str:
             return rendered
 
     if _is_sqlserver():
-        # 当前 SQL Server 规则已覆盖全部在用算子。CAST/DATEADD 等带特殊语法参数
-        # 的函数仍在排除范围，不能经通用 function_call 兜底被提前启用。
         raise ValueError(f"SQL Server probe operator has no matching render template: {token_text}")
 
     if token_text.endswith("()"):
@@ -4243,7 +4149,6 @@ def _probe_child_sort_key(
 
     self_loop_penalty = 1 if child_node_id == outer_node_id else 0
 
-    # 优先选择终端节点、更严格层级、更少 slot、非自环，最后按稳定 node_id 排序。
     return (
         0 if is_terminal else 1,
         level_rank,
@@ -4282,9 +4187,6 @@ def _safe_fallback_for_non_target_slot(
             required_type = str(record.get("slot_required_type", "T_ANY") or "T_ANY")
             slot_records.append(record)
 
-    # Prefer an actual strict/type-consistent candidate terminal for this sibling
-    # slot. Different variant_index values rotate these probe-only contexts; none
-    # of these fallback edges are inserted into the formal graph.
     nonterminal_node_ids = {
         str(record.get("outer_node_id", ""))
         for record in edge_lookup.values()
@@ -4378,8 +4280,7 @@ def _try_build_probe_expr(
     used_edges: List[str] = []
     used_nodes: List[str] = [node_id]
     safe_closure_used = False
-    # Mixed-radix cursor for root sibling choices. Do not let the target subtree
-    # consume it: two sibling pools must visit their Cartesian product, not a diagonal.
+
     completion_variant_index = int(variant_index)
 
     for slot_index, slot_items in enumerate(slots):
@@ -4392,16 +4293,12 @@ def _try_build_probe_expr(
             and int(slot_index) == int(target_slot_index)
         )
 
-        # 自动补全只能服务本次递归根节点（目标 outer）的兄弟 slot。
-        # 目标 inner 及其递归下游必须完全沿正式图已有边构造，不能用默认终端
-        # 伪造“下游已就绪”；path 为空可防止自环递归再次获得补全资格。
         allow_outer_sibling_fallback = (
             not path
             and node_id == target_outer_node_id
             and int(slot_index) != int(target_slot_index)
         )
 
-        # 配置的固定 SQL 同样只允许用于目标 outer 的兄弟 slot。
         if allow_outer_sibling_fallback:
             fixed_result = _fixed_sql_result_for_non_target_slot(
                 node_id, slot_index, completion_variant_index,
@@ -4453,7 +4350,6 @@ def _try_build_probe_expr(
 
         rotate_completion = allow_outer_sibling_fallback and _non_target_slot_safe_fallback_enabled()
         if not force_target_child and len(candidate_children) > 1:
-            # 非目标 slot 才参与变体轮换；目标 slot 必须固定为本次选中的 target inner。
             child_offset = int(completion_variant_index if rotate_completion else variant_index) % len(candidate_children)
             if not rotate_completion:
                 variant_index = int(variant_index) // len(candidate_children)
@@ -4537,12 +4433,6 @@ def build_probe_predicate_from_graph_data(
     predicate_output_path: Optional[Path] = None,
     predicate_report_path: Optional[Path] = None,
 ) -> Dict[str, Any]:
-    """
-    阶段17-11：内存态 probe predicate 构造。
-
-    使用与 build_and_save_probe_predicate() 相同的 _try_build_probe_expr 逻辑，
-    但不会写入 probe_predicate.txt 或 probe_predicate_report.json。
-    """
     if not isinstance(probe_graph_data, dict):
         raise ValueError('probe_graph_data must be a dict')
 
@@ -5027,9 +4917,6 @@ def build_probe_predicate_for_edge(
     max_depth: Optional[int] = None,
     graph_path: Optional[Path] = None,
 ) -> Dict[str, Any]:
-    """
-    阶段17-11：正式 RL env 使用的一站式内存态构造入口。
-    """
     probe_graph_data, probe_graph_report = build_probe_graph_data(
         formal_graph_data=formal_graph_data,
         edge_records=edge_records,
@@ -5105,7 +4992,6 @@ def build_and_save_probe_predicate(
         json.dump(report, f, indent=2, ensure_ascii=False)
 
     return report
-
 
 
 def _read_text_file(path: Path) -> str:

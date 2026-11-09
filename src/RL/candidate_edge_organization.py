@@ -9,7 +9,7 @@ import numpy as np
 
 try:
     import hnswlib
-except ImportError:  # 允许关闭 HNSW 后继续使用原候选流程和结构熵。
+except ImportError:  
     hnswlib = None
 
 from RL.config import (
@@ -44,7 +44,6 @@ def _file_fingerprint(path: Path) -> Dict[str, Any]:
 
 
 def _load_operator_prototypes(path: Path) -> Tuple[Dict[str, np.ndarray], int]:
-    """读取第一阶段算子原型，并只保留维度一致的有限向量。"""
     path = Path(path)
     if not path.exists():
         return {}, 0
@@ -76,7 +75,6 @@ def _load_operator_prototypes(path: Path) -> Tuple[Dict[str, np.ndarray], int]:
     if not dimensions:
         return {}, 0
 
-    # 少量脏数据不应改变全部边向量的维度，选择出现次数最多的原型维度。
     prototype_dim = max(dimensions.items(), key=lambda item: (item[1], item[0]))[0]
     prototypes: Dict[str, np.ndarray] = {}
     for key, vector in raw_vectors:
@@ -102,14 +100,6 @@ def _required_slot_counts(edge_records: Sequence[Dict[str, Any]]) -> Dict[str, i
 def compute_structural_entropies(
     edge_records: Sequence[Dict[str, Any]],
 ) -> np.ndarray:
-    """
-    计算候选边的静态结构熵。
-
-    complexity = outer 所需 slot 数 + inner 所需 slot 数
-                 + inner 为非终端时的一层嵌套成本
-                 + 自递归边成本。
-    再使用 log(1 + complexity) 压缩并归一化到 0~1。
-    """
     if not edge_records:
         return np.zeros((0,), dtype=np.float32)
 
@@ -149,7 +139,6 @@ def build_candidate_edge_vectors(
     *,
     prototypes_path: Path = OPERATOR_PROTOTYPES_PATH,
 ) -> Tuple[np.ndarray, Dict[str, Any]]:
-    """用 outer/inner 算子表示、slot 和类型构造定向候选边向量。"""
     prototypes, prototype_dim = _load_operator_prototypes(Path(prototypes_path))
     n = len(edge_records)
     if n == 0 or prototype_dim <= 0:
@@ -176,7 +165,7 @@ def build_candidate_edge_vectors(
 
     type_keys = _type_feature_keys(edge_records)
     type_index = {key: idx for idx, key in enumerate(type_keys)}
-    # 两个角色向量 + slot位置 + outer/inner原型存在标记 + 三组类型one-hot。
+
     vector_dim = (2 * prototype_dim) + 3 + len(type_keys)
     vectors = np.zeros((n, vector_dim), dtype=np.float32)
     max_slot = max(
@@ -292,7 +281,6 @@ def build_candidate_edge_organization(
     *,
     prototypes_path: Path = OPERATOR_PROTOTYPES_PATH,
 ) -> Dict[str, Any]:
-    """生成结构熵、边向量、HNSW索引和静态近邻缓存。"""
     enabled = bool(getattr(CANDIDATE_BITMAP_CONFIG, "candidate_organization_enabled", True))
     hnsw_enabled = enabled and bool(
         getattr(CANDIDATE_BITMAP_CONFIG, "candidate_hnsw_enabled", True)
@@ -398,7 +386,6 @@ def build_candidate_edge_organization(
             neighbor_indices = np.full((len(edge_records), 0), -1, dtype=np.int32)
             neighbor_distances = np.full((len(edge_records), 0), np.inf, dtype=np.float32)
     except Exception as exc:
-        # 组织数据缺失时环境会使用0.5中性倾向，不能阻断原候选流程。
         hnsw_error = str(exc)
         neighbor_indices = np.full((len(edge_records), 0), -1, dtype=np.int32)
         neighbor_distances = np.full((len(edge_records), 0), np.inf, dtype=np.float32)
@@ -447,7 +434,6 @@ def load_candidate_edge_neighbors(
     *,
     expected_edge_count: int,
 ) -> Tuple[np.ndarray, np.ndarray]:
-    """加载静态近邻缓存；尺寸不一致时返回空缓存，防止使用旧实验产物。"""
     path = Path(path)
     if not path.exists():
         return (
@@ -479,12 +465,6 @@ def compute_neighbor_success_tendencies(
     *,
     min_known_neighbors: int,
 ) -> np.ndarray:
-    """
-    计算距离加权的邻居成功倾向。
-
-    observed=1、failed=0、未知邻居忽略；0.5表示没有足够历史证据。
-    有效邻居比例作为置信度，把样本很少的估计拉回0.5。
-    """
     n = int(len(observed_bitmap))
     tendencies = np.full((n,), 0.5, dtype=np.float32)
     if neighbor_indices.ndim != 2 or neighbor_indices.shape[0] != n:

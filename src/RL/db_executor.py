@@ -1,12 +1,3 @@
-"""
-统一数据库执行器。
-
-职责：
-- 只负责数据库连接、SQL 执行、事务和统一结果封装；
-- 不负责判断谓词是否正确，也不负责 SQL 方言渲染；
-- 通过注册表支持后续继续接入 PostgreSQL 以外的 DBMS。
-"""
-
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -20,17 +11,17 @@ import pymysql.cursors
 try:
     import psycopg
     from psycopg.rows import dict_row
-except ImportError:  # 允许只跑 MySQL 环境时不安装 psycopg
+except ImportError:  
     psycopg = None
     dict_row = None
 
-# Oracle 驱动为可选依赖；只有选择 Oracle 分支时才要求安装。
+
 try:
     import oracledb
 except ImportError:
     oracledb = None
 
-# SQL Server 驱动也是可选依赖，不影响其他数据库的执行器加载。
+
 try:
     import pyodbc
 except ImportError:
@@ -41,8 +32,6 @@ from RL.config import DB_CONFIG
 
 @dataclass
 class DBQueryResult:
-    """封装一次 SQL 执行结果，供 RL / BugFinding 复用。"""
-
     sql: str
     success: bool
     rows: Optional[List[Dict[str, Any]]] = None
@@ -57,8 +46,6 @@ class DBQueryResult:
 
 
 class DBExecutorError(Exception):
-    """数据库环境级错误，例如连接失败、驱动未安装、数据库不存在。"""
-
     def __init__(
         self,
         message: str,
@@ -80,19 +67,6 @@ class DBExecutorError(Exception):
 
 
 class BaseDBExecutor:
-    """
-    多 DBMS 执行器基类。
-
-    新增数据库时，只需要继承该类并实现：
-    - db_type
-    - driver_error
-    - _create_connection()
-    - _get_autocommit()
-    - _set_autocommit()
-    - _connection_is_alive()
-    - _get_warning_count() 可选
-    """
-
     db_type: str = "base"
     driver_error: Type[BaseException] = Exception
 
@@ -103,7 +77,7 @@ class BaseDBExecutor:
         query_timeout_seconds: Optional[int] = None,
     ) -> None:
         self.config = config or DB_CONFIG
-        # None 保持调用方原有行为；第三阶段可显式传入独立的 SQL 超时。
+
         self.query_timeout_seconds = (
             int(query_timeout_seconds) if query_timeout_seconds is not None else None
         )
@@ -127,11 +101,9 @@ class BaseDBExecutor:
         return 0
 
     def _prepare_sql(self, sql: str) -> str:
-        """为驱动准备 SQL；默认保持原 SQL，避免改变现有 DBMS 行为。"""
         return sql
 
     def _configure_cursor(self, cursor: Any) -> None:
-        """按驱动需要配置游标；默认不做处理。"""
         return None
 
     def _extract_error_code(self, exc: BaseException) -> Optional[int]:
@@ -149,7 +121,6 @@ class BaseDBExecutor:
         return str(exc)
 
     def _is_query_timeout(self, exc: BaseException) -> bool:
-        """由具体 DBMS 执行器识别其驱动返回的查询超时。"""
         return False
 
     def _ensure_connection(self) -> None:
@@ -205,8 +176,7 @@ class BaseDBExecutor:
 
         try:
             cursor.execute(driver_sql, params)
-            # Oracle 的 rowfactory 必须在 execute() 得到列元数据后设置。
-            # 其他执行器未覆盖该钩子，因此原有 MySQL/PostgreSQL 行为不变。
+
             self._configure_cursor(cursor)
             rowcount = cursor.rowcount
 
@@ -330,8 +300,6 @@ class BaseDBExecutor:
 
 
 class MySQLExecutor(BaseDBExecutor):
-    """MySQL / MySQL-like 数据库执行器。保留类名以兼容现有调用点。"""
-
     db_type = "mysql"
     driver_error = pymysql.MySQLError
 
@@ -378,7 +346,6 @@ class MySQLExecutor(BaseDBExecutor):
             ) from e
 
     def _is_query_timeout(self, exc: BaseException) -> bool:
-        # PyMySQL 通常把 socket 读取超时包装为 2006/2013 OperationalError。
         message = self._extract_error_message(exc).lower()
         return "timed out" in message or "timeout" in message
 
@@ -407,8 +374,6 @@ class MySQLExecutor(BaseDBExecutor):
 
 
 class PostgreSQLExecutor(BaseDBExecutor):
-    """PostgreSQL 数据库执行器。"""
-
     db_type = "postgresql"
     driver_error = psycopg.Error if psycopg is not None else Exception
 
@@ -511,8 +476,6 @@ class PostgreSQLExecutor(BaseDBExecutor):
 
 
 class OracleExecutor(BaseDBExecutor):
-    """Oracle 执行器（python-oracledb thin/thick 模式均可用）。"""
-
     db_type = "oracle"
     driver_error = oracledb.Error if oracledb is not None else Exception
 
@@ -530,8 +493,6 @@ class OracleExecutor(BaseDBExecutor):
                 query_timeout_seconds=query_timeout_seconds,
             )
         except DBExecutorError as exc:
-            # Oracle 环境不可用时保留执行器实例，让 candidate_bitmap 记录环境错误，
-            # 而不是在构造阶段直接终止 Stage 2。
             self.initialization_error = exc
             self._conn = None
 
@@ -560,7 +521,6 @@ class OracleExecutor(BaseDBExecutor):
                 original=None,
             )
         try:
-            # 本项目沿用 database 字段存放 Oracle service name。
             dsn = oracledb.makedsn(host, port, service_name=service_name)
         except Exception as exc:
             raise DBExecutorError(
@@ -584,11 +544,9 @@ class OracleExecutor(BaseDBExecutor):
             if query_timeout is None:
                 query_timeout = int(getattr(self.config, "query_timeout", 0) or 0)
             if query_timeout and query_timeout > 0:
-                # python-oracledb 的 call_timeout 单位为毫秒。
                 try:
                     conn.call_timeout = int(query_timeout * 1000)
                 except (AttributeError, TypeError):
-                    # 老版本/测试桩不支持 call_timeout 时仍可建立连接。
                     pass
             conn.autocommit = True
             return conn
@@ -602,12 +560,9 @@ class OracleExecutor(BaseDBExecutor):
             ) from exc
 
     def _prepare_sql(self, sql: str) -> str:
-        # Oracle 驱动执行单条语句时不接受尾部分号；返回值只供驱动使用。
         return str(sql).rstrip().rstrip(";").rstrip()
 
     def _configure_cursor(self, cursor: Any) -> None:
-        # 项目上层统一按 dict 读取 Schema；Oracle 默认 fetch 返回 tuple，故在此适配。
-        # 此方法由基类在 execute() 之后调用，此时 cursor.description 已可用。
         description = getattr(cursor, "description", None) or []
         column_names = []
         for item in description:
@@ -628,7 +583,6 @@ class OracleExecutor(BaseDBExecutor):
         try:
             cursor.rowfactory = rowfactory
         except (AttributeError, TypeError):
-            # 仅用于极简测试桩；真实 python-oracledb 支持 rowfactory。
             pass
 
     def _get_autocommit(self) -> bool:
@@ -644,7 +598,6 @@ class OracleExecutor(BaseDBExecutor):
         return True
 
     def _extract_error_code(self, exc: BaseException) -> Optional[int]:
-        # python-oracledb 通常把 error 对象放在 args[0]，其 code 为正整数。
         args = getattr(exc, "args", ()) or ()
         for item in args:
             value = getattr(item, "code", None)
@@ -701,7 +654,6 @@ class OracleExecutor(BaseDBExecutor):
                 autocommit=autocommit,
             )
         except DBExecutorError as exc:
-            # _ensure_connection 在真正执行前失败时，统一转换为查询结果。
             return DBQueryResult(
                 sql=sql,
                 success=False,
@@ -756,8 +708,6 @@ class OracleExecutor(BaseDBExecutor):
 
 
 class SQLServerExecutor(BaseDBExecutor):
-    """SQL Server 2022 执行器，使用 pyodbc / Microsoft ODBC Driver 18。"""
-
     db_type = "sqlserver"
     driver_error = pyodbc.Error if pyodbc is not None else Exception
 
@@ -776,13 +726,11 @@ class SQLServerExecutor(BaseDBExecutor):
                 query_timeout_seconds=query_timeout_seconds,
             )
         except DBExecutorError as exc:
-            # 与 Oracle 一致：环境不可用时，后续查询仍能返回统一的错误结果。
             self.initialization_error = exc
             self._conn = None
 
     @staticmethod
     def _odbc_value(value: Any) -> str:
-        # ODBC 的花括号转义；口令中的分号、右花括号不能变成连接选项。
         return "{" + str(value).replace("}", "}}") + "}"
 
     def _connection_flag(self, name: str, default: bool) -> str:
@@ -796,8 +744,6 @@ class SQLServerExecutor(BaseDBExecutor):
 
     @staticmethod
     def _decode_datetimeoffset(raw: bytes) -> Any:
-        # pyodbc 5.3 不内置 SQL_SS_TIMESTAMPOFFSET (-155) 转换。
-        # 对齐其 datetime2 返回值的 Python 微秒精度，同时保留时区偏移。
         from datetime import datetime, timedelta, timezone
         import struct
 
@@ -830,8 +776,7 @@ class SQLServerExecutor(BaseDBExecutor):
                 "SERVER=" + self._odbc_value(f"tcp:{host},{port}"),
                 "DATABASE=" + self._odbc_value(database),
                 "Encrypt=" + self._connection_flag("encrypt", True),
-                # 对齐本项目独立 SQL Server 初始化脚本的本地实验连接设置。
-                # 可由传入 config.trust_server_certificate=False 启用证书验证。
+
                 "TrustServerCertificate=" + self._connection_flag("trust_server_certificate", True),
             ]
             if self._connection_flag("trusted_connection", False) == "yes":
@@ -849,8 +794,7 @@ class SQLServerExecutor(BaseDBExecutor):
             conn = pyodbc.connect(
                 ";".join(options) + ";", timeout=connect_timeout, autocommit=True
             )
-            # connect(timeout=...) 只控制登录；Connection.timeout 对新游标设置
-            # SQL_ATTR_QUERY_TIMEOUT（秒）。不能用登录超时代替查询超时。
+
             conn.timeout = max(0, int(query_timeout))
             conn.add_output_converter(-155, self._decode_datetimeoffset)
             self._manual_transaction = False
@@ -876,8 +820,6 @@ class SQLServerExecutor(BaseDBExecutor):
         self._manual_transaction = not bool(enabled)
 
     def _ensure_connection(self) -> None:
-        # 事务内不得通过 ping/reconnect 偷换会话，否则可能只提交事务的后半段。
-        # 坏连接由当前语句报错，事务调用方负责回滚。
         if self._conn is not None and self._manual_transaction:
             return
         super()._ensure_connection()
@@ -907,7 +849,7 @@ class SQLServerExecutor(BaseDBExecutor):
     def _extract_error_code(self, exc: BaseException) -> Optional[int]:
         if isinstance(exc, DBExecutorError):
             return exc.error_code
-        # pyodbc 将原生错误码放在诊断文本尾部；不要把 SQLSTATE 当整数错误码。
+
         codes = re.findall(
             r"\((-?\d+)\)(?=\s*(?:\([A-Za-z][A-Za-z0-9_]*\)|;|$))",
             self._extract_error_message(exc),
@@ -929,7 +871,6 @@ class SQLServerExecutor(BaseDBExecutor):
                 if not self._get_autocommit():
                     self._conn.rollback()
             except Exception:
-                # 回滚失败时丢弃会话，避免下一次调用提交不确定的事务。
                 try:
                     self.close()
                 except Exception:
@@ -942,8 +883,6 @@ class SQLServerExecutor(BaseDBExecutor):
         fetch: str = "all",
         autocommit: bool = True,
     ) -> DBQueryResult:
-        # pyodbc 无 rowfactory，且无结果集的 DML 不能 fetchall。
-        # 将差异留在子类，保持 MySQL/PostgreSQL/Oracle 的公共路径不变。
         start_time = perf_counter()
         cursor = None
         rowcount = 0
@@ -956,7 +895,6 @@ class SQLServerExecutor(BaseDBExecutor):
             if params is None:
                 cursor.execute(sql)
             else:
-                # 原生 qmark 参数绑定；不改写字符串字面量中的 ? 或其他方言占位符。
                 cursor.execute(sql, params)
 
             rows: List[Dict[str, Any]] = []
@@ -974,8 +912,7 @@ class SQLServerExecutor(BaseDBExecutor):
                         rows = [dict(zip(names, row))] if row is not None else []
                     rowcount = cursor.rowcount
                 warning_count += len(getattr(cursor, "messages", None) or [])
-                # 跳过 UPDATE 的计数结果，并检查后续结果是否报错。
-                # 接口仍只返回第一个表格结果，不增加多结果集 API。
+
                 if not cursor.nextset():
                     break
             if autocommit and not self._get_autocommit():
@@ -988,7 +925,7 @@ class SQLServerExecutor(BaseDBExecutor):
             )
         except Exception as exc:
             self._rollback_after_error()
-            # 登录超时属于连接错误，不误报为已执行查询的超时。
+
             connection_error = isinstance(exc, DBExecutorError)
             state = self._extract_sqlstate(exc)
             return DBQueryResult(
@@ -1017,7 +954,7 @@ class SQLServerExecutor(BaseDBExecutor):
                 result = self.execute_query(sql, fetch="none", autocommit=False)
                 results.append(result)
                 if not result.success:
-                    return results  # execute_query 已回滚；回滚失败时已关闭连接。
+                    return results  
             self._conn.commit()
             return results
         except Exception:
@@ -1031,7 +968,6 @@ class SQLServerExecutor(BaseDBExecutor):
         return str(getattr(self.config, "schema", "dbo") or "dbo")
 
     def list_tables(self) -> DBQueryResult:
-        # 现有启发式只传递 table_name；限定同一个 schema 避免跨 schema 同名表误选。
         return self.execute_query(
             """
             SELECT s.name AS table_schema, t.name AS table_name
@@ -1044,7 +980,6 @@ class SQLServerExecutor(BaseDBExecutor):
         )
 
     def list_columns(self, table_name: str, schema: Optional[str] = None) -> DBQueryResult:
-        # 支持 table、schema.table、[schema].[table]；值始终通过 ? 绑定。
         part = r"(?:\[(?:[^\]]|\]\])+\]|[^.\[\]]+)"
         match = re.fullmatch(rf"\s*({part})\s*(?:\.\s*({part}))?\s*", str(table_name))
         if match is None:
@@ -1120,8 +1055,6 @@ DB_EXECUTOR_REGISTRY: Dict[str, Type[BaseDBExecutor]] = {}
 
 
 def register_db_executor(*db_types: str) -> Callable[[Type[BaseDBExecutor]], Type[BaseDBExecutor]]:
-    """注册一个 DB executor。新增 DBMS 时用该装饰器挂到工厂上。"""
-
     def decorator(cls: Type[BaseDBExecutor]) -> Type[BaseDBExecutor]:
         for db_type in db_types:
             normalized = str(db_type).lower().strip()
@@ -1175,7 +1108,6 @@ def create_db_executor(
     )
 
 
-# 兼容一些可能按旧命名导入的地方。
 DBExecutor = BaseDBExecutor
 
 

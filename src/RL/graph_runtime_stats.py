@@ -1,35 +1,5 @@
 from __future__ import annotations
 
-"""
-graph_runtime_stats.py
-
-阶段 3：运行统计模块。
-
-本模块只记录系统真实运行过程中已经发生的事实，不维护人工候选边全集，
-不根据 MySQL / PostgreSQL 等数据库弱类型规则推导“应该存在”的边。
-
-它记录：
-1. observed_edges.json
-   数据库执行成功且 parser 成功抽取到的边。
-
-2. structure_attempts.json
-   系统实际生成并尝试过的谓词结构，包括成功和失败。
-
-3. operator_stats.json
-   每个算子的出现次数、成功次数、失败次数、新边贡献等统计。
-
-4. predicate_contribution.json
-   每个成功谓词贡献过哪些边、算子、是否引入新边/新算子。
-
-5. unknown_success_buffer.txt
-   数据库执行成功，但 parser 无法解析或无法抽边的谓词。
-
-注意：
-- Correct_Collection 的标准仍然是“数据库执行成功”；
-- Knowledge Graph 的标准是“数据库执行成功 + parser 成功抽边”；
-- parser 失败但 SQL 成功的谓词仍然是正确谓词，只是不进入知识图；
-- 这里不替 RL 生成谓词，也不修复谓词。
-"""
 
 from dataclasses import asdict, is_dataclass
 from pathlib import Path
@@ -49,35 +19,20 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_STATS_DIR = PROJECT_ROOT / "output" / "graph_runtime_stats"
 
 
-# ---------------------------------------------------------------------------
-# 基础工具函数
-# ---------------------------------------------------------------------------
-
 def _now_ts() -> float:
-    """返回当前 Unix 时间戳。"""
     return float(time.time())
 
 
 def _predicate_key(predicate: str) -> str:
-    """
-    为谓词生成稳定 key。
-
-    不直接把谓词当 JSON key 的原因：
-    1. 谓词可能很长；
-    2. 谓词中可能包含引号、换行等字符；
-    3. hash key 更适合后续做去重和索引。
-    """
     text = "" if predicate is None else str(predicate)
     return hashlib.sha1(text.encode("utf-8", errors="ignore")).hexdigest()
 
 
 def _edge_key_from_parts(source_node_id: str, slot_id: int, target_node_id: str) -> str:
-    """生成结构边唯一 key。"""
     return f"{source_node_id}::slot{int(slot_id)}->{target_node_id}"
 
 
 def edge_to_key(edge: ExtractedEdge) -> str:
-    """将 ExtractedEdge 转成唯一 key。"""
     return _edge_key_from_parts(
         source_node_id=edge.source_node_id,
         slot_id=edge.slot_id,
@@ -86,12 +41,6 @@ def edge_to_key(edge: ExtractedEdge) -> str:
 
 
 def _json_default(obj: Any) -> Any:
-    """
-    json.dump 的兜底序列化函数。
-
-    ExtractedEdge 是 dataclass，可以直接转 dict。
-    其他不可序列化对象统一转字符串，避免统计模块影响主流程。
-    """
     if is_dataclass(obj):
         return asdict(obj)
     return str(obj)
@@ -99,18 +48,6 @@ def _json_default(obj: Any) -> Any:
 
 @contextmanager
 def _file_lock(target_path: Path, timeout_seconds: float = 10.0, poll_interval: float = 0.05):
-    """
-    简单跨平台文件锁。
-
-    这里不用第三方库，避免引入额外依赖。
-    通过创建 .lock 文件实现互斥：
-    - 创建成功：获得锁；
-    - 文件已存在：等待；
-    - 超时：抛 TimeoutError。
-
-    注意：
-    多进程同时写统计文件时，必须避免 JSON 被写坏。
-    """
     target_path = Path(target_path)
     lock_path = target_path.with_name(target_path.name + ".lock")
 
@@ -141,7 +78,6 @@ def _file_lock(target_path: Path, timeout_seconds: float = 10.0, poll_interval: 
 
 
 def _load_json(path: Path, default: Any) -> Any:
-    """安全读取 JSON。文件不存在或内容为空时返回 default。"""
     path = Path(path)
 
     if not path.exists():
@@ -153,17 +89,10 @@ def _load_json(path: Path, default: Any) -> Any:
         with path.open("r", encoding="utf-8") as f:
             return json.load(f)
     except Exception:
-        # 统计文件不应该中断 RL 主流程。
-        # 如果 JSON 损坏，先返回 default，后续可人工检查备份。
         return default
 
 
 def _atomic_write_json(path: Path, data: Any) -> None:
-    """
-    原子写 JSON。
-
-    先写临时文件，再 os.replace 覆盖目标文件，避免写到一半进程退出导致文件损坏。
-    """
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -182,7 +111,6 @@ def _atomic_write_json(path: Path, data: Any) -> None:
 
 
 def _append_line_locked(path: Path, line: str) -> None:
-    """加锁追加一行文本。"""
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -192,7 +120,6 @@ def _append_line_locked(path: Path, line: str) -> None:
 
 
 def _append_lines_locked(path: Path, lines: List[str]) -> None:
-    """加锁追加多行文本。"""
     if not lines:
         return
 
@@ -206,28 +133,24 @@ def _append_lines_locked(path: Path, lines: List[str]) -> None:
 
 
 def _parse_result_edges(parse_result: Optional[ParsedPredicateResult]) -> List[ExtractedEdge]:
-    """从 ParsedPredicateResult 中安全取出边列表。"""
     if parse_result is None:
         return []
     return list(getattr(parse_result, "edges", []) or [])
 
 
 def _parse_result_operators(parse_result: Optional[ParsedPredicateResult]) -> Set[str]:
-    """从 ParsedPredicateResult 中安全取出算子集合。"""
     if parse_result is None:
         return set()
     return set(getattr(parse_result, "operators", set()) or set())
 
 
 def _parse_result_node_ids(parse_result: Optional[ParsedPredicateResult]) -> Set[str]:
-    """从 ParsedPredicateResult 中安全取出节点集合。"""
     if parse_result is None:
         return set()
     return set(getattr(parse_result, "node_ids", set()) or set())
 
 
 def _parse_success(parse_result: Optional[ParsedPredicateResult]) -> bool:
-    """安全判断 parser 是否成功。"""
     if parse_result is None:
         return False
     return bool(getattr(parse_result, "success", False))
@@ -291,25 +214,7 @@ def _coverage_split(parse_result: Optional[ParsedPredicateResult], graph_new_edg
     }
 
 
-# ---------------------------------------------------------------------------
-# 主类：GraphRuntimeStats
-# ---------------------------------------------------------------------------
-
 class GraphRuntimeStats:
-    """
-    运行统计管理器。
-
-    建议用法：
-        stats = GraphRuntimeStats()
-        stats.record_sql_success(...)
-        stats.record_sql_failure(...)
-        stats.record_placeholder(...)
-
-    后续阶段中：
-    - env_sql_dependency.py 可以用它记录 step 级尝试；
-    - pkg_manager.py 可以用它记录全局知识图真实接收的 Correct 谓词；
-    """
-
     def __init__(self, stats_dir: Optional[Path] = None) -> None:
         self.stats_dir = Path(stats_dir) if stats_dir is not None else DEFAULT_STATS_DIR
         self.stats_dir.mkdir(parents=True, exist_ok=True)
@@ -320,10 +225,6 @@ class GraphRuntimeStats:
         self.predicate_contribution_path = self.stats_dir / "predicate_contribution.json"
         self.unknown_success_buffer_path = self.stats_dir / "unknown_success_buffer.txt"
         self.joint_signature_evidence = JointSignatureEvidenceStore(self.stats_dir)
-
-    # ------------------------------------------------------------------
-    # 读取接口
-    # ------------------------------------------------------------------
 
     def load_observed_edges(self) -> Dict[str, Any]:
         return _load_json(self.observed_edges_path, {})
@@ -336,10 +237,6 @@ class GraphRuntimeStats:
 
     def load_predicate_contribution(self) -> Dict[str, Any]:
         return _load_json(self.predicate_contribution_path, {})
-
-    # ------------------------------------------------------------------
-    # 写入接口
-    # ------------------------------------------------------------------
 
     def record_sql_success_batch(self, records: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         if not records:
@@ -386,8 +283,6 @@ class GraphRuntimeStats:
                 "new_operator_ids": [],
             })
 
-        # Complete sibling combinations are separate from legacy per-edge
-        # statistics and are flushed only after a large in-memory batch.
         try:
             self.joint_signature_evidence.observe_success_batch(
                 item["parse_result"] for item in prepared
@@ -638,20 +533,6 @@ class GraphRuntimeStats:
         graph_new_nodes: int = 0,
         graph_new_edges: int = 0,
     ) -> Dict[str, Any]:
-        """
-        记录一次数据库执行成功的谓词。
-
-        如果 parse_result.success=True：
-            - 更新 observed_edges.json；
-            - 更新 operator_stats.json；
-            - 更新 predicate_contribution.json；
-            - 更新 structure_attempts.json。
-
-        如果 parse_result.success=False：
-            - 写入 unknown_success_buffer.txt；
-            - 更新 predicate_contribution.json 中的 parse_failed 记录；
-            - 更新 structure_attempts.json。
-        """
         fallback_summary = {
             "predicate_key": _predicate_key("" if predicate is None else str(predicate)),
             "parse_success": _parse_success(parse_result),
@@ -727,7 +608,6 @@ class GraphRuntimeStats:
 
                 _atomic_write_json(self.observed_edges_path, observed_edges)
 
-        # parser 失败但 SQL 成功：进入 unknown_success_buffer
         if not parse_ok:
             self.record_unknown_success(
                 predicate=pred,
@@ -737,7 +617,6 @@ class GraphRuntimeStats:
                 source=source,
             )
 
-        # 更新 operator_stats
         with _file_lock(self.operator_stats_path):
             op_stats = _load_json(self.operator_stats_path, {})
 
@@ -766,7 +645,6 @@ class GraphRuntimeStats:
                 op_stats[op_id]["last_seen_source"] = source
                 op_stats[op_id]["last_seen_time"] = ts
 
-            # 将新边贡献归因给 source operator。
             for edge in edges:
                 e_key = edge_to_key(edge)
                 if e_key in new_edge_keys:
@@ -792,7 +670,6 @@ class GraphRuntimeStats:
 
             _atomic_write_json(self.operator_stats_path, op_stats)
 
-        # 更新 predicate_contribution
         with _file_lock(self.predicate_contribution_path):
             contrib = _load_json(self.predicate_contribution_path, {})
 
@@ -871,13 +748,6 @@ class GraphRuntimeStats:
         step: Optional[int] = None,
         source: str = "unknown",
     ) -> Dict[str, Any]:
-        """
-        记录一次数据库执行失败的谓词。
-
-        注意：
-            失败不代表某条边不可达；
-            这里只记录“这个具体谓词失败过”。
-        """
         pred = "" if predicate is None else str(predicate)
         pred_key = _predicate_key(pred)
         operators = _parse_result_operators(parse_result)
@@ -944,7 +814,6 @@ class GraphRuntimeStats:
         sqlstate: Optional[str] = None,
         cancelled: bool = False,
     ) -> None:
-        """Record targeted DBMS failure evidence without affecting Stage-2 decisions."""
         self.joint_signature_evidence.observe_target_type_failure(
             parse_result,
             target_edge=target_edge,
@@ -957,7 +826,6 @@ class GraphRuntimeStats:
         )
 
     def flush_joint_signature_evidence(self) -> None:
-        """Flush the bounded Stage-2 evidence buffer at a process boundary."""
         self.joint_signature_evidence.flush()
 
     def record_placeholder(
@@ -968,12 +836,6 @@ class GraphRuntimeStats:
         step: Optional[int] = None,
         source: str = "unknown",
     ) -> Dict[str, Any]:
-        """
-        记录一次含 ?? 的谓词。
-
-        这种谓词不加入 Correct / Incorrect / Knowledge Graph，
-        只作为坏样本统计。
-        """
         pred = "" if predicate is None else str(predicate)
         pred_key = _predicate_key(pred)
 
@@ -1001,11 +863,6 @@ class GraphRuntimeStats:
         step: Optional[int] = None,
         source: str = "unknown",
     ) -> None:
-        """
-        记录 SQL 成功但 parser 失败的谓词。
-
-        写入 unknown_success_buffer.txt，采用 JSON Lines 格式，每行一个 JSON。
-        """
         payload = {
             "time": _now_ts(),
             "step": step,
@@ -1019,10 +876,6 @@ class GraphRuntimeStats:
             json.dumps(payload, ensure_ascii=False, default=_json_default),
         )
 
-    # ------------------------------------------------------------------
-    # 内部结构尝试记录
-    # ------------------------------------------------------------------
-
     def _record_structure_attempt(
         self,
         *,
@@ -1034,11 +887,6 @@ class GraphRuntimeStats:
         source: str,
         placeholder_count: int,
     ) -> None:
-        """
-        更新 structure_attempts.json。
-
-        这里按 predicate hash 聚合，不按理论边聚合。
-        """
         pred = "" if predicate is None else str(predicate)
         pred_key = _predicate_key(pred)
         ts = _now_ts()
@@ -1103,28 +951,15 @@ class GraphRuntimeStats:
             _atomic_write_json(self.structure_attempts_path, attempts)
 
 
-# ---------------------------------------------------------------------------
-# 便捷单例接口
-# ---------------------------------------------------------------------------
-
 _DEFAULT_STATS: Optional[GraphRuntimeStats] = None
 
 
 def get_default_runtime_stats() -> GraphRuntimeStats:
-    """
-    获取默认运行统计器。
-
-    后续 env_sql_dependency.py / pkg_manager.py 可以直接调用这个函数。
-    """
     global _DEFAULT_STATS
     if _DEFAULT_STATS is None:
         _DEFAULT_STATS = GraphRuntimeStats()
     return _DEFAULT_STATS
 
-
-# ---------------------------------------------------------------------------
-# 简单自测
-# ---------------------------------------------------------------------------
 
 if __name__ == "__main__":
     from tempfile import TemporaryDirectory

@@ -1,5 +1,3 @@
-"""Low-I/O Stage-2 evidence for complete sibling operand combinations."""
-
 from __future__ import annotations
 
 from contextlib import contextmanager
@@ -25,9 +23,7 @@ _ORACLE_MAX_COMBINATIONS_PER_AST_NODE = 96
 _ORACLE_DB_TYPES = frozenset({"oracle", "oracledb", "oracle_ai26"})
 SHARDED_EVIDENCE_DB_TYPES = _ORACLE_DB_TYPES | {"sqlserver"}
 
-# Keep Oracle's adapter code-based and deliberately compact. These are broad
-# error families (type/signature versus runtime value), not per-operator rules.
-# A future DBMS should add its own adapter instead of changing Stage-2 logic.
+
 ORACLE_TYPE_FAILURE_CODES = frozenset({
     "902", "932", "939", "1760", "12704", "22848", "22849", "22950",
     "30081", "30175", "30495", "40796", "61801", "61803",
@@ -38,8 +34,7 @@ ORACLE_VALUE_FAILURE_CODES = frozenset({
     "31011", "40441", "40478", "40597", "61800", "64203",
 })
 
-# Shared by SQL Server projection and runtime sampling. Environment events are
-# diagnostic only; value-dependent conversions remain weaker than type failures.
+
 SQLSERVER_FAILURE_WEIGHTS = {
     "type_failure_count": 1.0,
     "value_failure_count": 0.40,
@@ -51,7 +46,6 @@ SQLSERVER_FAILURE_WEIGHTS = {
 
 def classify_sqlserver_error(error_code=None, error=None, *, sqlstate=None,
                              timed_out=False, cancelled=False) -> str:
-    """Classify ODBC diagnostics, never treating generic 42000 as a type error."""
     text = str(error or "")
     state = str(sqlstate or "").strip().upper()
     if not state:
@@ -64,8 +58,7 @@ def classify_sqlserver_error(error_code=None, error=None, *, sqlstate=None,
     elif not state and re.fullmatch(r"[A-Z0-9]{5}", raw_code.upper()):
         state = raw_code.upper()
     lower = text.lower()
-    # A broken/login session, missing driver, deadlock, lock wait, resource or
-    # permission failure says nothing about the candidate's operand types.
+
     if (state.startswith(("08", "IM")) or state in {"28000", "40001"}
             or codes & {"53", "64", "233", "258", "229", "297", "916", "1101", "1105", "1205", "1222",
                         "1807", "18456", "4060", "40501", "40197", "40613", "49918", "49919", "49920",
@@ -81,17 +74,15 @@ def classify_sqlserver_error(error_code=None, error=None, *, sqlstate=None,
         return "timeout_count"
     if cancelled or state == "HY008" or any(s in lower for s in ("operation canceled", "operation cancelled", "query was canceled", "query was cancelled")):
         return "environment_failure_count"
-    # Primary native diagnostics may follow an 8180 preparation wrapper.
+
     if codes & {"206", "257", "306", "402", "403", "421", "529", "8116", "8117", "4145"}:
         return "type_failure_count"
-    # DATEFROMPARTS domain, TRANSLATE character counts and GET_BIT/SET_BIT
-    # offsets depend on argument values, not on a permanently invalid signature.
+
     if codes & {"241", "242", "245", "248", "289", "295", "517", "535", "536", "537", "8114", "8115", "8134", "8152", "2628", "3623", "9828", "9838", "9839", "13609"}:
         return "value_failure_count"
     if state.startswith("22"):
         return "value_failure_count"
-    # Text fallback is for incomplete diagnostics. Do not overrule a known
-    # syntax/execution error because a quoted identifier contains these words.
+
     if not codes or codes <= {"0", "8180"}:
         if (any(s in lower for s in ("operand type clash:", "expression of non-boolean type"))
                 or re.search(r"\bdata types .+ are incompatible in the\b", lower)
@@ -127,12 +118,6 @@ def _node_return_type(node: Any) -> str:
 
 
 def _node_physical_type(node: Any) -> str:
-    """Return an explicitly bound physical type when the AST carries one.
-
-    The normal parser only has coarse candidate types.  This intentionally
-    does not infer NUMBER/DATE/etc. from ``T_CMP``; it consumes metadata only
-    when supplied by an Oracle catalog-aware caller or test fixture.
-    """
     for name in (
         "oracle_physical_type",
         "physical_type",
@@ -158,11 +143,6 @@ def _slot_id(parent_token: str, child_index: int) -> int:
 
 
 def _subtree_fingerprint(node: Any, cache: Optional[Dict[int, str]] = None) -> str:
-    """Stable structural fingerprint for Oracle tuple binding.
-
-    It intentionally contains no values or SQL text: only the typed AST
-    shape, token, return type, and recursively ordered child shapes.
-    """
     if cache is None:
         cache = {}
     node_key = id(node)
@@ -190,7 +170,6 @@ def _subtree_fingerprint(node: Any, cache: Optional[Dict[int, str]] = None) -> s
 
 
 def extract_joint_signatures(parse_result: Any) -> List[Dict[str, Any]]:
-    """Extract complete ordered child choices for every operator in a typed AST."""
     if not bool(getattr(parse_result, "success", False)):
         return []
     ast_root = getattr(parse_result, "ast_root", None)
@@ -200,9 +179,6 @@ def extract_joint_signatures(parse_result: Any) -> List[Dict[str, Any]]:
     records: List[Dict[str, Any]] = []
     fingerprint_cache: Dict[int, str] = {}
 
-    # Oracle keeps a slightly larger, still bounded evidence window.  This is
-    # deliberately local to Stage 2 evidence collection; MySQL/PostgreSQL and
-    # the first stage retain their existing limit.
     max_combinations = (
         _ORACLE_MAX_COMBINATIONS_PER_AST_NODE
         if _current_db_type() in _ORACLE_DB_TYPES
@@ -264,9 +240,7 @@ def extract_joint_signatures(parse_result: Any) -> List[Dict[str, Any]]:
                         "outer_return_type": _node_return_type(node),
                         "slot_child_node_ids": [_node_id(child) for child in chosen_children],
                         "slot_child_return_types": child_return_types,
-                        # Keep the ordered argument types explicit.  These are
-                        # read from the typed Stage-2 AST, not inferred from an
-                        # operator-specific rule table.
+
                         "arg_types": list(child_return_types),
                         "slot_ids": list(slot_ids),
                         "slot_child_tokens": slot_child_tokens,
@@ -312,13 +286,10 @@ def _evidence_key(db_type: str, record: Dict[str, Any]) -> str:
             for value in (record.get("slot_child_physical_types", []) or [])
         ]
         if record.get("oracle_binding_version") == 1:
-            # A local typed call is independent of its descendants. Keep a
-            # witness fingerprint only for slots whose result type is unknown.
             physical = payload["slot_child_physical_types"]
             payload.pop("subtree_fingerprint", None)
             payload["oracle_binding_version"] = 1
-            # Failed calls can lack result metadata. Their counters still
-            # belong to the same ordered, concretely typed input tuple.
+
             payload["unresolved_child_fingerprints"] = [
                 "" if i < len(physical) and physical[i] else fp
                 for i, fp in enumerate(record.get("slot_child_fingerprints", []) or [])
@@ -347,9 +318,6 @@ def _is_definite_type_failure(
     text = str(error or "").lower()
     normalized_db = str(db_type or "").lower().strip()
 
-    # Keep this table DBMS-specific and deliberately small.  When a new DBMS
-    # is added, extend only its error-code/message adapter here; do not add
-    # operator-specific rules to Stage 2 or Stage 3.
     if normalized_db in {"postgresql", "postgres", "pg"}:
         return code in {"42804", "42809", "42846", "42883"} or any(
             marker in text
@@ -363,9 +331,6 @@ def _is_definite_type_failure(
         )
 
     if normalized_db == "mysql":
-        # MySQL's implicit conversions are intentionally preserved.  Only
-        # deterministic operand/collation incompatibilities are type evidence;
-        # generic execution errors remain weak evidence below.
         return code in {"1267", "3854", "3995", "4078", "4079"} or any(
             marker in text
             for marker in (
@@ -378,8 +343,6 @@ def _is_definite_type_failure(
         )
 
     if normalized_db in _ORACLE_DB_TYPES:
-        # ORA-00932 等确定性的 SQL 类型错误才作为类型证据；
-        # 连接、监听器和会话故障由下方环境分类器排除。
         oracle_code = code.replace("ORA-", "").replace("DPY-", "").lstrip("0") or "0"
         return oracle_code in ORACLE_TYPE_FAILURE_CODES or any(
             marker in text
@@ -401,8 +364,6 @@ def _is_definite_type_failure(
             )
         )
 
-    # Future DBMS adapters should be added above.  Unknown DBMS errors remain
-    # unclassified so undocumented casts are never removed accidentally.
     return False
 
 
@@ -411,7 +372,6 @@ def _is_definite_value_failure(
     error_code: Optional[Any],
     error: Optional[str],
 ) -> bool:
-    """Recognize runtime value-domain failures without operator-specific rules."""
     code = str(error_code or "").strip()
     normalized_db = str(db_type or "").lower().strip()
     if normalized_db in {"postgresql", "postgres", "pg"} and code.startswith("22"):
@@ -451,12 +411,6 @@ def _is_environment_failure(
     *,
     timed_out: bool = False,
 ) -> bool:
-    """Exclude timeout/connection/resource failures from signature evidence.
-
-    Keep this DBMS-specific and conservative. When adding a database adapter,
-    extend its error codes/text markers here; Stage 2 and Stage 3 should not
-    gain database-specific rules elsewhere in the pipeline.
-    """
     if timed_out:
         return True
     code = str(error_code or "").strip().upper()
@@ -474,7 +428,6 @@ def _is_environment_failure(
         }:
             return True
     elif normalized_db in _ORACLE_DB_TYPES:
-        # 连接建立、会话断开、监听器不可用、资源耗尽等不应污染 failed_bitmap。
         try:
             numeric_code = int(code.replace("ORA-", "").replace("DPY-", ""))
         except (TypeError, ValueError):
@@ -528,7 +481,6 @@ def _normalize_oracle_error_code(
     error_code: Optional[Any],
     error: Optional[str],
 ) -> str:
-    """Return an unpadded numeric ORA/DPY code from structured or text input."""
     raw_code = str(error_code or "").strip().upper()
     raw_error = str(error or "").upper()
     match = re.search(r"\b(?:ORA|DPY)-?(\d{3,5})\b", raw_code)
@@ -546,7 +498,6 @@ def classify_oracle_error(
     *,
     timed_out: bool = False,
 ) -> str:
-    """Classify one Oracle failure without encoding operator-specific rules."""
     code = _normalize_oracle_error_code(error_code, error)
     text = str(error or "").lower()
     if (
@@ -629,7 +580,6 @@ def _atomic_write_compact(path: Path, payload: Dict[str, Any]) -> None:
 
 
 def _atomic_write_durable(path: Path, payload: Dict[str, Any]) -> None:
-    """Publish a complete delta/checkpoint, leaving no partial JSON on failure."""
     path.parent.mkdir(parents=True, exist_ok=True)
     temp_path = None
     try:
@@ -649,7 +599,6 @@ def _atomic_write_durable(path: Path, payload: Dict[str, Any]) -> None:
 
 
 def _load_payload_strict(path: Path) -> Dict[str, Any]:
-    # A damaged snapshot/delta must not be treated as empty and then deleted.
     with path.open("r", encoding="utf-8") as handle:
         payload = json.load(handle)
     if not isinstance(payload, dict) or not isinstance(payload.get("entries"), dict):
@@ -658,8 +607,6 @@ def _load_payload_strict(path: Path) -> Dict[str, Any]:
 
 
 class JointSignatureEvidenceStore:
-    """Aggregate evidence; SQL Server/Oracle workers persist independent deltas."""
-
     def __init__(self, stats_dir: Path) -> None:
         self.path = Path(stats_dir) / EVIDENCE_FILE_NAME
         self.enabled = bool(
@@ -682,7 +629,6 @@ class JointSignatureEvidenceStore:
         atexit.register(self._flush_at_exit)
 
     def _flush_at_exit(self) -> None:
-        """Bound shutdown retries so concurrent workers do not lose evidence silently."""
         for attempt in range(3):
             try:
                 self.flush()
@@ -698,8 +644,7 @@ class JointSignatureEvidenceStore:
                 if attempt >= 2:
                     report_joint_signature_flush_failure(exc, final=True)
                     return
-                # Worker-specific jitter avoids every process retrying the one
-                # bounded JSON lock at exactly the same instant.
+
                 time.sleep(0.10 * (attempt + 1) + 0.005 * (os.getpid() % 20))
             except Exception as exc:
                 report_joint_signature_flush_failure(exc, final=True)
@@ -738,9 +683,6 @@ class JointSignatureEvidenceStore:
                     "last_seen_time": now,
                 }
                 if self.db_type in {"mysql", "sqlserver"} or self.db_type in _ORACLE_DB_TYPES:
-                    # MySQL accepts many implicit conversions; Oracle also has
-                    # execution failures that are neither type nor value proof.
-                    # Keep both as weak evidence instead of discarding them.
                     item["execution_failure_count"] = 0
                 if self.db_type in _ORACLE_DB_TYPES or self.db_type == "sqlserver":
                     item.update({
@@ -807,7 +749,6 @@ class JointSignatureEvidenceStore:
         try:
             return self._oracle_typer.enrich(parse_result)
         except Exception as exc:
-            # Evidence enrichment never changes the graph/reward outcome.
             if not getattr(self, "_oracle_enrichment_warned", False):
                 print(f"[Oracle evidence] metadata enrichment failed: {exc}")
                 self._oracle_enrichment_warned = True
@@ -844,8 +785,7 @@ class JointSignatureEvidenceStore:
                             and record.get("outer_node_id") == target.get("outer_node_id")
                             and children[slot] == target.get("inner_node_id")):
                         matched.append(record)
-                # A selected edge with several occurrences does not identify
-                # one complete argument tuple. Keep ambiguous evidence weak.
+
                 if len(matched) == 1:
                     matched[0]["oracle_direct_target"] = True
             for record in records:
@@ -927,10 +867,7 @@ class JointSignatureEvidenceStore:
                 and child_ids[slot_index] == inner_id
             ):
                 matched_records.append(record)
-        # A target edge alone cannot identify which sibling tuple was used
-        # when an Oracle AST has repeated children (notably IN/NOT IN).  Do
-        # not smear one failure over every synthetic tuple; keep such events
-        # out of tuple evidence until the caller supplies tuple_hash.
+
         if (self.db_type in _ORACLE_DB_TYPES or self.db_type == "sqlserver") and not target_tuple_hash:
             if len(matched_records) != 1:
                 return
@@ -949,8 +886,6 @@ class JointSignatureEvidenceStore:
         return self.path.with_name(self.path.stem + "_pending")
 
     def _flush_shard(self) -> None:
-        # Keep the batch in memory until its atomic publication succeeds. The
-        # mutex is process-local: no worker waits for another worker's JSON I/O.
         with self._mutex:
             if not self._pending:
                 return
@@ -970,8 +905,7 @@ class JointSignatureEvidenceStore:
                        or not name.startswith("delta-") or not name.endswith(".json")
                        for name in names)):
             raise ValueError(f"invalid joint signature merge checkpoint: {checkpoint_path}")
-        # Keep the checkpoint through publication AND deletion. A retry after
-        # either step republishes the same snapshot instead of adding it twice.
+
         _atomic_write_durable(self.path, payload)
         for name in names:
             (self._shard_dir / name).unlink(missing_ok=True)
@@ -979,21 +913,16 @@ class JointSignatureEvidenceStore:
         return len(names)
 
     def merge_pending_shards(self) -> int:
-        """Called ONLY by the training parent after all evidence producers exit.
-
-        Read the global snapshot once and consume one batch at a time, retaining
-        the existing entry cap. No per-worker shared lock or full-file rewrite.
-        """
         if not self.enabled or self.db_type not in SHARDED_EVIDENCE_DB_TYPES:
             return 0
-        self.flush()  # Include any parent-process environment compliance checks.
+        self.flush()  
         checkpoint_path = self._shard_dir / "merge_checkpoint.json"
         merged = 0
         if checkpoint_path.exists():
             with checkpoint_path.open("r", encoding="utf-8") as handle:
                 checkpoint = json.load(handle)
             merged += self._finish_shard_merge(checkpoint_path, checkpoint)
-            del checkpoint  # Release the recovered snapshot before loading another.
+            del checkpoint  
         shards = sorted(self._shard_dir.glob("delta-*.json"))
         if not shards:
             return merged
@@ -1010,7 +939,6 @@ class JointSignatureEvidenceStore:
         return merged + self._finish_shard_merge(checkpoint_path, checkpoint)
 
     def _merge_pending(self, payload: Dict[str, Any], pending: Dict[str, Any]) -> None:
-        """Retain the existing counters, metadata upgrades and bounded ranking."""
         entries = payload.setdefault("entries", {})
         counters = (
             "success_count",
@@ -1031,8 +959,6 @@ class JointSignatureEvidenceStore:
                     incoming.get(counter, 0)
                 )
             if not existing.get("arg_types") and incoming.get("arg_types"):
-                # Upgrade records created by an older worker without
-                # changing their evidence key or counters.
                 existing["arg_types"] = list(incoming["arg_types"])
             for metadata_key in (
                 "slot_ids",
