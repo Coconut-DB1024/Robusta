@@ -9,7 +9,6 @@ PARAMETERS = JOIN_PARAMETERS + SCAN_PARAMETERS
 
 @dataclass(frozen=True)
 class HintConfig:
-
     hint_id: int
     disabled_joins: tuple[str, ...]
     disabled_scans: tuple[str, ...]
