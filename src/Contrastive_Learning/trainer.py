@@ -29,11 +29,9 @@ def run_contrastive_learning(
     learning_rate: float = 1e-5,
     temperature: float = 0.07,
 ):
-    """一轮 CodeT5 Encoder 监督对比学习。"""
-
     project_root = get_project_root()
     text_file = project_root / "output" / "predicate.txt"
-    # 保留旧路径参数以兼容外部调用；训练本身不读取该文件。
+
     embeddings_file = project_root / "output" / "predicate_embeddings_codet5.npy"
 
     cluster_dir = project_root / "output_cluster" / f"iter_{iter_n}"
@@ -83,7 +81,6 @@ def run_contrastive_learning(
         collate_fn=dataset.collate_fn,
     )
 
-    # 只更新 Encoder（其中包含 T5 的共享输入 embedding）。
     encoder_parameters = model.base_model.get_encoder().parameters()
     optimizer = torch.optim.AdamW(encoder_parameters, lr=learning_rate)
     contrastive_criterion = WeightedSupConLoss(temperature=temperature)
@@ -100,7 +97,6 @@ def run_contrastive_learning(
             labels = batch["labels"].to(device)
             weights = batch["weights"].to(device)
 
-            # Encoder mean pooling 与聚类使用相同的句向量表示。
             _token_hidden, pooled_representation = model.encode_encoder_only(
                 input_ids=input_ids,
                 attention_mask=attention_mask,

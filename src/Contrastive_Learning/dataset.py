@@ -9,8 +9,6 @@ from torch.utils.data import Dataset, Sampler
 
 
 class ContrastiveDataset(Dataset):
-    """第一阶段数据集：文本、聚类标签、簇权重和缓存后的 token ids。"""
-
     def __init__(
         self,
         text_file: Path,
@@ -27,7 +25,6 @@ class ContrastiveDataset(Dataset):
                 line.strip() for line in f.readlines() if line.strip()
             ]
 
-        # embeddings_file 仅为兼容旧调用保留；WeightedSupConLoss 直接使用 Encoder 输出。
         self.embeddings_file = embeddings_file
 
         self.labels: np.ndarray = np.load(labels_file)
@@ -50,7 +47,6 @@ class ContrastiveDataset(Dataset):
             weights.append(1.0 / np.sqrt(size))
         self.sample_weights: np.ndarray = np.asarray(weights, dtype=np.float32)
 
-        # 一次性缓存不带 padding 的 token 序列；padding 在 collate 时按 batch 动态完成。
         self.tokenizer = tokenizer
         self.max_length = max_length
         self.tokenized_inputs: Optional[List[torch.Tensor]] = None
@@ -81,7 +77,6 @@ class ContrastiveDataset(Dataset):
         return item
 
     def collate_fn(self, batch):
-        """按当前 batch 最长序列 padding，避免无效 token 计算。"""
         if self.tokenized_inputs is None:
             raise RuntimeError('ContrastiveDataset.collate_fn requires a tokenizer.')
 
@@ -102,8 +97,6 @@ class ContrastiveDataset(Dataset):
 
 
 class ClusterAwareBatchSampler(Sampler[List[int]]):
-    """保守地按同簇成对组织 batch，减少 batch 内没有正样本的 anchor。"""
-
     def __init__(self, labels: np.ndarray, batch_size: int, shuffle: bool = True):
         self.labels = np.asarray(labels)
         self.batch_size = max(2, int(batch_size))
@@ -136,7 +129,6 @@ class ClusterAwareBatchSampler(Sampler[List[int]]):
             yield batch
 
     def __len__(self) -> int:
-        # 与 __iter__ 相同地按 pair unit 计算，避免 singleton 簇导致日志中的 batch 数低估。
         counts: Dict[int, int] = {}
         for label in self.labels:
             counts[int(label)] = counts.get(int(label), 0) + 1
