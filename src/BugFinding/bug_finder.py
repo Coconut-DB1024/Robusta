@@ -1,28 +1,8 @@
-"""
-文件名: bug_finder.py
-路径: BugFinding/bug_finder.py
-描述:
-    [裁判员模块] TLP 逻辑漏洞检测器。
-
-    核心功能:
-    1. 读取 generated_test_cases 目录下的 SQL 测试用例文件。
-    2. 解析文件：每组 4 条 WHERE-TLP SELECT。
-    3. 并发执行每组查询，获取总数及 TRUE/FALSE/NULL 分区行数。
-    4. 逻辑判定 (Oracle):
-       - 验证公式: Total (总数) == True (符合) + False (不符合) + Null (未知)。
-       - 如果不相等，判定为 Logic Bug (逻辑漏洞)。
-    5. 报告生成: 将发现的 Bug 详细信息写入 bug_reports 文件夹。
-
-    依赖:
-    - RL.config: 数据库配置
-    - RL.db_executor: 数据库执行接口
-"""
-
 import os
 import sys
 import glob
 import time
-import re  # <--- 新增
+import re  
 import multiprocessing
 import json
 import itertools
@@ -32,13 +12,12 @@ from bisect import bisect_left, bisect_right
 from pathlib import Path
 from typing import List, Dict, Optional, Union, Any, Iterator
 
-# ================= 导入项目底层依赖 =================
-# 获取当前文件的父目录的父目录，即项目根目录
+
 project_root_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-# 将项目根目录添加到系统路径，以便可以导入 RL 模块
+
 sys.path.append(project_root_path)
 
-# 复用配置和执行器
+
 from RL.config import PROJECT_ROOT, DB_CONFIG, STAGE3_CONFIG
 
 
@@ -52,40 +31,31 @@ from BugFinding.oracle_worker_pool import (
     OracleValidationPool, OracleValidationDeadline, OracleWorkerFailure,
 )
 
-# ================= 全局路径配置 =================
-# 输入目录：存放生成的 TLP 测试用例 (.sql 文件)
+
 INPUT_DIR = PROJECT_ROOT / "BugFinding" / "generated_test_cases"
-# 输出目录：存放 Bug 报告和扫描日志
+
 REPORT_DIR = PROJECT_ROOT / "BugFinding" / "bug_reports"
 
-# ================= 运行模式配置 =================
+
 VALIDATION_BATCH_SIZE = 1000
 MAX_WORKERS = min(max(1, multiprocessing.cpu_count() - 2), 24)
 
-# 确保输出目录存在
+
 os.makedirs(REPORT_DIR, exist_ok=True)
 
 
 def _is_test_case_file(file_path: Union[str, Path]) -> bool:
-    """第三阶段扫描器同时兼容旧 .sql 和无损压缩 .sql.gz。"""
     lower_path = str(file_path).lower()
     return lower_path.endswith(".sql") or lower_path.endswith(".sql.gz")
 
 
 def _open_test_case_reader(file_path: Union[str, Path]):
-    """按文件后缀流式打开完整测试用例，不把压缩文件整体解压到内存或磁盘。"""
     if str(file_path).lower().endswith(".sql.gz"):
         return gzip.open(file_path, "rt", encoding="utf-8")
     return open(file_path, "r", encoding="utf-8")
 
 
 def _select_current_test_case_files(file_paths) -> List[str]:
-    """
-    同一逻辑文件同时存在 .sql 和 .sql.gz 时只扫描较新的一个。
-
-    这是格式切换时的兼容保护，避免旧未压缩文件和新压缩文件被重复执行；
-    文件本身不会被删除，完整输出仍可用于追溯。
-    """
     selected = {}
     for file_path in file_paths:
         path_text = str(file_path)
@@ -117,7 +87,6 @@ def _select_current_test_case_files(file_paths) -> List[str]:
 
 
 def _prune_stage3_report_files(retention_count: int):
-    """仅轮转 TLP 第三阶段报告，避免重复运行无限累积小文件。"""
     if retention_count <= 0:
         return
 
@@ -141,24 +110,20 @@ def _prune_stage3_report_files(retention_count: int):
             except OSError as exc:
                 print(f"[TLP] Warning: failed to prune old report {old_path}: {exc}")
 
-# ================= SQL 清洗配置 (DSL Wrappers) =================
-# 这里定义 VAE/DSL 可能产生的所有包装器名称。
-# 如果将来模型生成了新类型（如 decimal, timestamp），只需在此列表中添加即可。
-# 注意：不要添加 'YEAR', 'COUNT' 等标准 SQL 函数名，除非确定它们只作为 wrapper 出现。
+
 DSL_WRAPPERS = [
-    "int", "float", "double", "decimal",  # 数值型
-    "string", "char", "varchar",          # 字符串型
-    "date", "datetime", "timestamp", "time", # 时间型
-    "col",                                # 列名包装
-    "hex", "bin", "bit"                   # 其他可能的类型
+    "int", "float", "double", "decimal",  
+    "string", "char", "varchar",          
+    "date", "datetime", "timestamp", "time", 
+    "col",                                
+    "hex", "bin", "bit"                   
 ]
 
-# ================= 多进程 Worker 专属全局变量 =================
+
 worker_executor = None
 
 
 def worker_init(progress=None):
-    """每个子进程启动时调用，建立专属的数据库连接，避免多进程串线"""
     global worker_executor
     worker_executor = create_db_executor(
         autoconnect=True,
@@ -172,7 +137,6 @@ def worker_init(progress=None):
 
 
 def worker_task(args):
-    """子进程独立执行的测试任务"""
     file_name, idx, group, tlp_mode = args
     global worker_executor
 
@@ -197,11 +161,9 @@ def worker_task(args):
         identity["counts"] = values
         identity["variant_sqls"] = _tlp_variant_sqls(tested_group)
         if values["total"] != values["true"] + values["false"] + values["null"]:
-            # A reproducible bug must contain the SQL actually executed.
             return "bug", (file_name, idx, tested_group, values, tlp_mode, {}, repair_summary)
         return "ok", identity
 
-    # 辅助清洗与执行函数（闭包内直接使用 worker_executor）
     overflow_retries = []
 
     def _execute(sql, role):
@@ -283,7 +245,6 @@ def worker_task(args):
 
         return True, 0, None, sql
 
-    # Workers execute the four read-only WHERE-TLP SELECTs.
     values = {}
     executed_group = list(group)
     for group_index, (role, sql) in enumerate([
@@ -292,7 +253,6 @@ def worker_task(args):
         ("false", group[2]),
         ("null", group[3]),
     ]):
-
         ok, value, error_info, executed_sql = _execute(sql, role)
         executed_group[group_index] = executed_sql
         if not ok:
@@ -338,13 +298,6 @@ def worker_task(args):
     )
 
 
-# ==============================================================
-
-# 动态构建正则表达式：
-# \b(int|float|...)\s*\(  匹配 "int("
-# \s*([^()]+)\s* 匹配括号内的内容 (Group 2)
-# \)                      匹配右括号
-# re.IGNORECASE           忽略大小写 (Int, INT, int 均可)
 WRAPPER_PATTERN = re.compile(
     r"\b(" + "|".join(DSL_WRAPPERS) + r")\s*\(\s*([^()]+)\s*\)",
     re.IGNORECASE
@@ -412,7 +365,6 @@ def _sqlserver_error_category(error_info):
 
 
 def _oracle_error_code(error_info: Optional[Dict[str, Any]]) -> str:
-    """Normalize an ORA/DPY code from an executor result or error text."""
     info = error_info if isinstance(error_info, dict) else {}
     raw_code = str(info.get("error_code", "") or "").strip().upper()
     raw_text = str(info.get("error", "") or "")
@@ -426,7 +378,6 @@ def _oracle_error_code(error_info: Optional[Dict[str, Any]]) -> str:
 
 
 def _oracle_error_label(error_info: Optional[Dict[str, Any]]) -> str:
-    """Return a stable ORA/DPY label for the compact Stage-3 report."""
     info = error_info if isinstance(error_info, dict) else {}
     raw_code = str(info.get("error_code", "") or "").strip().upper()
     raw_text = str(info.get("error", "") or "").upper()
@@ -444,26 +395,21 @@ def _oracle_error_label(error_info: Optional[Dict[str, Any]]) -> str:
 
 
 def _oracle_error_category(error_info: Optional[Dict[str, Any]]) -> str:
-    """Classify Oracle errors for Stage-3 TLP statistics only."""
     info = error_info if isinstance(error_info, dict) else {}
     category = classify_oracle_error(
         info.get("error_code"),
         info.get("error"),
         timed_out=bool(info.get("is_timeout", False)),
     )
-    # Keep the existing compact report schema stable. Environment/session and
-    # ordinary execution failures are both diagnostic "other" failures here.
+
     if category in {"execution_failure_count", "environment_failure_count"}:
         return "other_failure_count"
     return category
 
 
 def _resource_function_limits(string_length_max: int) -> Dict[str, tuple]:
-    """Return the resource-safe function set for the selected Stage-3 DBMS."""
     length_max = max(0, int(string_length_max))
     if _normalized_db_type() == "sqlserver":
-        # SUBSTRING start positions may legitimately be zero or negative.
-        # Only its length is bounded. SPACE handles negative values as NULL.
         return {
             "LEFT": (1, 0, length_max),
             "RIGHT": (1, 0, length_max),
@@ -471,8 +417,6 @@ def _resource_function_limits(string_length_max: int) -> Dict[str, tuple]:
             "SPACE": (0, 0, length_max),
         }
     if _is_oracle_db():
-        # Oracle supports SUBSTR/SUBSTRB and padding functions, but not the
-        # MySQL REPEAT/LEFT/RIGHT family used by the generic fallback.
         return {
             "LPAD": (1, 0, length_max),
             "RPAD": (1, 0, length_max),
@@ -490,14 +434,12 @@ def _resource_function_limits(string_length_max: int) -> Dict[str, tuple]:
 
 
 def _consume_sql_literal_or_comment(sql: str, start: int) -> Optional[int]:
-    """Return the first index after a quoted/comment token, or None."""
     if sql.startswith("--", start):
         newline = sql.find("\n", start + 2)
         return len(sql) if newline < 0 else newline + 1
 
     if sql.startswith("/*", start):
         if _normalized_db_type() == "sqlserver":
-            # T-SQL permits nested block comments.
             depth, index = 1, start + 2
             while index < len(sql) and depth:
                 if sql.startswith("/*", index):
@@ -608,7 +550,6 @@ def _wrap_bounded_argument(argument: str, minimum: int, maximum: int,
     expression_end = len(argument) - trailing_length if trailing_length else len(argument)
     expression = argument[leading_length:expression_end]
     if _normalized_db_type() == "sqlserver" and "\n" in trailing:
-        # Keep a line-comment terminator inside each copied expression.
         expression += trailing
         trailing = ""
     null_condition = f"({expression}) IS NULL"
@@ -622,12 +563,9 @@ def _wrap_bounded_argument(argument: str, minimum: int, maximum: int,
 
 def _bound_sqlserver_replicate(arguments: List[str], count_max: int,
                                output_max_chars: int) -> str:
-    """Bound the input before repetition; keep varchar/nvarchar result types."""
     count_max = max(0, int(count_max))
     budget = max(0, int(output_max_chars))
-    # LEN normally ignores trailing spaces. The MAX cast and sentinel are
-    # only for measuring length, avoiding concatenation truncation and leaving
-    # the actual repeated value's Unicode type/collation unchanged.
+
     input_length = (
         "LEN(CONVERT(nvarchar(max), stage3_replicate_bound.repeat_value) + N'#') - 1"
     )
@@ -635,14 +573,13 @@ def _bound_sqlserver_replicate(arguments: List[str], count_max: int,
         f"LEAST({count_max}, {budget} / "
         f"GREATEST(COALESCE({input_length}, 0), 1))"
     )
-    # Unlike LEFT/RIGHT lengths, negative REPLICATE counts produce NULL.
+
     bounded_count = (
         "CASE WHEN stage3_replicate_bound.raw_count IS NULL "
         "OR stage3_replicate_bound.raw_count < 0 THEN NULL "
         f"ELSE LEAST(stage3_replicate_bound.raw_count, {count_budget}) END"
     )
-    # A one-row VALUES source keeps each original expression in the SQL once,
-    # so nested REPLICATE calls do not grow exponentially during rewriting.
+
     return (
         f"(SELECT REPLICATE(stage3_replicate_bound.repeat_value, {bounded_count}) "
         f"FROM (VALUES (LEFT(({arguments[0]}), {budget}), ({arguments[1]}))) "
@@ -658,7 +595,6 @@ def bound_resource_arguments(
     repeat_output_max_chars: int,
     string_length_max: int,
 ) -> tuple:
-    """Bound only resource-amplifying function arguments in execution SQL."""
     is_sqlserver = _normalized_db_type() == "sqlserver"
     resource_pattern = SQLSERVER_RESOURCE_FUNCTION_PATTERN if is_sqlserver else (
         ORACLE_RESOURCE_FUNCTION_PATTERN
@@ -701,7 +637,7 @@ def bound_resource_arguments(
                         )
                         rewritten_arguments = [rewrite(argument) for argument in arguments]
                         limit = limits.get(function_name.upper())
-                        # Qualified names denote user functions, not built-ins.
+
                         is_builtin = not (
                             is_sqlserver and segment[:index].rstrip().endswith((".", "@", "#", "$"))
                         )
@@ -739,7 +675,6 @@ def bound_resource_arguments(
                             if str(getattr(DB_CONFIG, "db_type", "mysql")).lower() in {
                                 "postgresql", "postgres", "pg"
                             }:
-                                # PostgreSQL evaluates both expressions once through LATERAL VALUES.
                                 output.append(
                                     "(SELECT REPEAT("
                                     f"stage3_repeat_bound.repeat_value, {repeat_count_bound}) "
@@ -748,8 +683,6 @@ def bound_resource_arguments(
                                     "AS stage3_repeat_bound(repeat_value, raw_count))"
                                 )
                             else:
-                                # MySQL has no portable LATERAL VALUES equivalent. Cap the
-                                # count first and then the result so nested rewrites stay linear.
                                 output.append(
                                     "LEFT(REPEAT("
                                     f"{input_expression}, LEAST(GREATEST(("
@@ -791,7 +724,6 @@ def bound_mysql_exp_overflow(
     error: Optional[str],
     argument_limit: float,
 ) -> tuple:
-    """Bound EXP arguments only after MySQL reports numeric overflow."""
     if (
         str(db_type or "").lower() != "mysql"
         or str(error_code or "") != "1690"
@@ -847,10 +779,6 @@ def bound_mysql_exp_overflow(
     return rewritten, rewritten_count
 
 class TLPBugFinder:
-    """
-    类说明: TLP Bug 搜寻主控类。
-    """
-
     def __init__(
         self,
         deadline=None,
@@ -860,14 +788,12 @@ class TLPBugFinder:
         progress_callback=None,
         stratified_task_source=None,
     ):
-        # 第三阶段统一截止时间；None 保持原有无时限行为。
         self.deadline = deadline
-        # 仅限时分层实验传入：逐批构造 TLP，复用下方验证和错误统计。
+
         self.stratified_task_source = stratified_task_source
-        # 主流程显式传入本轮 TLP 文件，避免错误后扫描上一轮残留文件。
+
         self.input_files = list(input_files) if input_files is not None else None
-        # Stage 3 supplies TLP-file -> raw-predicate-file provenance so the
-        # post-analysis can filter raw predicates without reading TLP variants.
+
         self.predicate_source_files = {
             os.path.basename(str(tlp_path)): str(source_path)
             for source_path, tlp_path in (predicate_source_files or {}).items()
@@ -889,7 +815,7 @@ class TLPBugFinder:
         self.oracle_excluded_bits = {}
         self.oracle_excluded_by_file = {}
         self._last_oracle_report_flush = 0.0
-        # TLP mode 与日志控制参数。
+
         self.tlp_mode = "where"
         self.error_sample_limit = int(getattr(STAGE3_CONFIG, "tlp_error_sample_limit", 100))
         self.error_sql_max_chars = int(getattr(STAGE3_CONFIG, "tlp_error_sql_max_chars", 600))
@@ -928,33 +854,30 @@ class TLPBugFinder:
             0, int(getattr(STAGE3_CONFIG, "tlp_resource_bound_sample_limit", 5))
         )
 
-        # 只有第三阶段 TLP 显式传入该超时；其他阶段的执行器调用保持原样。
         self.executor = create_db_executor(
             autoconnect=True,
             query_timeout_seconds=self.query_timeout,
         )
 
-        # 统计计数器
-        self.total_cases_loaded = 0       # 从 SQL 文件中加载了多少组测试
-        self.total_cases_run = 0          # worker/main 实际处理了多少组测试，包含成功和跳过
-        self.total_cases_validated = 0    # 4 条 validation 都成功执行的组数
-        self.total_cases_satisfiable = 0  # 成功验证且至少一个 TLP 分区的匹配行数大于 0
-        self.total_cases_skipped = 0      # 因 SQL error 跳过的组数
-        self.total_sql_errors = 0         # SQL error 总数
-        self.total_validation_errors = 0  # validation SELECT error 数
-        self.total_query_timeouts = 0     # statement/socket timeout 数
+        self.total_cases_loaded = 0       
+        self.total_cases_run = 0          
+        self.total_cases_validated = 0    
+        self.total_cases_satisfiable = 0  
+        self.total_cases_skipped = 0      
+        self.total_sql_errors = 0         
+        self.total_validation_errors = 0  
+        self.total_query_timeouts = 0     
         self.oracle_error_category_counts: Dict[str, int] = {
             "type_failure_count": 0,
             "value_failure_count": 0,
             "other_failure_count": 0,
             "timeout_count": 0,
         }
-        self.total_bugs_found = 0         # 发现了多少个 Bug
-        self.resource_bounded_sqls = 0    # 执行前至少一个危险参数被限幅的 SQL 数
+        self.total_bugs_found = 0         
+        self.resource_bounded_sqls = 0    
         self.resource_bounded_arguments = 0
         self.resource_bound_function_counts: Dict[str, int] = {}
-        # Count all errors in memory; only the existing bounded JSONL keeps SQL
-        # text, so the complete summary adds no per-error disk I/O.
+
         self.error_summary: Dict[str, Dict[str, int]] = {
             "by_kind": {},
             "by_error_code": {},
@@ -966,16 +889,14 @@ class TLPBugFinder:
         self.overflow_retry_rewritten_arguments = 0
         self.oracle_value_repair = {"attempts": 0, "successes": 0, "rewritten_arguments": 0}
         self.resource_bound_samples_written = 0
-        self.error_samples_written = 0    # 已写入多少条 SQL error 样例
-        self.bug_samples_written = 0      # 已写入多少条完整 Bug 现场
-        self.bug_samples_dropped = 0      # 因详细报告上限而省略的 Bug 现场数
-        self.start_time = 0               # 开始时间
+        self.error_samples_written = 0    
+        self.bug_samples_written = 0      
+        self.bug_samples_dropped = 0      
+        self.start_time = 0               
 
-        # 保留 WHERE 模式的日志和报告字段。
         self.mode_stats = {}
         self.file_modes = {}
 
-        # 初始化报告文件路径；创建新报告前只轮转第三阶段自身的旧报告。
         _prune_stage3_report_files(self.report_retention_count)
         timestamp = time.strftime("%Y%m%d_%H%M%S")
         self.log_file = REPORT_DIR / f"scan_log_{timestamp}.txt"
@@ -990,9 +911,7 @@ class TLPBugFinder:
         self._error_sample_handle = None
         self._cardinality_handle = None
         self.cardinality_predicates_written = 0
-        # One bit per TLP test group: 1 means all four Validation SELECTs
-        # succeeded; 0 means skipped or not processed. This keeps the added
-        # memory and output bounded at roughly one bit per test group.
+
         self.validation_status_bits: Dict[str, bytearray] = {}
         self.validation_case_counts: Dict[str, int] = {}
         self.validation_counts_by_file: Dict[str, int] = {}
@@ -1005,7 +924,6 @@ class TLPBugFinder:
         )
 
     def _record_validated_case(self, counts):
-        """Count executable predicates and nonempty TRUE/FALSE/NULL partitions."""
         self.total_cases_validated += 1
         self.total_cases_satisfiable += int(
             any(int(counts.get(role, 0)) >= 1 for role in ("true", "false", "null"))
@@ -1046,7 +964,6 @@ class TLPBugFinder:
             self._cardinality_handle.flush()
 
     def _increment_error_summary(self, error_info: Dict[str, Any], *, error_kind: str) -> None:
-        """Aggregate every SQL error into a compact fixed-size summary."""
         kind = str(error_kind or "unknown")
         code = (
             _oracle_error_label(error_info)
@@ -1057,7 +974,6 @@ class TLPBugFinder:
         if _normalized_db_type() == "sqlserver" and code == "unknown":
             code = str(error_info.get("sqlstate") or "unknown")
         if _is_oracle_db():
-            # Keep ORA/DPY type/value/timeout counts visible in the report.
             category = _oracle_error_category(error_info)
         elif _normalized_db_type() == "sqlserver":
             category = _sqlserver_error_category(error_info)
@@ -1081,7 +997,6 @@ class TLPBugFinder:
         )
 
     def _record_validation_status(self, status, payload) -> None:
-        """Record one test-group Validation result in a compact bitset."""
         if status == "bug" and isinstance(payload, tuple) and len(payload) >= 2:
             file_name, case_idx = payload[0], payload[1]
             validated = True
@@ -1122,7 +1037,6 @@ class TLPBugFinder:
             )
 
     def _record_oracle_fault(self, status, details):
-        """Keep every affected identity; these are neither SQL failures nor successes."""
         item = dict(details)
         if status == "excluded":
             name, idx = os.path.basename(item["file"]), int(item["case_idx"])
@@ -1145,7 +1059,7 @@ class TLPBugFinder:
                 source.observe_excluded(name)
         kind = item["kind"]
         self.oracle_fault_counts[kind] = self.oracle_fault_counts.get(kind, 0) + 1
-        # All identities are persisted; only detailed SQL snapshots are sampled.
+
         if sum(self.oracle_fault_counts.values()) > self.error_sample_limit:
             item.pop("sql", None)
         item.pop("pending_case_indices", None)
@@ -1170,7 +1084,6 @@ class TLPBugFinder:
         }
 
     def _write_validation_status(self) -> Optional[str]:
-        """Persist Validation eligibility without changing TLP results."""
         entries = []
         tlp_names = {
             os.path.basename(str(path))
@@ -1181,9 +1094,7 @@ class TLPBugFinder:
         for tlp_file in sorted(tlp_names):
             bits = self.validation_status_bits.get(tlp_file, bytearray())
             case_count = int(self.validation_case_counts.get(tlp_file, 0))
-            # A deadline may stop a prefetched batch before every worker result
-            # returns. Pad those unprocessed cases with zero bits so downstream
-            # analysis excludes them just like any other non-validated case.
+
             required_bytes = (max(0, case_count) + 7) // 8
             if len(bits) < required_bytes:
                 bits.extend(b"\x00" * (required_bytes - len(bits)))
@@ -1326,10 +1237,6 @@ class TLPBugFinder:
             if code.startswith("22"):
                 return "value_failure_count"
         elif db_type == "mysql":
-            # Keep this adapter small and DBMS-specific. These errors describe
-            # deterministic binary/collation incompatibility rather than a
-            # merely unusual implicit conversion, so Stage-3 feedback may
-            # strongly downweight the corresponding abstract signature.
             if code in {"1267", "3854", "3995", "4078", "4079"} or any(
                 marker in text
                 for marker in (
@@ -1341,8 +1248,7 @@ class TLPBugFinder:
                 )
             ):
                 return "type_failure_count"
-            # Regex-domain and numeric/date conversion errors are value
-            # failures: retain a low exploration channel instead of blocking.
+
             if code in {"1264", "1265", "1292", "1366", "1411", "1525", "1690", "3141", "3685", "3688", "3692"} or any(
                 marker in text
                 for marker in (
@@ -1368,7 +1274,6 @@ class TLPBugFinder:
     ):
         if (_normalized_db_type() == "sqlserver" and not success
                 and str((error_info or {}).get("role", "")) == "total"):
-            # The base COUNT does not test this predicate.
             return
         keys = self._signature_keys_for_case(file_name, case_idx)
         if not keys:
@@ -1414,9 +1319,6 @@ class TLPBugFinder:
             self.progress_callback = None
 
     def log(self, message: str, to_console: bool = True):
-        """
-        辅助方法: 写日志到文件，并可选打印到控制台。
-        """
         if to_console:
             print(message)
 
@@ -1432,7 +1334,6 @@ class TLPBugFinder:
             self._log_handle.flush()
 
     def _close_report_handles(self):
-        """关闭第三阶段报告缓冲区；不改变报告内容，只保证批量写入及时落盘。"""
         for attr_name in (
             "_log_handle",
             "_bug_handle",
@@ -1446,7 +1347,6 @@ class TLPBugFinder:
                 setattr(self, attr_name, None)
 
     def _flush_oracle_reports(self, force=False):
-        """Flush existing bounded reports even when workers return no results."""
         if not _is_oracle_db():
             return
         now = time.monotonic()
@@ -1491,14 +1391,6 @@ class TLPBugFinder:
         stats[key] = stats.get(key, 0) + amount
 
     def _record_sql_error(self, error_info: Dict[str, Any], *, error_kind: str):
-        """
-        记录 SQL error 统计，并限量写入错误样例。
-
-        注意：
-        - total_sql_errors 总是递增；
-        - 但 error_sample_file 最多只写 tlp_error_sample_limit 条；
-        - SQL 和错误信息都会截断，避免日志/磁盘爆炸。
-        """
         tlp_mode = str(error_info.get("tlp_mode") or self.tlp_mode or "unknown").lower()
 
         self.total_sql_errors += 1
@@ -1561,7 +1453,6 @@ class TLPBugFinder:
         self.error_samples_written += 1
 
     def _write_error_summary(self) -> Optional[str]:
-        """Write complete aggregate counts once, independent of sample limits."""
         payload = {
             "version": 1,
             "complete_counts": True,
@@ -1612,9 +1503,6 @@ class TLPBugFinder:
             return None
 
     def report_bug(self, file_name: str, case_idx: int, sql_group: List[str], counts: Dict[str, int]):
-        """
-        辅助方法: 当发现 Bug 时，将详细现场信息写入报告。
-        """
         self.total_bugs_found += 1
 
         special_node_notice = (
@@ -1624,13 +1512,8 @@ class TLPBugFinder:
 
         if self.bug_samples_written >= self.bug_sample_limit:
             self.bug_samples_dropped += 1
-            if self.bug_samples_dropped == 1 and not special_node_notice:
-                print(
-                    '[TLP] Detailed logic-bug report limit reached; subsequent bugs will only be counted.'
-                )
             return
 
-        # 计算差值
         check_sum = counts['true'] + counts['false'] + counts['null']
         diff = counts['total'] - check_sum
 
@@ -1662,7 +1545,6 @@ class TLPBugFinder:
             "==================================================\n"
         ]
 
-        # 写入 Bug 报告文件
         if self._bug_handle is None:
             self._bug_handle = open(
                 self.bug_file,
@@ -1672,21 +1554,10 @@ class TLPBugFinder:
             )
         self._bug_handle.write("\n".join(report_content))
         if _is_oracle_db():
-            # Bug samples are already capped; make the console claim truthful.
             self._bug_handle.flush()
         self.bug_samples_written += 1
 
-        # 控制台醒目提示
-        if not special_node_notice:
-            print(f'!!! Suspected BUG found !!! Details written to {self.bug_file}')
-
     def iter_sql_file(self, file_path: str) -> Iterator[List[str]]:
-        """
-        流式解析 SQL 文件：过滤注释和空行后，每凑齐 4 条 SELECT 立即产出一组。
-
-        文件格式和分组规则保持不变，但不再使用 readlines()/valid_sqls/test_cases
-        三个全量列表，因此超大测试文件只保留当前 4 条 SELECT。
-        """
         group = []
         valid_sql_count = 0
         file_name = os.path.basename(file_path)
@@ -1700,7 +1571,6 @@ class TLPBugFinder:
                     if line.split(":", 1)[1].strip().lower() != "where":
                         raise ValueError("Expected WHERE-TLP test cases")
 
-                # 跳过空行和注释行
                 if not line or line.startswith("--"):
                     continue
 
@@ -1709,56 +1579,37 @@ class TLPBugFinder:
                 valid_sql_count += 1
                 group.append(line)
                 if len(group) == 4:
-                    # 复制当前 4 条，避免调用方持有后被下一组修改。
                     yield list(group)
                     group.clear()
 
         self.file_modes[file_name] = detected_mode
 
-        # 检查数量是否符合预期 (应该是 4 的倍数)
         if valid_sql_count % 4 != 0:
             self.log(
                 f'[Warning] The number of SELECT statements in {os.path.basename(file_path)} is not a multiple of 4 ({valid_sql_count}); the incomplete trailing group was ignored.'
             )
 
     def parse_sql_file(self, file_path: str) -> List[List[str]]:
-        """兼容旧调用；第三阶段主流程使用 iter_sql_file 保持有界内存。"""
         return list(self.iter_sql_file(file_path))
 
     def _cleanup_sql(self, sql: str) -> str:
-        """
-        清洗 SQL 中的 DSL 包装器。
-        使用 class 外部定义的 WRAPPER_PATTERN 进行动态清洗。
-        """
         if not sql:
             return sql
 
         if _normalized_db_type() == "sqlserver":
-            # Reuse the token-aware generator cleanup: quoted data and real
-            # CAST/CONVERT type declarations must survive execution unchanged.
             from BugFinding.sql_generator import cleanup_dsl
             return cleanup_dsl(sql)
 
-        # 1. 循环清洗通用包装器 (int, float, col, date, etc.)
-        # 循环 5 次以处理嵌套，如 int(col(id))
         curr_sql = sql
         for _ in range(5):
-            # 正则替换：将 int(18) 替换为 group(2) 即 18
             new_sql = WRAPPER_PATTERN.sub(lambda m: m.group(2).strip(), curr_sql)
             if new_sql == curr_sql:
                 break
             curr_sql = new_sql
 
-        # 2. 特殊处理引号问题 (针对 string 类型)
-        # 现在的通用正则会将 string('abc') 变成 'abc' (带引号)，这是正确的 SQL 语法，
-        # 所以通常不需要额外处理，除非你的 string() 内部没有引号。
-        # 这里保留一个保险逻辑：如果清洗后发现并没有去干净（极少数情况），可以手动再处理，
-        # 但目前的 WRAPPER_PATTERN 已经能完美处理 string('val') -> 'val'。
-
         return curr_sql
 
     def _bound_sql_for_execution(self, sql: str) -> str:
-        """Apply Stage-3-only resource bounds and retain a small audit sample."""
         bounded_sql, function_counts = bound_resource_arguments(
             sql,
             enabled=self.resource_argument_bounding_enabled,
@@ -1788,8 +1639,7 @@ class TLPBugFinder:
                 f"executed={self._truncate_text(bounded_sql, self.error_sql_max_chars)}",
                 to_console=False,
             )
-            # Only a handful of samples are flushed, so forced termination still
-            # leaves evidence without adding per-SQL I/O.
+
             if self._log_handle is not None:
                 self._log_handle.flush()
             self.resource_bound_samples_written += 1
@@ -1797,13 +1647,11 @@ class TLPBugFinder:
         return bounded_sql
 
     def _prepare_validation_group(self, group: List[str]) -> List[str]:
-        """Prepare only the four read-only TLP validation SQLs for workers."""
         prepared_group = list(group)
         for index in range(min(len(prepared_group), 4)):
             cleaned_sql = self._cleanup_sql(prepared_group[index])
             prepared_group[index] = self._bound_sql_for_execution(cleaned_sql)
         return prepared_group
-
 
     def execute_single_sql(
         self,
@@ -1814,19 +1662,11 @@ class TLPBugFinder:
         case_idx: Optional[int] = None,
         tlp_mode: Optional[str] = None,
     ) -> Optional[int]:
-        """
-        方法说明: 执行单条 SQL 并返回结果 (针对 SELECT COUNT)。
-        SELECT 成功返回 int；失败返回 None。
-        """
-        # === 【新增】执行前先清洗 SQL 语法 ===
         sql = self._bound_sql_for_execution(self._cleanup_sql(sql))
-        # ==================================
 
         if not sql.strip().upper().startswith("SELECT "):
             raise ValueError("WHERE-TLP validation accepts SELECT statements only")
 
-        # 调用执行器 (复用 execute_query)
-        # fetch="one" 表示我们只取一行结果 (因为是 COUNT(*))
         res = self.executor.execute_query(sql, fetch="one")
 
         if (
@@ -1859,7 +1699,6 @@ class TLPBugFinder:
                 sql = retry_sql
 
         if not res.success:
-            # 如果执行出错，只记录限量样例，不把每条错误 SQL 都写入 scan_log。
             if (_normalized_db_type() == "sqlserver"
                     and getattr(self, "_sqlserver_group_error", None) == {}):
                 self._sqlserver_group_error = {
@@ -1885,17 +1724,12 @@ class TLPBugFinder:
 
         if res.rows and len(res.rows) > 0:
             row_dict = res.rows[0]
-            # 获取字典里的第一个值 (不管键名是 count(*) 还是 count(1))
-            # values() 返回的是 dict_values 对象，转 list 后取第一个
+
             count_val = list(row_dict.values())[0]
             return int(count_val)
         return 0
 
     def run_test_group(self, file_name: str, idx: int, group: List[str]):
-        """
-        方法说明: 运行一组 TLP 测试 (核心逻辑)。
-        """
-        # 解包 SQL 语句
         if _normalized_db_type() == "sqlserver":
             self._sqlserver_group_error = {}
         select_total = group[0]
@@ -1907,13 +1741,11 @@ class TLPBugFinder:
         self.total_cases_run += 1
         self._inc_mode_stat(tlp_mode, "processed")
 
-        # 我们必须确保这 4 个查询都成功，才能进行数学校验
         val_total = self.execute_single_sql(select_total, sql_role="total", file_name=file_name, case_idx=idx, tlp_mode=tlp_mode)
         val_true = self.execute_single_sql(select_true, sql_role="true", file_name=file_name, case_idx=idx, tlp_mode=tlp_mode)
         val_false = self.execute_single_sql(select_false, sql_role="false", file_name=file_name, case_idx=idx, tlp_mode=tlp_mode)
         val_null = self.execute_single_sql(select_null, sql_role="null", file_name=file_name, case_idx=idx, tlp_mode=tlp_mode)
 
-        # 如果任意一个查询失败 (返回 None)，则跳过本组测试
         if any(x is None for x in [val_total, val_true, val_false, val_null]):
             self.total_cases_skipped += 1
             self._inc_mode_stat(tlp_mode, "skipped")
@@ -1921,12 +1753,9 @@ class TLPBugFinder:
                 self._observe_signature_result(file_name, idx, success=False, error_info=self._sqlserver_group_error)
             return
 
-        # 3. 逻辑校验 (Oracle)
-        # 理论公式: Total = True + False + Null
         check_sum = val_true + val_false + val_null
 
         if val_total != check_sum:
-            # === 发现 Bug !!! ===
             counts = {
                 'total': val_total,
                 'true': val_true,
@@ -1942,9 +1771,6 @@ class TLPBugFinder:
             self._observe_signature_result(file_name, idx, success=True)
 
     def run(self):
-        """
-        方法说明: 主执行流程。
-        """
         self.start_time = time.time()
         self.log(f'=== Starting TLP Bug Finder ===')
         self.log(f'Batch size: {VALIDATION_BATCH_SIZE}')
@@ -1962,7 +1788,6 @@ class TLPBugFinder:
                 f'Oracle argument bounds: {self.resource_argument_bounding_enabled} (LPAD/RPAD/SUBSTR/SUBSTRB=0..{self.string_length_max})'
             )
 
-        # 1. 扫描所有旧 .sql 或无损压缩 .sql.gz 文件。
         if self.input_files is None:
             candidate_files = glob.glob(str(INPUT_DIR / "*.sql"))
             candidate_files.extend(glob.glob(str(INPUT_DIR / "*.sql.gz")))
@@ -1988,7 +1813,6 @@ class TLPBugFinder:
         )
         self.log(f'Found {len(files)} test files; starting scan...')
 
-        # 2. 流式遍历每个文件。每次只保留当前批次和一个前瞻任务，避免 all_tasks 全量驻留。
         def iter_tasks():
             if self.stratified_task_source is not None:
                 for file_name, case_idx, group, file_tlp_mode in self.stratified_task_source:
@@ -2044,7 +1868,6 @@ class TLPBugFinder:
                     self.stopped_by_deadline = True
                     break
 
-                # 只预取一个任务判断是否为最后一批，避免同时保留两个完整批次。
                 next_task = next(task_iter, None)
                 if self.stopped_by_deadline:
                     break
@@ -2073,7 +1896,6 @@ class TLPBugFinder:
                         )
                     )
 
-                # 完整消费本批只读验证结果后，再调度下一批。
                 excluded_in_batch = set()
                 for status, payload in pool.imap_unordered(
                     worker_task,
@@ -2174,7 +1996,6 @@ class TLPBugFinder:
                         print(".", end="", flush=True)
                         self._emit_progress_callback()
 
-                    # 达到总时限时终止尚未完成的 worker 任务；已经返回的结果完整保留。
                     if self.deadline is not None and time.monotonic() >= self.deadline:
                         self.stopped_by_deadline = True
                         pool.terminate()
@@ -2222,7 +2043,6 @@ class TLPBugFinder:
         print("")
         self._emit_progress_callback(force=True)
 
-        # 3. 结束统计
         duration = time.time() - self.start_time
         streamed_tlp_seconds = 0.0
         if self.stratified_task_source is not None:
@@ -2253,20 +2073,10 @@ class TLPBugFinder:
         self.log(f'  - validation error  : {self.total_validation_errors} statements')
         self.log(f'  - query timeout     : {self.total_query_timeouts} statements')
         self.log(f'Stopped by deadline   : {self.stopped_by_deadline}')
-        self.log(f'Bugs found            : {self.total_bugs_found}')
-        self.log(
-            f'Detailed bug reports written: {self.bug_samples_written}/{self.bug_sample_limit}; omitted details: {self.bug_samples_dropped}'
-        )
         error_summary_path = self._write_error_summary()
 
         self.log("==================================================")
 
-        if self.total_bugs_found > 0:
-            self.log(f'Detailed bug reports: {self.bug_file}')
-        else:
-            self.log('No logic bugs found in this scan.')
-
-        # 关闭数据库连接
         self.executor.close()
         self._close_report_handles()
         validation_status_path = self._write_validation_status()
@@ -2336,9 +2146,7 @@ class TLPBugFinder:
         return result
 
 
-# ================= 程序入口 =================
 if __name__ == "__main__":
-    # 实例化并运行
     finder = TLPBugFinder()
     scan_result = finder.run()
     if scan_result.get("worker_failure"):
