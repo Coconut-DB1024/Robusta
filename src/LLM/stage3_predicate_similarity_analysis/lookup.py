@@ -21,7 +21,6 @@ def _open_text(path: Path):
 
 
 def find_detail_record(run_dir: Path, predicate_id: int) -> Dict[str, Any]:
-    """Find one locator record in the compressed detail output."""
     predicate_id = int(predicate_id)
     if predicate_id < 0:
         raise PredicateLookupError("predicate_id must be >= 0")
@@ -46,7 +45,6 @@ def lookup_predicate(
     project_root: Path,
     locator: Mapping[str, Any],
 ) -> Dict[str, Any]:
-    """Read exactly one source line and verify its optional stored digest."""
     project_root = Path(project_root).resolve()
     raw_source = str(locator.get("source_file", "") or "")
     if not raw_source:

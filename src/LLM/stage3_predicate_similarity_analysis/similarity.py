@@ -13,7 +13,6 @@ _DENSIFY_SEED = 0xA4093822299F31D0
 
 
 def _mix64(value: int) -> int:
-    """SplitMix64 finalizer: deterministic and fast for MinHash bin/rank mixing."""
     value = (int(value) + 0x9E3779B97F4A7C15) & _MASK64
     value = ((value ^ (value >> 30)) * 0xBF58476D1CE4E5B9) & _MASK64
     value = ((value ^ (value >> 27)) * 0x94D049BB133111EB) & _MASK64
@@ -24,15 +23,6 @@ def one_permutation_minhash(
     shingle_hashes: Sequence[int],
     signature_size: int,
 ) -> Tuple[int, ...]:
-    """
-    Build a densified one-permutation MinHash signature in O(shingles + k).
-
-    A traditional k-permutation implementation performs k operations for every
-    shingle. Partitioning one stable permutation into k bins keeps this post-run
-    analysis practical for large predicate collections while retaining the LSH
-    property needed only for candidate generation. Final scores use exact AST
-    tree edit distance, independently of the lexical candidate index.
-    """
     signature_size = int(signature_size)
     if signature_size <= 0:
         raise ValueError("signature_size must be greater than zero")
@@ -70,7 +60,6 @@ def one_permutation_minhash(
 
 
 def lsh_band_keys(signature: Sequence[int], rows_per_band: int) -> Tuple[bytes, ...]:
-    """Hash consecutive signature bands into compact SQLite bucket keys."""
     rows_per_band = int(rows_per_band)
     if rows_per_band <= 0 or len(signature) % rows_per_band != 0:
         raise ValueError("rows_per_band must divide the signature length")
@@ -92,7 +81,6 @@ def lsh_band_keys(signature: Sequence[int], rows_per_band: int) -> Tuple[bytes, 
 
 
 def score_bucket(score: float) -> str:
-    """Map a normalized floating-point score to the same report buckets."""
     value = float(score)
     if value <= 0.0:
         return "0%"

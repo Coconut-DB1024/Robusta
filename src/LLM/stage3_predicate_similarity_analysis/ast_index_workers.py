@@ -1,8 +1,3 @@
-"""Bounded, ordered AST parsing for the standalone similarity index.
-
-Only predicate text crosses the task queue. Workers never read project input
-files or database configuration, and their per-process text caches are bounded.
-"""
 from __future__ import annotations
 
 import multiprocessing
@@ -35,7 +30,7 @@ class _ParserState:
                     encoded = cached[0]
                 else:
                     encoded = self.parser.serialize(predicate)
-                    # Same conservative text/record cost as the serial index.
+
                     cost = 4 * len(predicate) + len(encoded) + 256
                     if cost <= _CACHE_BYTES:
                         self.cache[predicate] = (encoded, cost)
@@ -46,8 +41,6 @@ class _ParserState:
                             self.cache_bytes -= old_cost
                 records.append((encoded, None))
             except Exception as exc:
-                # Preserve the existing index's per-predicate error counting.
-                # _IndexParser discards its parser state after a failed parse.
                 records.append((None, type(exc).__name__))
         return records
 
@@ -59,8 +52,7 @@ class _ParserState:
 
 def _initialize_worker(dialect: str) -> None:
     global _WORKER_STATE
-    # Set before importing the parser and its optional dependencies. The parent
-    # also disables bytecode while spawning, including child bootstrap imports.
+
     sys.dont_write_bytecode = True
     _WORKER_STATE = _ParserState(dialect)
 
@@ -72,15 +64,6 @@ def _parse_worker_batch(predicates: list[str]):
 
 
 class OrderedAstParser:
-    """Parse bounded batches with the same output order as their source text.
-
-    Use as a context manager, then iterate ``parse_batches(batches)`` (or its
-    alias ``map_batches``). Each input batch contains at most ``batch_size``
-    strings; each output batch contains ``(encoded_or_None, error_name_or_None)``
-    pairs. At most two batches per worker are in flight. ``workers=1`` keeps
-    parsing synchronous, using the same cache and per-predicate error behavior.
-    """
-
     def __init__(
         self,
         dialect: str,
@@ -103,8 +86,7 @@ class OrderedAstParser:
     def __enter__(self):
         if self._entered or self._closed:
             raise RuntimeError("AST batch parser cannot be entered again")
-        # Spawn honors this interpreter flag before importing __main__ or any
-        # worker code. Restore it when this scoped parser finishes.
+
         self._previous_bytecode_setting = sys.dont_write_bytecode
         sys.dont_write_bytecode = True
         try:
@@ -122,7 +104,6 @@ class OrderedAstParser:
         except BaseException:
             self.close()
             raise
-
 
     def parse_batches(self, batches: Iterable[list[str]]) -> Iterator[list[tuple]]:
         if not self._entered or self._closed:
@@ -162,13 +143,9 @@ class OrderedAstParser:
                         break
                     self._pending.append(self._pool.submit(_parse_worker_batch, batch))
                 if self._pending:
-                    # Consume submission order even if later workers finish
-                    # first; otherwise window membership would change.
                     records = self._pending.popleft().result()
                     yield records
         finally:
-            # On early termination/failure, cancel queued work. Running work is
-            # bounded by the worker count and joins during context cleanup.
             for future in self._pending:
                 future.cancel()
             self._pending.clear()

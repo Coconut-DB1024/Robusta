@@ -15,16 +15,16 @@ _AST_BLOCK_PREDICATES = 1_024
 _AST_BLOCK_CACHE_BYTES = 32 * 1024 * 1024
 _AST_TREE_CACHE_NODES = 50_000
 _MAX_AST_NODES_PER_PREDICATE = 4_096
-# Compacting parser wrappers can give one parent >255 children. The temporary
-# index uses a two-byte count so otherwise valid wide expressions are not lost.
-_NODE_RECORD_SIZE = 18  # 128-bit label fingerprint + uint16 little-endian count.
+
+
+_NODE_RECORD_SIZE = 18  
 _DEPENDENCIES = None
-# Index caches are bounded independently of the input count. They only reuse
-# identical text/labels; literal values and column types are never anonymized.
+
+
 _PARSE_CACHE_BYTES = 8 * 1024 * 1024
 _PARSE_CACHE_ENTRIES = 8_192
-# Reuse the same encoder instead of constructing one for every AST node.
-# The JSON representation/fingerprint bytes remain exactly those of v3.
+
+
 _JSON_ENCODE = json.JSONEncoder(ensure_ascii=False, separators=(",", ":")).encode
 
 
@@ -33,7 +33,6 @@ class AstDependencyError(RuntimeError):
 
 
 def database_dialect() -> str:
-    """The independent LLM experiment targets PostgreSQL; no RL config is read."""
     return "postgresql"
 
 
@@ -84,8 +83,6 @@ def _serialize_expression(expression: Any) -> bytes:
     expression_type = sqlglot.exp.Expression
     encoded = bytearray()
 
-    # Keep the existing pre-compaction size/width guards. Even when a terminal
-    # becomes one semantic node, a huge parser tree must not bypass the limits.
     source_nodes = 0
     pending = [expression]
     while pending:
@@ -118,8 +115,6 @@ def _serialize_expression(expression: Any) -> bytes:
         encoded.extend(child_count.to_bytes(2, "little"))
 
     def atom_value(value: Any) -> Any:
-        # A column/type/literal is ONE node. Its spelling, qualification,
-        # quoting and type/value are data on that node, never extra TED nodes.
         if isinstance(value, expression_type):
             return [str(value.key), [
                 [str(key), atom_value(item)]
@@ -130,9 +125,6 @@ def _serialize_expression(expression: Any) -> bytes:
         return _canonical_value(value)
 
     def column_placeholder(node: Any) -> bool:
-        # col(__TYPE__int)/col(INT_mock) is the project's column placeholder,
-        # not a real function whose internals should contribute extra matches.
-        # Only recognize its reserved type spellings; keep ordinary col(expr).
         if str(node.key) != "anonymous" or str(node.this).lower() != "col":
             return False
         values = node.args.get("expressions") or []
@@ -153,9 +145,6 @@ def _serialize_expression(expression: Any) -> bytes:
             emit(_JSON_ENCODE(atom_value(node)), 0)
             return
 
-        # Operators/functions are the original AST nodes with ordered operand
-        # children. Scalar properties (including an anonymous function's name)
-        # belong to that node's label. Do not add ARG/ROLE nodes or child labels.
         attributes = []
         children = []
         for key, value in node.args.items():
@@ -190,7 +179,6 @@ def _parser_dialect(dialect: str):
     if normalized_dialect == "mysql":
         return sqlglot.Dialect.get_or_raise("mysql")
     if normalized_dialect in {"postgresql", "postgres"}:
-        # Only this branch loads the local PostgreSQL adapter.
         from .postgres_ast import PredicatePostgres
 
         return PredicatePostgres()
@@ -219,14 +207,6 @@ def _parse_and_serialize(predicate: str, dialect: str) -> bytes:
 
 
 class _IndexParser:
-    """Reuse parser/tokenizer allocations within ONE sequential index builder.
-
-    SQLGlot resets parser and tokenizer state for each parse/tokenize call. Keep
-    parse_one for empty/multiple statements (its behavior varies by version).
-    After any failed call, discard these objects before processing the next SQL.
-    Only the most recent parser state is retained; input-sized token/tree lists
-    never accumulate. finish() releases this state along with the parse cache.
-    """
     def __init__(self, dialect: str):
         self.dialect_name = dialect
         self._dialect = self._parser = self._tokenizer = None
@@ -237,8 +217,7 @@ class _IndexParser:
             if self._parser is None:
                 self._dialect = _parser_dialect(self.dialect_name)
                 self._parser = self._dialect.parser()
-                # SQLGlot 26 exposes a tokenizer instance; 28/30 expose a
-                # factory. Both local DBMS adapters use the same index path.
+
                 tokenizer = self._dialect.tokenizer
                 self._tokenizer = tokenizer() if callable(tokenizer) else tokenizer
             expressions = self._parser.parse(self._tokenizer.tokenize(predicate), predicate)
@@ -328,7 +307,6 @@ class AstTreeStore:
         return raw[start:end]
 
     def prepared_for(self, predicate_id: int):
-        """Decode each active tree once for repeated window/LSH comparisons."""
         from .ast_distance import PreparedTree
 
         if not self.parse_status[predicate_id]:
@@ -443,11 +421,6 @@ class AstTreeIndexBuilder:
         return self.add_encoded(encoded)
 
     def add_encoded(self, encoded: Optional[bytes], error_type: Optional[str] = None) -> bool:
-        """Append one ordered worker result; parser failures keep their slot.
-
-        Only the parent owns the compressed file and predicate numbering. Worker
-        processes return bytes/labels, never write index or source files.
-        """
         self._record_offsets.append(len(self._buffer))
         try:
             if encoded is None:

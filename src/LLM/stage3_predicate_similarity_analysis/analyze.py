@@ -37,8 +37,6 @@ from .ast_distance import distance_backend_info, distance_lower_bound, exact_dis
 from .tokenizer import build_shingle_hashes, predicate_digest, tokenize_predicate
 
 
-# Bounded LRU cache: repeated labeled-tree pairs reuse TED without allowing
-# millions of pairs to accumulate in memory during large Stage-3 runs.
 _AST_DISTANCE_CACHE_LIMIT = 100_000
 
 
@@ -108,7 +106,6 @@ def _relative_to_project(path: Path, project_root: Path) -> str:
 
 
 def load_input_manifest(*, project_root: Path, input_path: Path):
-    """Read one complete predicate TXT, preserving order and duplicate lines."""
     resolved = Path(input_path).resolve()
     if not resolved.is_file():
         raise SimilarityAnalysisError(f"Predicate file does not exist: {resolved}")
@@ -160,7 +157,7 @@ def _print_progress(phase: str, current: int, total: int) -> None:
     fraction = min(max(0, current) / total, 1.0) if total > 0 else 0.0
     filled = int(fraction * 40)
     bar = "#" * filled + "-" * (40 - filled)
-    # An unfinished phase must not round up to 100.00%.
+
     percent = min(fraction * 100, 99.99) if current < total else fraction * 100
     print(f"[PredicateSimilarity] {phase}: [{bar}] {percent:.2f}%", flush=True)
 
@@ -249,9 +246,6 @@ def _build_index_contents(
     if progress_enabled:
         _print_progress("indexing", 0, analysis_target_count)
 
-    # The parent alone owns source filtering, numbering, hashes and disk output.
-    # SQL parsing is the expensive parallel step. A bounded queue collects its
-    # results in original order, preserving window membership even across files.
     with ExitStack() as resources:
         shingle_handle = resources.enter_context(open(shingle_path, "wb"))
         predicate_hash_handle = resources.enter_context(open(predicate_hash_path, "wb"))
@@ -277,8 +271,6 @@ def _build_index_contents(
                 file_info["analysis_skipped_due_to_read_limit"] = True
                 continue
 
-            # Count admitted rows, not completed worker results: prefetch must
-            # never overshoot the configured cross-file predicate read cap.
             remaining_for_file = analysis_target_count - file_start
 
             def source_records(input_handle):
@@ -434,7 +426,6 @@ def _build_index_contents(
 
 
 def _build_lsh_candidate_query(band_count: int) -> str:
-    """Build one bounded SQLite statement covering every band for a predicate."""
     parts = []
     for band_index in range(int(band_count)):
         parts.append(
@@ -459,8 +450,7 @@ def _calculate_similarities(
     predicate_count = len(offsets)
     connection: Optional[sqlite3.Connection] = index["connection"]
     ast_store: Optional[AstTreeStore] = index.get("ast_store")
-    # AST analysis uses the original fixed 1/1/2 edit costs only. The optional
-    # ranking changes which candidate score is selected, never the TED metric.
+
     ast_ranked = skip_ratio(top_skip_fraction) > 0
 
     ast_count = predicate_count
@@ -469,8 +459,7 @@ def _calculate_similarities(
     best_score_denominators = array("I", [1]) * ast_count
     best_distances = array("I", [0]) * ast_count
     best_node_totals = array("I", [0]) * ast_count
-    # Failed AST parses are not zero similarities and cannot occupy a rank.
-    # Keep attempted candidate_count unchanged; rank only the scored candidates.
+
     rank_candidate_counts = array("I", [0]) * (ast_count if ast_ranked else 0)
     nearest_ids = array("q", [-1]) * predicate_count
     candidate_counts = array("I", [0]) * predicate_count
@@ -504,7 +493,6 @@ def _calculate_similarities(
         start = int(offsets[predicate_id])
         return shingle_view[start : start + int(shingle_counts[predicate_id])]
 
-
     def update_best_ast(
         owner_id: int,
         candidate_id: int,
@@ -518,8 +506,6 @@ def _calculate_similarities(
         score_numerator = max(0, node_total - value)
         score_denominator = node_total + value
         if rank_selector is not None:
-            # Reuse exact rational sorting and the bounded window/disk spool.
-            # No floating-point rounding is used for ranks or equal-score ties.
             rank_selector.add(owner_id, candidate_id, score_numerator,
                               score_denominator, source_code)
             rank_candidate_counts[owner_id] += 1
@@ -545,11 +531,6 @@ def _calculate_similarities(
             match_sources[owner_id] = source_code
 
     def ast_bound_can_improve(owner_id, candidate_id, numerator, denominator):
-        """Test an upper score bound, including the original smaller-ID tie rule.
-
-        A pair can be pruned ONLY if neither endpoint could improve. Pruned pairs
-        still count as candidates, and are never cached as exact distances.
-        """
         nearest = int(nearest_ids[owner_id])
         if nearest < 0:
             return True
@@ -658,10 +639,7 @@ def _calculate_similarities(
                             bound = distance_lower_bound(left_tree, right_tree)
                             upper_numerator = node_total - bound
                             upper_denominator = node_total + bound
-                            # The old maximum-only bound cannot discard
-                            # scores needed for a lower rank. Ranked mode
-                            # keeps every valid candidate's exact score;
-                            # repeated-pair caching/native TED still apply.
+
                             if not ast_ranked and not (
                                 ast_bound_can_improve(predicate_id, candidate_id,
                                                      upper_numerator, upper_denominator)
@@ -692,8 +670,6 @@ def _calculate_similarities(
                     combined_pairs += 1
 
             if rank_selector is not None:
-                # Every earlier predicate has supplied its incoming matches;
-                # this predicate's outgoing window/LSH matches are now complete.
                 selected = rank_selector.finish(
                     predicate_id,
                     int(rank_candidate_counts[predicate_id]),
@@ -776,9 +752,6 @@ def run_analysis(
     output_dir: Optional[Path] = None,
     config: SimilarityAnalysisConfig = CONFIG,
 ) -> Dict[str, Any]:
-    """Analyze every nonblank line in the LLM experiment's satisfiable TXT."""
-    # LLM comparison always uses window-only maximum AST similarity.
-    # These two controls are fixed here, not exposed in config.py.
     lsh_candidate_limit = 0
     top_skip_fraction = 0
     config = replace(config, executable_only=False, max_predicates_to_read=None, window_radius=10)
@@ -966,8 +939,7 @@ def run_analysis(
             ),
         )
         timings["reporting"] = time.monotonic() - phase_started
-        # The first summary write happens inside report generation. Refresh only
-        # its timing field so the final summary also records reporting overhead.
+
         report_result["summary"]["timings_seconds"] = {
             key: float(value) for key, value in timings.items()
         }

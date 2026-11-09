@@ -1,9 +1,3 @@
-"""Oracle-only parsing adapters for the project's semantic predicate trees.
-
-The source predicate files are never changed. These subclasses are loaded only
-by AST mode; SQLGlot's global Oracle dialect and the other DBMS branches remain
-untouched.
-"""
 from __future__ import annotations
 
 from sqlglot import exp
@@ -11,10 +5,6 @@ from sqlglot.dialects.oracle import Oracle
 from sqlglot.tokens import Token, TokenType
 
 
-# Ordinary comma-separated function calls emitted by oracle_rules.json. Keep
-# their original names and explicit operands: transpilation-oriented builders
-# otherwise turn NVL into COALESCE, change date format values, or manufacture
-# JSONPath nodes from one string literal. SYS_GUID is the graph's zero-arg call.
 _GRAPH_FUNCTIONS = frozenset("""
     LNNVL REGEXP_LIKE JSON_EXISTS ABS CEIL FLOOR ROUND TRUNC MOD POWER SQRT EXP
     LN LOG SIGN REMAINDER GREATEST LEAST BITAND WIDTH_BUCKET ATAN2 ATAN COS COSH
@@ -30,9 +20,7 @@ _GRAPH_FUNCTIONS = frozenset("""
     STANDARD_HASH SYS_GUID
 """.split())
 
-# Only these functions also have a keyword-based Oracle form. Do not route
-# TRIM(... FROM ...) or JSON ... RETURNING/PASSING/... through a comma-call
-# parser. Nested expressions and quoted text are not treated as such keywords.
+
 _SPECIAL_CALL_SYNTAX = {
     "TRIM": frozenset({"FROM"}),
     "JSON_EXISTS": frozenset({"PASSING", "ON", "RETURNING"}),
@@ -41,9 +29,7 @@ _SPECIAL_CALL_SYNTAX = {
     "JSON_SERIALIZE": frozenset({"RETURNING", "PRETTY", "ASCII", "ON"}),
 }
 
-# Reserved type hints can contain spaces although they are not SQL identifier
-# syntax. Limit this accommodation to Oracle graph types inside col(__TYPE__
-# ...); never absorb an expression or quoted SQL text into a fake column name.
+
 _MULTIWORD_GRAPH_TYPES = frozenset({
     "double precision", "long raw", "timestamp with time zone",
     "timestamp with local time zone", "timestamp without time zone",
@@ -91,15 +77,11 @@ def _project_type_tokens(tokens):
 
 
 class OracleLike(exp.Expression):
-    # LIKEC / LIKE2 / LIKE4 are distinct operators, not a LIKE alias. Preserve
-    # the spelling as a property of ONE operator node, with ordered operands.
     arg_types = {"this": True, "expression": True, "operator": True}
 
 
 class PredicateOracle(Oracle):
     def to_json_path(self, path):
-        # A literal JSON path is still one original string parameter. Do not
-        # add JSONPathRoot/JSONPathKey scoring nodes, even in native JSON forms.
         return path
 
     class Tokenizer(Oracle.Tokenizer):
@@ -122,14 +104,12 @@ class PredicateOracle(Oracle):
         def _parse_oracle_like(self, this):
             operator = self._prev.text.upper()
             if operator == "LIKE":
-                # Ordinary LIKE retains its previous SQLGlot representation.
                 return Oracle.Parser.RANGE_PARSERS[TokenType.LIKE](self, this)
             expression = self._parse_bitwise()
             node = self.validate_expression(OracleLike(
                 this=this, expression=expression, operator=operator,
             ))
-            # The surrounding range parser handles NOT and precedence; the
-            # standard escape parser retains an explicit ESCAPE argument.
+
             return self._parse_escape(node)
 
         def _plain_graph_call(self, name):
@@ -163,8 +143,6 @@ class PredicateOracle(Oracle):
                 and self._curr.text.upper() in _GRAPH_FUNCTIONS
                 and self._plain_graph_call(self._curr.text.upper())
             ):
-                # SQLGlot's generic call parser retains the original name,
-                # explicit argument order and literal values without a rewrite.
                 anonymous = True
             return super()._parse_function_call(
                 functions, anonymous, optional_parens, any_token,

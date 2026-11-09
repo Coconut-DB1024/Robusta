@@ -1,8 +1,3 @@
-"""PostgreSQL-only SQLGlot adapters for semantic predicate trees.
-
-Loaded lazily by the AST branch. Source SQL is never rewritten on disk, and
-these local subclasses do not patch SQLGlot's global PostgreSQL parser.
-"""
 from __future__ import annotations
 
 from sqlglot import exp
@@ -10,22 +5,15 @@ from sqlglot.dialects.postgres import Postgres
 from sqlglot.tokens import Token, TokenType
 
 
-# These are the two multiword type hints emitted by the current PG knowledge
-# graph. Deliberately whitelist type spellings: an IS/AND/etc. expression inside
-# an ordinary col(...) call must never be swallowed into a fake column name.
 _MULTIWORD_GRAPH_TYPES = {"double precision", "character varying"}
 _GEOMETRIC_LITERAL_TYPES = {"point", "line", "lseg", "box", "path", "polygon", "circle"}
 
 
 class IsNormalized(exp.Expression):
-    # NORMALIZED is an operator, not a second column. The optional Unicode
-    # form is an intrinsic property of that operator, not a scoring node.
     arg_types = {"this": True, "form": False}
 
 
 class PostgresTypedLiteral(exp.Expression):
-    # A typed literal such as path '((0,0),(1,1))' is ONE constant node,
-    # carrying its type and exact value, not an artificial column/alias pair.
     arg_types = {"this": True, "kind": True}
 
 
@@ -34,14 +22,6 @@ class PostgresPrefix(exp.Expression):
 
 
 def _project_type_tokens(tokens):
-    """Merge reserved multiword col(__TYPE__...) hints, not SQL strings.
-
-    The graph emits e.g. col(__TYPE__double precision), which is a project
-    placeholder rather than valid SQL identifier syntax. Treat its argument
-    as ONE unquoted identifier, just like col(__TYPE__integer). Token-level
-    matching leaves quoted strings/identifiers, comments and ordinary calls
-    untouched; no input-sized lookup/cache is retained after parsing.
-    """
     merged = []
     cursor = 0
     while cursor < len(tokens):
@@ -87,8 +67,7 @@ class PredicatePostgres(Postgres):
     class Parser(Postgres.Parser):
         UNARY_PARSERS = {
             **Postgres.Parser.UNARY_PARSERS,
-            # PG's unary # (e.g. number of points) is distinct from binary
-            # bitwise #. Parsing does not validate operand database types.
+
             TokenType.HASH: lambda self: self._parse_hash_prefix(),
         }
 
@@ -107,9 +86,6 @@ class PredicatePostgres(Postgres):
             return super()._parse_type(parse_interval, fallback_to_identifier)
 
         def _parse_is(self, this):
-            # SQLGlot 28/30 otherwise accepts NORMALIZED as a column (and
-            # NFC NORMALIZED as an alias), silently producing the wrong tree.
-            # On ordinary IS predicates, restore state and delegate unchanged.
             start = self._index
             negate = self._match(TokenType.NOT)
             form = None
@@ -130,8 +106,6 @@ class PredicatePostgres(Postgres):
             self._retreat(start)
             negate = self._match(TokenType.NOT)
             if self._match(TokenType.UNKNOWN):
-                # Keep the original UNKNOWN terminal distinguishable from
-                # NULL; SQLGlot normally canonicalizes both to exp.Null.
                 node = exp.Is(this=this, expression=exp.Var(this="UNKNOWN"))
                 if negate:
                     node = exp.Not(this=node)
@@ -140,9 +114,6 @@ class PredicatePostgres(Postgres):
             return super()._parse_is(this)
 
         def _parse_normalize(self):
-            # Also retain a literal form argument when external LLM text uses
-            # NORMALIZE(expr, 'NFC'). This parses its structure, not proof that
-            # PostgreSQL will execute that spelling; no text/value is repaired.
             value = self._parse_bitwise()
             form = False
             if self._match(TokenType.COMMA):

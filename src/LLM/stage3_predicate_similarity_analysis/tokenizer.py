@@ -38,8 +38,7 @@ def tokenize_predicate(
     *,
     normalize_unquoted_tokens: bool = True,
 ) -> List[str]:
-    """Tokenize generated SQL without changing quoted literals or identifiers."""
-    is_sqlserver = False  # This LLM experiment uses PostgreSQL.
+    is_sqlserver = False  
     token_re = _SQLSERVER_TOKEN_RE if is_sqlserver else _TOKEN_RE
     tokens = token_re.findall(str(predicate or ""))
     if not normalize_unquoted_tokens:
@@ -48,7 +47,6 @@ def tokenize_predicate(
     normalized = []
     for token in tokens:
         if is_sqlserver and token.startswith(("N'", "n'")):
-            # The prefix is part of the literal, not an unquoted SQL word.
             normalized.append(token)
         elif token and (token[0].isalpha() or token[0] == "_"):
             normalized.append(token.upper())
@@ -67,7 +65,6 @@ def _hash_token_sequence(tokens: Sequence[str]) -> int:
 
 
 def build_shingle_hashes(tokens: Sequence[str], size: int = 3) -> List[int]:
-    """Return sorted unique 64-bit hashes for consecutive token shingles."""
     size = int(size)
     if size <= 0:
         raise ValueError("shingle size must be greater than zero")
@@ -85,7 +82,6 @@ def build_shingle_hashes(tokens: Sequence[str], size: int = 3) -> List[int]:
 
 
 def predicate_digest(predicate: str) -> bytes:
-    """Stable compact identity used with file/line locators in detailed output."""
     return hashlib.blake2b(
         str(predicate).encode("utf-8"),
         digest_size=16,
