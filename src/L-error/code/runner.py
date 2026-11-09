@@ -375,7 +375,7 @@ def archive_results(root, names):
         raise ValueError("The legacy launcher event archive must be a file")
 
     archive.mkdir(parents=True, exist_ok=True)
-    # Prepare both reports for every selected experiment before clearing old archives.
+
     with tempfile.TemporaryDirectory(prefix=".archive-", dir=archive) as temporary:
         staging = Path(temporary)
         for folder in folders:
