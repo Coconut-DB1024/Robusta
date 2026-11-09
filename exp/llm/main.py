@@ -1,5 +1,3 @@
-"""Start a fresh, independent LLM experiment using the shared configuration."""
-
 import json
 import os
 from pathlib import Path
@@ -11,7 +9,7 @@ import sys
 def _clear_previous_results(project_dir: Path) -> None:
     llm_dir = project_dir / "src" / "LLM"
     results_dir = llm_dir / "results"
-    # Validate the absolute cleanup target before any recursive deletion.
+
     if llm_dir.resolve() != llm_dir or results_dir.resolve() != results_dir:
         raise RuntimeError("Refusing to clear a redirected LLM results directory.")
     if results_dir.exists():
@@ -28,7 +26,7 @@ def main() -> int:
         config = json.loads(config_path.read_text(encoding="utf-8-sig"))
         if not isinstance(config, dict):
             raise ValueError(f"Expected a JSON object in {config_path}")
-        # Check before cleanup so an unsupported DB leaves previous results intact.
+
         if config.get("db_type") != "postgresql":
             print("Only PostgreSQL is currently supported.", file=sys.stderr, flush=True)
             return 1
