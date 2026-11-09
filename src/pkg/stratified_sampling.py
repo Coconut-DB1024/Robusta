@@ -1,5 +1,3 @@
-"""仅限时枚举/随机使用的分层调度；谓词解码、渲染仍复用原采样器。"""
-
 import os
 import time
 from contextlib import ExitStack
@@ -8,7 +6,6 @@ from .stage3_runtime import Stage3DeadlineReached, encode_count
 
 
 def node_level(node_id):
-    # 展开器的 L0 是完整树，层号越大，剩余子树越浅。
     return int(str(node_id).rsplit("::L", 1)[1])
 
 
@@ -41,7 +38,7 @@ def sample_stratified_file(sampler, dag_data, *, output_dir, output_name,
     catalog = {}
     generated = 0
     last_progress = time.monotonic()
-    # 一秒时间片只影响调度；每层保留自己的 root/index，绝不重头枚举。
+
     enumeration_slice_seconds = 1.0
     paths = []
     try:
@@ -79,14 +76,12 @@ def sample_stratified_file(sampler, dag_data, *, output_dir, output_name,
             turn = 0
             while active and time.monotonic() < deadline:
                 if sampler.localized_random:
-                    # 每层同样大小的生成块；不足一块的最后一层保留有效前缀。
                     state = active[turn % len(active)]
                     turn += 1
                     spec = sampler.local_random_rng.choice(state["specs"])
                     root_id = spec["root_id"]
                     state["random_info"]["blocks_started"] += 1
                 else:
-                    # 总是补给已使用时间最少的层；耗尽层自动退出，预算自动重分配。
                     state = min(active, key=lambda item: (item["spent"], -item["level"]))
                 started = time.monotonic()
                 slice_end = min(deadline, started + enumeration_slice_seconds)
@@ -165,7 +160,6 @@ def sample_stratified_file(sampler, dag_data, *, output_dir, output_name,
         for path in paths:
             os.replace(path + ".partial", path)
     except BaseException:
-        # 仅清理本次创建的未提交文件，不碰历史实验的正式输出。
         for path in paths:
             if os.path.exists(path + ".partial"):
                 os.remove(path + ".partial")

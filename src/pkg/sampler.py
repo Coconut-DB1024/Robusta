@@ -1,9 +1,9 @@
-import os  # 用于文件路径操作
-import json  # 用于读取图谱数据
-import random  # 用于给 HOLE 生成随机值
+import os  
+import json  
+import random  
 import re
-import time  # 【新增】用于记录打印当前时间
-import gzip  # 第三阶段采样谓词的标准 gzip 无损压缩
+import time  
+import gzip  
 from bisect import bisect_right
 from contextlib import contextmanager
 
@@ -45,20 +45,13 @@ PREDICATE_CONTRIBUTION_PATH = os.path.join(
     "predicate_contribution.json",
 )
 
-# 对同一张知识图和同一份相似度索引，缓存原始节点顺序后，
-# 后续深度无需重复执行相同的贪心相似排序。
+
 _STAGE3_SLOT_ORDER_CACHE = {}
 
-# Oracle has several accepted labels in the existing DB configuration files.
-# Keep the alias set local to Stage 3 so selecting an Oracle strategy never
-# changes the behavior of MySQL, PostgreSQL, or an unknown DBMS label.
+
 _ORACLE_DB_TYPES = frozenset({"oracle", "oracledb", "oracle_ai26"})
 
 
-# Stage-3 sampling timers are accumulated in memory only.  Keeping these
-# counters separate from the existing wall-clock value lets callers distinguish
-# graph preparation, predicate rendering, and output writes without adding any
-# per-predicate log or side-car I/O.
 _SAMPLING_TIMING_SECONDS = (
     "sampler_setup_seconds",
     "counted_dag_load_seconds",
@@ -77,7 +70,6 @@ _SAMPLING_TIMING_COUNTERS = (
 
 
 def _new_sampling_timings():
-    """Return an empty in-memory timing accumulator for one sampler call."""
     return {
         **{name: 0.0 for name in _SAMPLING_TIMING_SECONDS},
         **{name: 0 for name in _SAMPLING_TIMING_COUNTERS},
@@ -85,7 +77,6 @@ def _new_sampling_timings():
 
 
 def _merge_sampling_timings(target, source):
-    """Add one per-DAG timing accumulator into the sampler-level total."""
     if not isinstance(source, dict):
         return
     for name in _SAMPLING_TIMING_SECONDS:
@@ -101,11 +92,10 @@ def _merge_sampling_timings(target, source):
 
 
 def _print_sampling_progress(completed_roots, total_roots):
-    """Report completed roots only; this does not count or generate predicates."""
     fraction = completed_roots / total_roots if total_roots > 0 else 1.0
     filled = min(40, int(fraction * 40))
     bar = "#" * filled + "-" * (40 - filled)
-    # Do not round an unfinished run up to 100.00%.
+
     percent = min(fraction * 100, 99.99) if completed_roots < total_roots else 100.0
     print(f"  [Sampling] [{bar}] {percent:.2f}%", flush=True)
 
@@ -118,7 +108,6 @@ def _open_predicate_writer(
     compression_level,
     buffer_bytes,
 ):
-    """以二进制流写入 UTF-8 谓词；gzip 解压后与原 .txt 内容逐字节一致。"""
     with open(output_path, "wb", buffering=buffer_bytes) as raw_file:
         if not compressed:
             yield raw_file
@@ -135,12 +124,6 @@ def _open_predicate_writer(
 
 
 class PredicateSampler:
-    """
-    谓词采样器。
-    功能：实现论文中的 Stepwise Sampling (算法3) 和 Generate Tree (Mixed-Radix Decoding)。
-    目标：将 '计数后的DAG' 转化为具体的 SQL 语句列表。
-    """
-
     def __init__(
         self,
         step_size=1,
@@ -149,16 +132,8 @@ class PredicateSampler:
         enumerate_all=False,
         localized_random=False,
     ):
-        """
-        初始化采样器。
-        :param step_size: 兼容旧调用保留；实际步长由每个节点的组合数和密度参数计算。
-        :param max_sqls_per_file: 兼容旧调用保留；新路径不使用固定数量截断。
-        :param enumerate_all: 仅供限时枚举支线使用；为 True 时每个根节点固定步长为 1。
-        :param localized_random: 仅供第三阶段局部随机实验使用；在受限组合窗口内有放回抽样。
-        """
         self.step_size = step_size
-        # The dedicated enumeration branch keeps every combination index. The
-        # default remains the existing per-root fixed-step sampling behavior.
+
         self.enumerate_all = bool(enumerate_all)
         self.localized_random = bool(localized_random)
         if self.enumerate_all and self.localized_random:
@@ -215,8 +190,7 @@ class PredicateSampler:
                 )
             ),
         )
-        # A dedicated RNG makes root/window/index selection reproducible without
-        # changing random literals used by the existing predicate renderer.
+
         self.local_random_rng = random.Random(self.local_random_seed)
         self.db_type = str(
             getattr(DB_CONFIG, "db_type", "mysql") or "mysql"
@@ -242,8 +216,7 @@ class PredicateSampler:
         self.contextual_null_cast_enabled = bool(
             getattr(STAGE3_CONFIG, "stage3_contextual_null_cast_enabled", True)
         )
-        # Exact source types are attached only to Stage-3 column variants. The
-        # switch can restore the legacy coarse INT/FLOAT/STRING placeholders.
+
         self.exact_column_type_guidance_enabled = bool(
             getattr(STAGE3_CONFIG, "stage3_exact_column_type_guidance_enabled", True)
         )
@@ -278,12 +251,12 @@ class PredicateSampler:
         self.success_guided_sampling_enabled = bool(
             getattr(STAGE3_CONFIG, "stage3_success_guided_sampling_enabled", True)
         )
-        # 保留成功引导配置以兼容已有配置；新的固定步长路径不使用固定候选配额截断。
+
         self.candidate_pool_multiplier = max(
             1,
             int(getattr(STAGE3_CONFIG, "stage3_candidate_pool_multiplier", 2)),
         )
-        # 该比例仅保留为兼容字段，固定步长路径不会因此删减步长命中的谓词。
+
         self.guided_candidate_ratio = min(
             1.0,
             max(0.0, float(getattr(STAGE3_CONFIG, "stage3_guided_candidate_ratio", 0.70))),
@@ -322,8 +295,7 @@ class PredicateSampler:
                 )
             ),
         )
-        # Oracle and SQL Server each use an explicitly named, bounded
-        # implicit-conversion channel. Other DBMSs retain the generic ratio.
+
         unknown_exploration_ratio_key = (
             "stage3_oracle_implicit_conversion_exploration_ratio"
             if self.db_type in _ORACLE_DB_TYPES
@@ -478,8 +450,7 @@ class PredicateSampler:
                 )
             ),
         )
-        # Component feedback is a MySQL normal-sampling refinement. Keep it
-        # isolated from PostgreSQL and the enumeration/random experiment lines.
+
         normalized_db_type = str(
             getattr(DB_CONFIG, "db_type", "") or ""
         ).strip().lower()
@@ -527,13 +498,9 @@ class PredicateSampler:
         self.operator_similarity_index = self._load_operator_similarity_index()
         self._similarity_score_cache = {}
         self._similarity_neighbor_cache = {}
-        # 同一采样过程内，slot 中的节点通常只有少量不同算子 token。
-        # 保存“当前 token 集合下，各前驱 token 的候选 token 顺序”，
-        # 让大 slot 不再重复扫描数千个同类节点。
+
         self._similarity_token_order_cache = {}
-        # 当前固定步长路径不会构建或筛选候选池，也不会调用成功边对评分。
-        # 因此不再每轮解析约十几 MB 的 predicate_contribution.json；
-        # 相似后继排序和固定步长采样顺序保持不变。
+
         self.success_edge_pair_counts = {}
         self.last_sample_metadata = {
             "round_complete": True,
@@ -545,12 +512,10 @@ class PredicateSampler:
         }
         self._decode_cache_nodes = None
         self._decode_cache = {}
-        # Filled by iter_file() for the current counted DAG; no disk writes
-        # occur here.  The outer sampler() aggregates it after consumption.
+
         self.last_sampling_timings = _new_sampling_timings()
 
     def _load_rule_config(self):
-        # 三个 Oracle 名称共用同一份第三阶段规则，避免别名误查不存在的文件。
         rules_db_type = "oracle" if self.db_type in _ORACLE_DB_TYPES else self.db_type
         config_path = os.path.join(
             os.path.dirname(os.path.abspath(__file__)),
@@ -626,7 +591,6 @@ class PredicateSampler:
             if not bool(record.get("parse_success", False)):
                 continue
 
-            # Only sibling edges from different slots describe a proven operand combination.
             grouped_edges = {}
             for edge_key in sorted(set(record.get("edges", []) or [])):
                 parsed = self._parse_edge_key(edge_key)
@@ -668,7 +632,6 @@ class PredicateSampler:
         return cls._original_node_id(node_id, nodes).split("::", 1)[0]
 
     def _similarity_score_for_tokens(self, left_token, right_token):
-        """按原有规则计算两个 token 的相似度；结果只依赖 token。"""
         if self.operator_similarity_index is None:
             return 0.0
         left_key = normalize_operator_key(left_token)
@@ -680,7 +643,6 @@ class PredicateSampler:
             self._similarity_score_cache = score_cache
         neighbor_cache = getattr(self, "_similarity_neighbor_cache", None)
         if neighbor_cache is None:
-            # 兼容测试和旧调用通过 __new__ 构造的轻量采样器；正常主流程仍复用同一缓存。
             neighbor_cache = {}
             self._similarity_neighbor_cache = neighbor_cache
         if cache_key in score_cache:
@@ -689,9 +651,6 @@ class PredicateSampler:
         if left_key == right_key:
             score = 1.0
         else:
-            # 正式 OperatorSimilarityIndex 提供直接的 token 对查询。
-            # 优先使用它可避免在每次比较时重复构造完整候选列表；旧的
-            # 轻量测试索引若未提供该方法，则继续走下方兼容路径。
             direct_score = getattr(self.operator_similarity_index, "get_similarity_score", None)
             if callable(direct_score):
                 try:
@@ -754,7 +713,6 @@ class PredicateSampler:
         )
 
     def _ordered_similarity_tokens(self, token_keys):
-        """返回与原逐节点 min(key) 完全一致的 token 选择顺序。"""
         raw_tokens = tuple(sorted({str(token) for token in token_keys if str(token)}))
         order_cache = getattr(self, "_similarity_token_order_cache", None)
         if order_cache is None:
@@ -777,7 +735,6 @@ class PredicateSampler:
         return rankings
 
     def _order_slot_by_similarity(self, slot, nodes, original_ids=None):
-        # 调用方若已构造原始 ID 映射，直接复用，避免大槽位重复解析节点 ID。
         if original_ids is None:
             original_ids = {
                 node_id: self._original_node_id(node_id, nodes)
@@ -797,15 +754,13 @@ class PredicateSampler:
         if len(remaining) < 2 or self.operator_similarity_index is None:
             return remaining
 
-        # 相似度只依赖 operator token，而不是具体的 TYPE/Lx 节点 ID。
-        # 因此按 token 分组后，每组内部按原 tie-break 顺序取出即可。
         groups = {}
         for node_id in remaining:
             token = token_for(node_id)
             groups.setdefault(token, []).append(node_id)
 
         token_rankings = self._ordered_similarity_tokens(groups.keys())
-        # 按索引读取分组节点，避免 list.pop(0) 在大组中反复搬移元素。
+
         group_positions = {token: 0 for token in groups}
 
         def take_from_group(token):
@@ -1016,22 +971,13 @@ class PredicateSampler:
 
     @staticmethod
     def _oracle_error_kind(error_info):
-        """Classify a directly supplied Oracle error for Stage-3 feedback.
-
-        Normal runs receive compact counters produced by the existing bug
-        finder. This adapter is also intentionally tolerant of a raw error
-        payload (useful for workers that pass one through): it keeps ORA type,
-        value, execution, and timeout semantics local to the Oracle sampler
-        branch without changing another DBMS's classifier.
-        """
         info = error_info if isinstance(error_info, dict) else {}
         category = classify_oracle_error(
             info.get("error_code"),
             info.get("error"),
             timed_out=bool(info.get("is_timeout", False)),
         )
-        # Runtime feedback already exposes a stable other_failure_count field.
-        # Connection/session failures must not become strong type evidence.
+
         if category in {"execution_failure_count", "environment_failure_count"}:
             return "other_failure_count"
         return category
@@ -1064,14 +1010,10 @@ class PredicateSampler:
                 )
                 counts[kind] = failures
                 classified = failures
-            # Legacy/unclassified failures are weak execution evidence. Timeouts
-            # and session failures are counted diagnostically with zero penalty.
+
             counts["execution_failure_count"] += max(0, failures - classified)
             failures = sum(counts[key] * weight for key, weight in SQLSERVER_FAILURE_WEIGHTS.items())
         elif normalized_db_type == "mysql":
-            # Reuse the Stage-3 error classifier. Collation/binary type
-            # failures are strong evidence; value/regex and unknown failures
-            # retain a small exploration channel for implicit conversions.
             type_failures = max(
                 0, int(item.get("type_failure_count", 0) or 0)
             )
@@ -1118,8 +1060,6 @@ class PredicateSampler:
                     )))
                 )
         elif normalized_db_type in _ORACLE_DB_TYPES:
-            # Oracle has strict operand conversion rules. Use its own weights
-            # instead of MySQL's deliberately weak implicit-cast penalties.
             type_failures = max(
                 0, int(item.get("type_failure_count", 0) or 0)
             )
@@ -1144,9 +1084,6 @@ class PredicateSampler:
                 + timeout_failures
             )
 
-            # Some isolated workers may provide a raw ORA payload instead of
-            # pre-classified counters. Only use it when no category counter is
-            # present, so normal compact feedback is never double-counted.
             raw_error_info = item.get("error_info")
             if raw_error_info is None and any(
                 key in item for key in ("error_code", "error", "is_timeout")
@@ -1200,12 +1137,6 @@ class PredicateSampler:
             return 1.0
 
         if getattr(self, "runtime_feedback_tiered_enabled", True):
-            # Absolute success-rate tiers prevent a signature that is merely
-            # above 50% from being treated as good evidence. This is applied
-            # only after enough observations, so one-off failures do not erase
-            # useful implicit-conversion paths. A very-low factor is a bounded
-            # near-block; the sampler still retains its existing minimum-one
-            # behavior for a reachable root.
             success_rate = successes / observations if observations > 0 else 0.0
             if success_rate >= float(self.runtime_feedback_high_rate):
                 return float(self.runtime_feedback_high_factor)
@@ -1225,7 +1156,6 @@ class PredicateSampler:
         )
 
     def _evidence_density_factor(self, node, node_id=None):
-        """Apply a bounded soft preference without making any variant unreachable."""
         signature = node.get("stage3_type_signature", {}) if isinstance(node, dict) else {}
         if (signature or {}).get("compatibility_class") == "unknown":
             unknown_factor = float(
@@ -1241,8 +1171,6 @@ class PredicateSampler:
                     or 0.05
                 )
             elif str((signature or {}).get("db_type", "")).lower() in _ORACLE_DB_TYPES:
-                # Unknown Oracle signatures are the bounded implicit-cast
-                # exploration channel configured during initialization.
                 unknown_factor = float(
                     getattr(self, "unknown_exploration_ratio", 0.05) or 0.0
                 )
@@ -1280,10 +1208,6 @@ class PredicateSampler:
                     value_weight = SQLSERVER_FAILURE_WEIGHTS["value_failure_count"]
                     execution_weight = SQLSERVER_FAILURE_WEIGHTS["execution_failure_count"]
                 elif db_type == "mysql":
-                    # MySQL value/ordinary execution failures are weak
-                    # negative evidence. They lower priority slightly but do
-                    # not remove implicit-conversion paths. New DBMS-specific
-                    # weights belong in RL.config with their classifier.
                     value_weight = max(
                         0.0,
                         float(getattr(STAGE3_CONFIG, "stage3_mysql_value_failure_weight", 0.05) or 0.0),
@@ -1293,9 +1217,6 @@ class PredicateSampler:
                         float(getattr(STAGE3_CONFIG, "stage3_mysql_execution_failure_weight", 0.02) or 0.0),
                     )
                 elif db_type in _ORACLE_DB_TYPES:
-                    # Oracle's deterministic type failures are strong
-                    # evidence; values and ordinary execution errors retain
-                    # their own, non-MySQL weights.
                     type_weight = max(
                         0.0,
                         float(
@@ -1350,8 +1271,6 @@ class PredicateSampler:
                         observations / max(1, int(getattr(self, "evidence_min_observations", 1))),
                     )
                     if db_type == "mysql":
-                        # MySQL implicit casts remain useful exploration paths;
-                        # only apply a gentle evidence preference.
                         strength = min(
                             strength,
                             max(
@@ -1388,21 +1307,11 @@ class PredicateSampler:
             context = max(0, int(signature.get("observed_context_success_count", 0)))
             successes = max(direct + context, int(signature.get("observed_success_count", 0)))
             if successes and context:
-                # Only new, explicitly contextual evidence is discounted.
-                # Legacy records remain unchanged; every factor stays > 0.
                 evidence_factor *= 1.0 - 0.25 * context / successes
-        # Runtime feedback adjusts every signature, including unknown catalog
-        # variants. Both factors remain positive, so no combination is removed.
+
         return max(1e-9, evidence_factor * runtime_factor)
 
     def _calculate_fixed_step(self, total_count, node=None, node_id=None):
-        """
-        根据当前布尔节点的组合数计算本节点固定步长。
-
-        预计采样规模 S = B * bit_length(N)，步长 delta = ceil(N / S)。
-        Stage-2 证据只在有限范围内缩放 S；同一节点内 delta 仍保持不变，
-        无论成功率高低都至少保留一个样本，不会删除任何节点或组合。
-        """
         total_count = max(0, int(total_count))
         if total_count <= 1:
             return 1
@@ -1416,16 +1325,8 @@ class PredicateSampler:
         return max(1, (total_count + expected_samples - 1) // expected_samples)
 
     def _prepare_decode_cache(self, nodes, deadline=None):
-        """
-        为当前 DAG 预计算每个槽位的累计组合边界。
-
-        原算法在生成每条谓词时都会重新求 slot_capacity 并逐个减 child_count；
-        缓存后可直接二分定位，混合基数解码结果和后继顺序保持完全一致。
-        """
         cache = {}
-        # Counts are immutable for the duration of one sampling pass.  Keep a
-        # compact per-call lookup table so every edge does not repeat a
-        # dictionary lookup and int() conversion while building slot bounds.
+
         count_by_id = {}
         for node_id, node in nodes.items():
             check_deadline(deadline, "sampling count-cache preparation")
@@ -1459,11 +1360,9 @@ class PredicateSampler:
 
     @staticmethod
     def _format_count_for_log(value):
-        """限制超大组合数的控制台表示，避免只因日志格式化就产生超长输出。"""
         return format_large_int(value)
 
     def _local_random_window_width(self, total_count):
-        """Return a bounded local window width without converting huge counts to float."""
         total_count = max(1, int(total_count))
         numerator, denominator = self.local_random_window_ratio.as_integer_ratio()
         ratio_width = (
@@ -1477,7 +1376,6 @@ class PredicateSampler:
         )
 
     def _prepare_local_random_roots(self, boolean_roots, nodes):
-        """随机支线：按组合数分三档选根，再沿用每根一个局部窗口。"""
         ranked_roots = sorted(
             (
                 root_id
@@ -1489,8 +1387,7 @@ class PredicateSampler:
                 root_id,
             ),
         )
-        # 分层调度传入当前层的有效非叶布尔根。按排名等分小/中/大三档，
-        # 不再先截取组合数最大的候选；同计数以 root_id 排序，避免输入顺序影响选根。
+
         band_names = ("small", "medium", "large")
         band_size, band_remainder = divmod(len(ranked_roots), len(band_names))
         selected_count = min(self.local_random_root_pool_size, len(ranked_roots))
@@ -1501,8 +1398,7 @@ class PredicateSampler:
         for band_index, band_name in enumerate(band_names):
             end = start + band_size + (band_index < band_remainder)
             candidates = ranked_roots[start:end]
-            # 当前总配额为6，即每档2个；整层不足6个时全部选用且不重复。
-            # 复用固定种子的专用 RNG，不改变渲染随机字面量使用的全局随机状态。
+
             take = quota + (band_index < quota_remainder)
             chosen = self.local_random_rng.sample(candidates, take)
             selected_roots.extend(chosen)
@@ -1564,7 +1460,7 @@ class PredicateSampler:
             "candidate_root_count": len(ranked_roots),
             "selected_root_count": len(root_specs),
             "configured_root_pool_size": self.local_random_root_pool_size,
-            # 保留旧配置字段便于读取历史报告；三档选根不再使用前 N 候选限制。
+
             "configured_candidate_root_pool_size": (
                 self.local_random_root_candidate_pool_size
             ),
@@ -1593,7 +1489,6 @@ class PredicateSampler:
         progress_interval,
         progress_min_seconds,
     ):
-        """Stream localized random predicates with replacement and bounded metadata."""
         if deadline is None and stop_check is None:
             raise ValueError(
                 "Localized-random sampling requires a deadline or stop callback."
@@ -1792,15 +1687,6 @@ class PredicateSampler:
         stop_check_interval=1000,
         progress_callback=None,
     ):
-        """
-        流式生成单个 DAG 文件的谓词。
-
-        采样顺序和固定步长规则保持不变；这里只是不再把当前文件的全部
-        root_candidates/generated_sqls 保存在内存中。调用方应立即消费每条结果。
-        stop_check 仅用于在固定步长边界停止继续生成，为已生成结果预留下游时间。
-        """
-        # Reset per-file counters when the generator is first consumed.  The
-        # outer sampler aggregates these values after this generator finishes.
         self.last_sampling_timings = _new_sampling_timings()
         nodes = dag_data['nodes']
         generated_count = 0
@@ -1854,31 +1740,21 @@ class PredicateSampler:
                 time.monotonic() - cache_started,
             )
 
-        # --- 【修改开始：获取所有布尔节点并按逆拓扑顺序排序 (Algorithm 3, Line 2)】 ---
-        # 论文要求: for all t_i in the reverse topo order of boolean tokens
-        # 即需要遍历图谱中所有的布尔节点，从简单的局部子树开始，逐渐过渡到复杂的全局树。
         boolean_roots = []
         for nid, node in nodes.items():
-            # 筛选出返回值为布尔型，且非终端(有后续展开槽位)的有效节点
             if node.get('return_type') == 'T_BOOL' and not node.get('is_terminal'):
-                if node.get('slots'):  # 确保不是死节点
+                if node.get('slots'):  
                     boolean_roots.append(nid)
 
         def get_node_level(node_id):
-            """解析节点 ID 中的层级后缀进行排序"""
             try:
-                # 从形如 "AND::T_BOOL::L2" 的 ID 中提取出整数 2
                 level_str = node_id.split('::')[-1]
                 return int(level_str.replace('L', ''))
             except ValueError:
-                return -1  # 兜底防护
+                return -1  
 
-        # 降序排序 (例如优先处理 L2, 然后 L1, 最后 L0)。
-        # 层级数字越大，说明在原 AST 中越深，其构成的子树越简单。
-        # 这在文本生成顺序上严格保证了 gradual testing complexity (由简入深)。
         boolean_roots.sort(key=get_node_level, reverse=True)
-        # --- 【修改结束】 ---
-        # 【新增防御】：如果图中没有任何合法的布尔根节点，直接返回空，防止除零崩溃！
+
         if not boolean_roots:
             print('  [Warning] No valid Boolean root nodes found in the current graph; skipping sampling.')
             return
@@ -1896,7 +1772,6 @@ class PredicateSampler:
             )
             return
 
-        # 遍历图谱中的每一个布尔节点 (对应论文: for all t in boolean tokens)
         total_progress_roots = sum(
             1 for root_id in boolean_roots
             if nodes.get(root_id) and nodes[root_id].get("count", 0) != 0
@@ -1912,20 +1787,15 @@ class PredicateSampler:
 
         log_sampling_progress(last_sampling_progress_log, force=True)
         for root_id in boolean_roots:
-            # 获取 Root 节点对象
             root_node = nodes.get(root_id)
             if not root_node:
                 continue
 
-            # 获取该 Root 能生成的谓词总数 (Psi)
             total_count = root_node.get('count', 0)
 
-            # 如果总数为0，跳过
             if total_count == 0:
                 continue
 
-            # 本节点只计算一次步长，随后严格按 0, delta, 2*delta... 采样。
-            # 不再使用固定全局配额，也不再为每条谓词随机改变步长。
             signature_key, signature_detail = self._runtime_signature_identity(
                 root_id,
                 root_node,
@@ -1938,12 +1808,8 @@ class PredicateSampler:
                 node_id=root_id,
             )
 
-            # --- Stepwise Sampling 核心循环 ---
-            # 论文: Indices follow the sequence [0, delta, 2*delta ...]
-            # 我们从 0 开始，每次增加 step_size，直到超过 total_count
             current_index = 0
             while current_index < total_count:
-                # deadline 使用 monotonic 时钟。到期后只停止生成新谓词，已经生成的结果仍会返回。
                 if deadline is not None and time.monotonic() >= deadline:
                     self.last_sample_metadata = {
                         "round_complete": False,
@@ -1957,8 +1823,6 @@ class PredicateSampler:
                     }
                     break
 
-                # 低频检查下游时间预算；只在两个固定步长命中点之间停止，
-                # 已经命中的谓词、顺序和输出内容不会被回退或丢弃。
                 if stop_check is not None and generated_count >= next_stop_check:
                     stop_decision = stop_check(generated_count)
                     next_stop_check = generated_count + stop_check_interval
@@ -1981,7 +1845,6 @@ class PredicateSampler:
                         }
                         break
 
-                # 调用核心生成函数：根据索引生成一棵具体的谓词树
                 next_case_idx = generated_count + 1
                 collect_component_trace = self._should_trace_component_feedback(
                     component_tracker,
@@ -2023,7 +1886,7 @@ class PredicateSampler:
                             generated_count,
                             edge_keys,
                         )
-                    # 立即把结果交给文件写入方，避免组合空间扩大时保留完整列表。
+
                     yield sql
                     now = time.monotonic()
                     if (
@@ -2034,7 +1897,6 @@ class PredicateSampler:
                         progress_callback(generated_count)
                     log_sampling_progress(now)
 
-                # 更新当前索引。本节点内始终使用同一个固定步长。
                 current_index += fixed_step
 
             if generated_count >= root_start_case:
@@ -2057,7 +1919,6 @@ class PredicateSampler:
             log_sampling_progress(time.monotonic(), force=True)
 
     def sample_file(self, dag_data, deadline=None):
-        """兼容旧调用：将流式采样结果收集为列表。主流程使用 iter_file 避免物化。"""
         return list(self.iter_file(dag_data, deadline=deadline))
 
     def generate_predicate(self, node_id, target_index, nodes, deadline=None):
@@ -2109,8 +1970,7 @@ class PredicateSampler:
         )
         if not candidates:
             return "NULL"
-        # Multiple accepted types do not identify the overload selected by the
-        # parent. Only an exact one-type slot supplies safe cast context.
+
         if len(candidates) != 1:
             return "NULL"
         return f"CAST(NULL AS {candidates[0]})"
@@ -2133,7 +1993,6 @@ class PredicateSampler:
 
     @staticmethod
     def _oracle_literal_matches_expected_types(literal, expected_types):
-        """Reject a configured probe whose lexical family contradicts Oracle metadata."""
         normalized = {
             " ".join(str(item or "").strip().lower().split())
             for item in (expected_types or [])
@@ -2195,14 +2054,6 @@ class PredicateSampler:
         return str(literal)
 
     def _oracle_expected_literal(self, token, expected_types):
-        """Return a conservative Oracle literal for an exact slot type.
-
-        Stage 3 terminals are intentionally coarse (for example HOLE_T_CMP),
-        while the projection descriptor carries the catalog type expected by
-        the parent.  Use that metadata only for Oracle and only when it is
-        unambiguous; this avoids random character/date coercion errors without
-        adding operator-specific rules or changing other DBMS renderers.
-        """
         if getattr(self, "db_type", "") not in _ORACLE_DB_TYPES or not expected_types:
             return None
         normalized = {
@@ -2265,16 +2116,9 @@ class PredicateSampler:
         parent_token=None,
         parent_slot_index=None,
     ):
-        """
-        根据给定的索引 (target_index)，递归地从 node_id 生成 SQL。
-        这是论文中 Mixed-Radix System (混合基数系统) 的逆向解码过程。
-        """
         check_deadline(deadline, "single-predicate rendering")
         node = nodes[node_id]
 
-        # --- 1. 终止条件：处理真正的叶子节点 (没有插槽) ---
-        # 注意：在我们的图谱中，col() 虽然标记为 terminal，但它有 slots (指向具体列名)。
-        # 所以这里的判断标准是：slots 是否为空。
         if not node['slots']:
             return self.instantiate_terminal(
                 node,
@@ -2283,29 +2127,16 @@ class PredicateSampler:
                 parent_slot_index=parent_slot_index,
             ), []
 
-        # --- 2. 混合基数解码 (Mixed-Radix Decoding) ---
-        # 我们需要将 target_index 分解为每个插槽 (Slot) 的局部索引。
-        # 对应论文中的 TRANSFORM 函数。
+        child_sqls = []  
+        temp_index = target_index  
 
-        # 这里的基数 (Radix) 是每个插槽的总变化数。
-        # 例如 Slot 0 有 5 种变化，Slot 1 有 4 种变化。总变化数 20。
-        # target_index = 13。
-        # 我们需要算出: Slot 1 选第几号? Slot 0 选第几号?
-
-        child_sqls = []  # 存储每个插槽递归生成的结果
-        temp_index = target_index  # 用于取余操作的临时变量
-
-        # 倒序遍历插槽 (从最后一个参数开始解码，类似从低位到高位)
-        # 这是一个数学上的约定，只要编码和解码顺序一致即可。
         selected_edges = []
         decode_cache = getattr(self, "_decode_cache", None)
         if decode_cache is None:
-            # 兼容直接调用私有生成方法的旧代码；不改变正常主采样路径的缓存结果。
             decode_cache = {}
             self._decode_cache = decode_cache
         decode_infos = decode_cache.get(node_id)
         if decode_infos is None:
-            # 兼容直接调用私有方法的旧代码；主采样路径已提前建立缓存。
             self._ensure_decode_cache(nodes, deadline=deadline)
             decode_infos = self._decode_cache.get(node_id, [])
 
@@ -2315,13 +2146,10 @@ class PredicateSampler:
             if slot_capacity == 0:
                 return "ERROR_DEAD_END", []
 
-            # 2. 计算当前插槽应该选第几个组合 (Local Index)
-            # 取余数得到当前位的索引
             local_index = temp_index % slot_capacity
-            # 整除得到下一位的输入
+
             temp_index = temp_index // slot_capacity
 
-            # 3. 用累计边界二分定位具体子节点，结果等价于原来的顺序累减。
             child_position = bisect_right(cumulative_ends, local_index)
             selected_child_id = (
                 child_ids[child_position]
@@ -2335,7 +2163,6 @@ class PredicateSampler:
             )
             child_relative_index = local_index - previous_end
 
-            # 4. 递归生成子节点的 SQL
             if selected_child_id:
                 child_expected_types = self._slot_expected_types(node, slot_index)
                 child_sql, child_edges = self._generate_predicate_with_trace(
@@ -2348,7 +2175,7 @@ class PredicateSampler:
                     parent_token=node.get("token"),
                     parent_slot_index=slot_index,
                 )
-                # 将结果插入到列表最前面 (因为我们是倒序遍历插槽的)
+
                 child_sqls.insert(0, child_sql)
                 if collect_trace:
                     source_id = self._original_node_id(node_id, nodes)
@@ -2358,7 +2185,6 @@ class PredicateSampler:
             else:
                 child_sqls.insert(0, "ERROR_MISSING_CHILD")
 
-        # --- 3. 拼装 SQL ---
         return self.format_sql(node['token'], child_sqls), selected_edges
 
     def instantiate_terminal(
@@ -2369,9 +2195,6 @@ class PredicateSampler:
         parent_token=None,
         parent_slot_index=None,
     ):
-        """
-        实例化终端节点：将 HOLE 替换为具体值，或返回列名/常量。
-        """
         token = node['token']
 
         if getattr(self, "db_type", "") == "sqlserver":
@@ -2381,7 +2204,6 @@ class PredicateSampler:
             if literal is not None:
                 return literal
 
-        # Preserve the parentheses of callable zero-argument terminals.
         if token.endswith("()"):
             return token
 
@@ -2397,9 +2219,6 @@ class PredicateSampler:
             )
             oracle_guidance_allowed = random.random() >= exploration_ratio
 
-        # Existing DBMS bootstrap literals are used only for an already selected
-        # literal leaf. Nested branches remain intact and a configured fraction
-        # keeps the original unrestricted value generation for fuzzing coverage.
         safe_literal = None
         if oracle_guidance_allowed:
             safe_literal = self._safe_argument_literal(
@@ -2420,9 +2239,6 @@ class PredicateSampler:
         if safe_literal is not None:
             return safe_literal
 
-        # Resolve coarse comparison holes from the exact Oracle catalog slot
-        # before falling back to unrestricted fuzzing.  This is intentionally
-        # limited to an unambiguous expected type and is not a cast/rewrite.
         oracle_literal = (
             self._oracle_expected_literal(token, expected_types)
             if oracle_guidance_allowed
@@ -2431,53 +2247,39 @@ class PredicateSampler:
         if oracle_literal is not None and literal_token:
             return oracle_literal
 
-        # 情况 A: 比较类型的坑位 (数字/日期/字符串均可)
         if token.startswith("HOLE_T_CMP"):
-            # 随机生成一个 MySQL 友好的常量
-            # 策略：80% 几率生成数字，20% 几率生成字符串 (增加 Fuzzing 多样性)
             if random.random() < 0.8:
                 return str(random.randint(-100, 1000))
             else:
                 return f"'{self.random_string()}'"
 
-        # 情况 B: 字符串专用坑位 (用于 LIKE/REGEXP)
         elif token.startswith("HOLE_T_STR"):
-            # 生成带 % 的模糊匹配字符串，或者普通字符串
             base_str = self.random_string()
             if random.random() < 0.5:
-                return f"'{base_str}%'"  # 前缀匹配
+                return f"'{base_str}%'"  
             else:
                 return f"'{base_str}'"
 
-        # 情况 C: 布尔坑位
         elif token.startswith("HOLE_T_BOOL"):
-            # Oracle SQL BOOLEAN literals are TRUE/FALSE. Numeric 0/1 causes
-            # ORA-61800, while other DBMS branches keep their old probes.
             if db_type in _ORACLE_DB_TYPES:
                 return random.choice(["TRUE", "FALSE"])
             return str(random.choice([0, 1]))
 
-        # ==================== 【本次核心新增的逻辑】 ====================
-        # 情况 D: 我们在知识图谱中高度抽象化的具体值 (对应导师图谱的 Value 节点)
         elif token.startswith("VALUE_"):
             if "SINGULAR" in token:
                 if "INT" in token:
-                    # 从奇异整数池中随机选取边界值投入测试
                     candidates = ["0", "-1", "1", "2147483647", "-2147483648"]
                     if self.allow_hex_int_literals:
                         candidates.extend(["0xFFFFFFFF", "0x00"])
                     return random.choice(candidates)
                 elif "STRING" in token:
-                    # 空字符串或特殊转义字符
                     return random.choice(["''", "' '", "'\\0'"])
                 elif "FLOAT" in token:
                     return random.choice(["0.0", "-0.0", "999999.99"])
                 else:
                     return "0"
             else:
-                # TYPICAL (常规值)
                 if "INT" in token:
-                    # 【修改】20% 的概率，给它分配十六进制数；80%的概率给普通的十进制数
                     if self.allow_hex_int_literals and random.random() < 0.2:
                         return random.choice(["0xFF", "0x7F", "0x0A", "0x55", "0xAA"])
                     else:
@@ -2489,13 +2291,11 @@ class PredicateSampler:
                 else:
                     return "100"
 
-        # 情况 E: 抽象化的列节点 (兼容新版 COL_INT 和老版 COLUMN_INT)
         elif token.startswith("COLUMN_") or token.startswith("COL_"):
             if getattr(self, "exact_column_type_guidance_enabled", True):
                 if getattr(self, "db_type", "") == "sqlserver":
                     from RL.sqlserver_evidence_types import normalize_sqlserver_type
-                    # Projection variants carry full physical declarations in
-                    # result_types; preserve length/precision for real-column matching.
+
                     types = {normalize_sqlserver_type(item)
                              for item in (node.get("stage3_result_types", []) or [])}
                     types.discard("")
@@ -2516,14 +2316,12 @@ class PredicateSampler:
                         exact_type = exact_types[0]
                 if exact_type and self._is_castable_type_name(exact_type):
                     return f"col(__TYPE__{exact_type})"
-            # 提取出类型 (例如 COLUMN_INT 或 COL_INT 提取出 INT)
+
             parts = token.split("_")
             col_type = parts[1] if len(parts) > 1 else "CMP"
-            # 构造一个带类型的伪列名，第三阶段的 sql_generator 会根据这个伪列名去数据库找真实的同类型列！
-            return f"col({col_type}_mock)"
-        # ==============================================================
 
-        # 情况 F: 普通字面量或标识符 (保底回退)
+            return f"col({col_type}_mock)"
+
         else:
             return token
 
@@ -2544,8 +2342,6 @@ class PredicateSampler:
 
     @staticmethod
     def _sqlserver_terminal_accepts_literal(token, family, literal=None):
-        # A VALUE_INT leaf must stay an integer even when its parent accepts
-        # binary/date coercion. Only a coarse hole can choose another family.
         upper = str(token).upper()
         if upper.startswith("HOLE_T_CMP"):
             return family in {"int", "float", "string", "binary"}
@@ -2570,7 +2366,6 @@ class PredicateSampler:
 
     @staticmethod
     def _sqlserver_expected_literal(expected_types):
-        """Use unambiguous slot metadata without introducing CAST graph nodes."""
         normalized = {str(item).strip().lower() for item in (expected_types or []) if str(item).strip()}
         if len(normalized) != 1:
             return None
@@ -2579,8 +2374,7 @@ class PredicateSampler:
         if not match:
             return None
         base_type = match.group(1)
-        # T-SQL uses character literals for implicit temporal/UUID conversion.
-        # ISO formats avoid dependence on the session language/dateformat.
+
         temporal = {
             "date": "'20240115'",
             "time": "'12:34:56'",
@@ -2607,8 +2401,6 @@ class PredicateSampler:
     def _instantiate_sqlserver_literal(self, token, expected_types, parent_token, parent_slot_index):
         upper = str(token).upper()
         if upper in {"TRUE", "FALSE"}:
-            # Execution-only expansion: the edge trace continues to use the
-            # selected TRUE/FALSE node, never the comparison inside this SQL.
             return "(1 = 1)" if upper == "TRUE" else "(1 = 0)"
         if not upper.startswith(("VALUE_", "HOLE_")) or "NULL" in upper:
             return None
@@ -2623,8 +2415,7 @@ class PredicateSampler:
             slots = profiles.get(str(parent_token or "").strip().upper(), {})
             fixed = slots.get(str(parent_slot_index)) if isinstance(slots, dict) else None
             family = self._sqlserver_literal_family(fixed)
-            # Exact metadata takes precedence over a conflicting bootstrap
-            # family (e.g. integer probe SQL for a varbinary/date slot).
+
             expected_family = self._sqlserver_literal_family(expected_literal)
             if (fixed is not None and self._sqlserver_terminal_accepts_literal(upper, family, fixed)
                     and (expected_literal is None or fixed == expected_literal
@@ -2650,7 +2441,6 @@ class PredicateSampler:
             value = self.random_string() + ("%" if random.random() < 0.5 else "")
             return "N'" + value.replace("'", "''") + "'"
         if upper.endswith("_INT"):
-            # 0x is binary in SQL Server, regardless of the legacy pool flag.
             if "SINGULAR" in upper:
                 return random.choice(["0", "-1", "1", "2147483647", "-2147483648"])
             return str(random.randint(2, 1000))
@@ -2661,8 +2451,7 @@ class PredicateSampler:
         if upper.endswith("_STRING"):
             values = ["", " ", "'"] if "SINGULAR" in upper else ["typical_str", "test_data", "中文", "O'Brien"]
             return "N'" + random.choice(values).replace("'", "''") + "'"
-        # These are also produced by the AST parser for explicit typed input;
-        # handling them here does not add terminals to the candidate universe.
+
         if upper.endswith("_BINARY"):
             return random.choice(["0x", "0x00", "0xFF", "0x0123456789ABCDEF"])
         if upper.endswith("_DATE"):
@@ -2672,40 +2461,25 @@ class PredicateSampler:
         return None
 
     def _legacy_format_sql(self, token, child_sqls):
-        """
-        将当前节点的 token 和子节点的 SQL 拼装成完整的表达式。
-        """
-        # 情况 1: 函数调用风格，例如 col(age) 或 ABS(col(x))
-        # 识别特征：token 以 "()" 结尾，或者 token 是 "col()"
         if token.endswith("()") or token == "col()":
             func_name = token.replace("()", "")
-            # join 参数，例如 func(arg1, arg2)
+
             args_str = ", ".join(child_sqls)
             return f"{func_name}({args_str})"
 
-        # 情况 2: 前缀一元运算符，例如 NOT x, !x, -x
-        # 识别特征：只有一个子节点
         elif len(child_sqls) == 1:
-            # 加上括号保证优先级安全
             return f"({token} {child_sqls[0]})"
 
-        # 情况 3: 中缀二元运算符，例如 x > y, x AND y
-        # 识别特征：有两个子节点
         elif len(child_sqls) == 2:
             return f"({child_sqls[0]} {token} {child_sqls[1]})"
 
-        # 情况 4: 三元运算符 (BETWEEN)
         elif len(child_sqls) == 3 and token.upper() == "BETWEEN":
             return f"({child_sqls[0]} BETWEEN {child_sqls[1]} AND {child_sqls[2]})"
 
-        # 默认回退 (直接拼装，防止崩溃)
         else:
             return f"{token}({', '.join(child_sqls)})"
 
     def _format_in_rhs(self, rhs_sql):
-        """
-        Normalize the right side of IN / NOT IN to a MySQL list shape.
-        """
         rhs = str(rhs_sql).strip()
 
         if not rhs:
@@ -2717,9 +2491,6 @@ class PredicateSampler:
         return f"({rhs})"
 
     def format_sql(self, token, child_sqls):
-        """
-        Render a raw predicate expression for stage-3 SQL consumption.
-        """
         token_text = str(token).strip()
         upper_token = token_text.upper()
         op_style = self.operator_styles.get(upper_token, "")
@@ -2730,8 +2501,7 @@ class PredicateSampler:
                 raise ValueError(f"SQL Server operator is outside the configured scope: {token_text}")
             if (len(child_sqls) < 2 if op_style == "in_list" else len(child_sqls) != len(signature[1])):
                 raise ValueError(f"SQL Server operator has incorrect arity: {token_text}")
-            # Also accept callers passing internal boolean leaves directly.
-            # Only entire leaves are replaced; strings and nested SQL survive.
+
             child_sqls = [
                 {"TRUE": "(1 = 1)", "FALSE": "(1 = 0)"}.get(str(child).strip().upper(), child)
                 for child in child_sqls
@@ -2781,15 +2551,11 @@ class PredicateSampler:
         return f"{token_text}({', '.join(child_sqls)})"
 
     def random_string(self, length=5):
-        """生成随机字母字符串"""
         import string
         return ''.join(random.choices(string.ascii_letters, k=length))
 
 
-# --- 主执行逻辑 ---
-
 def _depth_scoped_predicate_name(file_name, max_depth, output_label=None):
-    """Scope predicate output names by configured depth or a dedicated branch."""
     stem, extension = os.path.splitext(file_name)
     if output_label is not None:
         label = str(output_label).strip()
@@ -2814,12 +2580,11 @@ def sampler(
 ):
     sampling_start = time.monotonic()
     sampling_timings = _new_sampling_timings()
-    # 1. 定义路径
-    base_dir = os.path.dirname(os.path.abspath(__file__))
-    input_dir = os.path.join(base_dir, 'counted_graph')  # 读取上一步的产物
-    output_dir = os.path.join(base_dir, 'generated_sqls')  # 本次输出
 
-    # 2. 创建输出目录
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    input_dir = os.path.join(base_dir, 'counted_graph')  
+    output_dir = os.path.join(base_dir, 'generated_sqls')  
+
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
         print(f"Created output directory: {output_dir}")
@@ -2836,8 +2601,6 @@ def sampler(
             "sampling_elapsed_seconds": time.monotonic() - sampling_start,
             "sampling_timings": sampling_timings,
         }
-
-    # 3. 初始化采样器
 
     sampler_setup_started = time.monotonic()
     try:
@@ -2971,15 +2734,13 @@ def sampler(
     }
     error_message = None
 
-    # 4. 遍历处理文件
     for input_path in sorted(json_files):
         file_name = os.path.basename(input_path)
 
         iter_file_started = False
         try:
             check_deadline(deadline, "counted DAG loading")
-            # Keep loading and count decoding separate; both operations remain
-            # exactly as before and are only measured in memory.
+
             load_started = time.monotonic()
             try:
                 with open(input_path, 'r', encoding='utf-8') as f:
@@ -2998,14 +2759,11 @@ def sampler(
                     time.monotonic() - decode_started,
                 )
 
-            # gzip 只改变无损存储格式；解压后的每行谓词及固定步长顺序保持不变。
             plain_output_name = file_name.replace(
                 "counted_dag_",
                 "output_sql_",
             ).replace(".json", ".txt")
-            # Explicit depths retain independently named full predicate files.
-            # The TLP generator derives its output name from this source name,
-            # so the same depth suffix is preserved through database validation.
+
             plain_output_name = _depth_scoped_predicate_name(
                 plain_output_name,
                 max_depth,
@@ -3019,7 +2777,6 @@ def sampler(
             output_path = os.path.join(output_dir, output_name)
             partial_path = output_path + ".partial"
 
-            # 分层调度仅用于有明确时限的枚举/随机实验，普通步长路径保持原样。
             if deadline is not None and (enumerate_all or localized_random):
                 from .stratified_sampling import sample_stratified_file
                 iter_file_started = True
@@ -3099,7 +2856,6 @@ def sampler(
                 compression_level=predicate_compression_level,
                 buffer_bytes=output_buffer_bytes,
             ) as output_file:
-                # 时间到期后，后续文件写入空结果，避免重复读取上一轮旧谓词。
                 if round_complete:
                     iter_file_started = True
                     for sql in sampler.iter_file(
@@ -3158,7 +2914,6 @@ def sampler(
                             "stop_reason": file_metadata.get("stop_reason"),
                         }
 
-            # 完整轮次或截止时间产生的有效部分都原子提交；异常时正式旧文件不变。
             os.replace(partial_path, output_path)
             output_files.append(output_path)
             output_text_bytes[output_name] = file_text_bytes
@@ -3221,8 +2976,7 @@ def sampler(
             "predicate_output_write_seconds",
         )
     )
-    # Any remaining sampler wall time covers orchestration/progress callbacks,
-    # path handling, and similar small costs; it is retained for reconciliation.
+
     sampling_timings["sampling_overhead_seconds"] = max(
         0.0,
         sampling_elapsed - accounted_seconds,
@@ -3292,4 +3046,3 @@ def sampler(
 
 if __name__ == "__main__":
     sampler()
-

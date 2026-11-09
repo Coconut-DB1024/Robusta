@@ -1,5 +1,3 @@
-"""Type-aware in-memory projection between the Stage-2 graph and Stage-3 DAG."""
-
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -49,10 +47,7 @@ _DATE_TYPES = {
     "interval",
 }
 
-# Oracle catalog names are kept distinct in terminal hints so the Stage-3
-# instantiator can match them against Oracle's USER_TAB_COLUMNS metadata.  The
-# extra families below also let the generic projection code reason about
-# Oracle signatures without changing PostgreSQL/MySQL behavior.
+
 _INTEGER_TYPES.update({"number", "int", "integer", "smallint"})
 _FLOAT_TYPES.update({"number", "float", "binary_float", "binary_double"})
 _STRING_TYPES.update({
@@ -68,9 +63,7 @@ def _normalize_type(value: Any) -> str:
     text = " ".join(str(value or "").strip().lower().split())
     if text.startswith("pg_catalog."):
         text = text[len("pg_catalog.") :]
-    # Catalog arguments omit typmods while table columns may include them
-    # (for example varchar(255) or numeric(10,2)). PostgreSQL overload
-    # resolution compares the underlying type, so typmods must not split it.
+
     if "(" in text:
         text = " ".join(re.sub(r"\([^()]*\)", "", text).split())
     return _TYPE_ALIASES.get(text, text)
@@ -81,12 +74,10 @@ def _normalize_token(value: Any) -> str:
 
 
 def _is_any_polymorphic(type_name: Any) -> bool:
-    """Return whether PostgreSQL requires runtime binding for this any* type."""
     return _normalize_type(type_name).startswith("any")
 
 
 def _polymorphic_target_accepts(source_type: str, target_type: str) -> bool:
-    """Apply only constraints that can be proven from a concrete type name."""
     source = _normalize_type(source_type)
     target = _normalize_type(target_type)
 
@@ -101,14 +92,10 @@ def _polymorphic_target_accepts(source_type: str, target_type: str) -> bool:
     if target in {"anymultirange", "anycompatiblemultirange"}:
         return source.endswith("multirange")
 
-    # Enum membership and other polymorphic categories require catalog type
-    # category metadata that this projection does not currently load. Keeping
-    # them closed is safer than treating them as universal scalar types.
     return False
 
 
 def _requires_correlated_polymorphic_binding(signature: "TypeSignature") -> bool:
-    """Reject signatures whose any* arguments/results cannot be bound independently."""
     polymorphic_arg_count = sum(
         1 for arg_type in signature.arg_types if _is_any_polymorphic(arg_type)
     )
@@ -116,13 +103,6 @@ def _requires_correlated_polymorphic_binding(signature: "TypeSignature") -> bool
 
 
 def _is_unbound_wildcard_signature(signature: "TypeSignature") -> bool:
-    """Return whether a signature uses the local, unconstrained wildcard.
-
-    ``__any__`` is used for catalog rows whose argument/result relationship is
-    not available.  It is not a real Oracle overload and must not be expanded
-    as an independent, universally castable type.  PostgreSQL/MySQL keep the
-    previous behaviour; the caller applies this predicate only for Oracle.
-    """
     return any(
         _normalize_type(arg_type) == _WILDCARD_TYPE
         for arg_type in signature.arg_types
@@ -176,9 +156,7 @@ class CatalogSnapshot:
     function_records: Dict[str, List[FunctionRecord]] = field(default_factory=dict)
     implicit_casts: Set[Tuple[str, str]] = field(default_factory=set)
     terminal_types: Dict[str, Set[str]] = field(default_factory=dict)
-    # MySQL exposes column charset/collation together with its data type. Keep
-    # this small metadata snapshot in memory; it is loaded once per Stage-3
-    # projection and is never queried per generated SQL statement.
+
     terminal_metadata: Dict[str, List[Dict[str, Any]]] = field(default_factory=dict)
     loaded: bool = False
     source: str = "none"
@@ -196,24 +174,14 @@ class CatalogSnapshot:
         if cache_key in self._cast_cache:
             return self._cast_cache[cache_key]
 
-        # Oracle NULL is compatible with any concrete target, but an
-        # undocumented/wildcard *result* must not be treated as a value of
-        # every target type.  The latter was allowing NVL/DECODE-style
-        # wildcard signatures to reconnect unrelated DATE/NUMBER/STRING
-        # subtrees.  Keep the historical behaviour for other DBMSs.
         if self.db_type in {"oracle", "oracledb", "oracle_ai26"}:
             if source == _WILDCARD_TYPE:
-                # The projection layer handles the explicit NULL terminal
-                # separately.  A wildcard produced by an unresolved
-                # expression must not satisfy every concrete Oracle type.
                 self._cast_cache[cache_key] = False
                 return False
             if target == _WILDCARD_TYPE:
                 self._cast_cache[cache_key] = False
                 return False
-            # Oracle's NUMBER family accepts the numeric literal/column
-            # aliases used by Stage-2 (INTEGER, FLOAT, BINARY_FLOAT, etc.).
-            # This is a generic family relation, not a function-specific rule.
+
             numeric_types = {
                 "number", "numeric", "integer", "int", "smallint", "bigint",
                 "float", "real", "binary_float", "binary_double",
@@ -230,9 +198,6 @@ class CatalogSnapshot:
             self._cast_cache[cache_key] = compatible
             return compatible
 
-        # PostgreSQL resolves a callable with a direct implicit coercion. A
-        # transitive walk through pg_cast admits chains that the parser does
-        # not apply while resolving one operator/function invocation.
         compatible = (source, target) in self.implicit_casts
         self._cast_cache[cache_key] = compatible
         return compatible
@@ -258,8 +223,6 @@ class CatalogSnapshot:
 
 
 class CatalogProvider:
-    """Extension point for DBMS-specific type catalogs."""
-
     db_types: Tuple[str, ...] = ()
 
     def load(self) -> CatalogSnapshot:
@@ -407,8 +370,6 @@ class PostgreSQLCatalogProvider(CatalogProvider):
 
 
 class MySQLCatalogProvider(CatalogProvider):
-    """Load only stable table metadata; MySQL has no PostgreSQL-style overload catalog."""
-
     db_types = ("mysql",)
 
     @staticmethod
@@ -483,8 +444,6 @@ class MySQLCatalogProvider(CatalogProvider):
                 if terminal_token is None:
                     continue
 
-                # The generated schema uses col_json_* as a semantic JSON
-                # family even on MySQL versions that store it as LONGTEXT.
                 canonical_type = (
                     "json"
                     if terminal_token == "COL_JSON"
@@ -515,7 +474,6 @@ def _oracle_catalog_type(
     type_name: Any = None,
     pls_type: Any = None,
 ) -> str:
-    """Normalize an Oracle dictionary type while retaining Oracle semantics."""
     value = data_type or type_name or pls_type
     text = " ".join(str(value or "").strip().lower().split())
     if text.startswith(("sys.", "public.")):
@@ -554,7 +512,6 @@ def _oracle_sqlfn_type(
     value: Any,
     resolved_args: Sequence[str] = (),
 ) -> str:
-    """把 V$SQLFN_* 的类型族转换为 Stage 3 使用的 Oracle 类型。"""
     text = " ".join(str(value or "").strip().upper().split())
     family_types = {
         "STRING": "varchar2",
@@ -572,8 +529,6 @@ def _oracle_sqlfn_type(
     if text in {"", "ANY", "UNKNOWN", "UNDEFINED", "NULL"}:
         return _WILDCARD_TYPE
 
-    # Oracle exposes one-based references such as "ARG 1" when a function's
-    # result follows one of its inputs; older versions may omit the space.
     arg_match = re.fullmatch(r"ARG(?:UMENT)?\s*(\d+)", text)
     if arg_match:
         position = int(arg_match.group(1))
@@ -586,8 +541,6 @@ def _oracle_sqlfn_type(
 
 
 class OracleCatalogProvider(CatalogProvider):
-    """Load Oracle's current-schema columns and callable catalog metadata."""
-
     db_types = ("oracle", "oracledb", "oracle_ai26")
 
     @staticmethod
@@ -602,9 +555,6 @@ class OracleCatalogProvider(CatalogProvider):
         try:
             return cls._rows(executor, sql)
         except Exception:
-            # Optional dictionary views (for example V$SQLFN_METADATA) may be
-            # unavailable to a normal application user. Required column data
-            # still makes the Oracle catalog useful in that case.
             return []
 
     @staticmethod
@@ -655,10 +605,6 @@ class OracleCatalogProvider(CatalogProvider):
 
     @classmethod
     def _seed_builtin_signatures(cls, snapshot: CatalogSnapshot) -> None:
-        # Oracle pseudo-columns and zero-argument built-ins are terminals in the
-        # learned graph, not callable nodes.  Their coarse graph type is T_CMP,
-        # so seed the exact catalog type here; otherwise a DATE/TIMESTAMP value
-        # can be treated as NUMBER (and vice versa) during projection.
         snapshot.terminal_types.update({
             "CURRENT_DATE": {"date"},
             "SYSDATE": {"date"},
@@ -669,8 +615,7 @@ class OracleCatalogProvider(CatalogProvider):
             "ROWNUM": {"number"},
             "ORA_ROWSCN": {"number"},
             "ORA_INVOKING_USERID": {"number"},
-            # Session-user expressions are VARCHAR2.  Keep them explicit so
-            # the coarse T_CMP graph type cannot pair them with DATE/NUMBER.
+
             "CURRENT_USER": {"varchar2"},
             "SESSION_USER": {"varchar2"},
             "SYSTEM_USER": {"varchar2"},
@@ -698,9 +643,6 @@ class OracleCatalogProvider(CatalogProvider):
         for token in ("+", "-"):
             cls._add_operator(snapshot, token, ("number",), "number")
 
-        # LOB/JSON values are not scalar comparison keys in Oracle. Equality
-        # additionally accepts BOOLEAN/RAW, while ordering stays on ordered
-        # scalar families. This is deliberately Oracle-local catalog metadata.
         equality_types = (
             numeric_types
             + comparable_string_types
@@ -713,10 +655,7 @@ class OracleCatalogProvider(CatalogProvider):
         for token in ("<", "<=", ">", ">="):
             for type_name in numeric_types + comparable_string_types + temporal_types:
                 cls._add_operator(snapshot, token, (type_name, type_name), "boolean")
-        # Oracle's LIKE-family operators are character comparisons, not a
-        # generic LOB comparison.  Keep the concrete character overloads;
-        # CLOB/NCLOB variants are accepted only when the live catalog provides
-        # them for the current schema.
+
         like_types = comparable_string_types
         for token in ("LIKE", "NOT LIKE", "LIKEC", "LIKE2", "LIKE4", "~~", "!~~"):
             for type_name in like_types:
@@ -888,8 +827,6 @@ class OracleCatalogProvider(CatalogProvider):
         for (function_name, package_name, _overload), item in grouped.items():
             result_type = item.get("result")
             if not result_type:
-                # USER_ARGUMENTS also contains procedures; without position 0
-                # there is no callable function result to project.
                 continue
             args = tuple(item["args"][position] for position in sorted(item["args"]))
             default_count = len(item["defaults"])
@@ -943,7 +880,6 @@ class OracleCatalogProvider(CatalogProvider):
                 except (TypeError, ValueError):
                     pass
 
-            # 保留旧的宽表测试桩兼容；真实 Oracle 使用 OPBINDINGS/OPARGUMENTS 长表。
             if not item["args"]:
                 for index in range(1, min(int(item["argument_count"] or 0), 32) + 1):
                     value = cls._value(row, f"argument{index}_type", f"arg{index}_type")
@@ -968,8 +904,6 @@ class OracleCatalogProvider(CatalogProvider):
         snapshot: CatalogSnapshot,
         rows: Iterable[Dict[str, Any]],
     ) -> None:
-        # V$SQLFN_METADATA 提供名称、参数数量和返回类型族；参数类型来自
-        # V$SQLFN_ARG_METADATA。无法解析的参数保留为通配符，不伪造约束。
         grouped: Dict[Tuple[str, str], Dict[str, Any]] = {}
         for row in rows:
             name = cls._value(row, "function_name", "name", "token")
@@ -1025,9 +959,6 @@ class OracleCatalogProvider(CatalogProvider):
             query_timeout_seconds=10,
         )
         try:
-            # Oracle's built-in SQL operators are not all represented by
-            # USER_OPERATORS, so seed conservative signatures first and then
-            # add user-defined operator bindings from the data dictionary.
             self._seed_builtin_signatures(snapshot)
 
             column_rows = self._rows(
@@ -1171,8 +1102,6 @@ class OracleCatalogProvider(CatalogProvider):
             )
             self._load_sql_function_rows(snapshot, sql_function_rows)
 
-            # Oracle 26ai 没有类似 PostgreSQL pg_cast 的可查询隐式转换目录。
-            # 与 MySQL 路径对齐：目录只提供精确签名，其他兼容性由运行证据学习。
             snapshot.implicit_casts = set()
 
             snapshot.loaded = True
@@ -1182,7 +1111,6 @@ class OracleCatalogProvider(CatalogProvider):
 
 
 class SQLServerCatalogProvider(CatalogProvider):
-    """SQL Server exposes column metadata, not a complete built-in overload catalog."""
     db_types = ("sqlserver",)
 
     def load(self) -> CatalogSnapshot:
@@ -1195,7 +1123,7 @@ class SQLServerCatalogProvider(CatalogProvider):
         try:
             executor = create_db_executor(db_type="sqlserver", autoconnect=True, query_timeout_seconds=10)
             table_name, schema, _ = get_target_table("sqlserver", DB_CONFIG)
-            # Reuse the executor's sys.columns/sys.types query and alias resolution.
+
             result = executor.list_columns(table_name, schema=schema)
             if not result.success:
                 raise RuntimeError(result.error or "SQL Server column metadata unavailable")
@@ -1212,8 +1140,6 @@ class SQLServerCatalogProvider(CatalogProvider):
                 elif base in STRINGS:
                     token = "COL_STRING"
                 else:
-                    # Preserve date/binary/UUID metadata without introducing
-                    # column terminals outside the configured node universe.
                     token = "COL_" + base.upper()
                 snapshot.terminal_types.setdefault(token, set()).add(dtype)
                 snapshot.terminal_metadata.setdefault(token, []).append({
@@ -1246,7 +1172,6 @@ _PROJECTION_CACHE: Dict[Tuple[Any, ...], Tuple[Dict[str, Any], Dict[str, Any]]] 
 
 
 def register_catalog_provider(provider_class: type) -> None:
-    """Register a future DBMS provider without changing projection logic."""
     for db_type in getattr(provider_class, "db_types", ()):
         _PROVIDER_REGISTRY[str(db_type).lower().strip()] = provider_class
 
@@ -1389,8 +1314,6 @@ def _coarse_accepts(return_type: str, exact_type: str) -> bool:
     if coarse == "T_BOOL":
         return _is_boolean_type(exact)
     if coarse in {"T_STR", "STRING"}:
-        # Oracle 的 NLSSORT/STANDARD_HASH 返回 RAW，但在现有抽象图中属于
-        # 可比较的 T_STR 标量结果；这里只放宽返回值，不把 RAW 当字符串参数。
         return _is_string_type(exact) or exact == "raw"
     if coarse == "INT":
         return exact in _INTEGER_TYPES
@@ -1429,13 +1352,8 @@ def _group_catalog_signatures(
     *,
     allow_wildcard: bool = False,
 ) -> List[Dict[str, Any]]:
-    """Keep each callable overload exact so argument correlation is preserved."""
     groups: List[Dict[str, Any]] = []
     for signature in signatures:
-        # PostgreSQL any* parameters are jointly bound, not independent
-        # wildcards. Until the projection has a concrete binding engine, omit
-        # correlated signatures; Stage-2 successful exact combinations can
-        # still reintroduce proven DBMS behavior as empirical variants.
         if _requires_correlated_polymorphic_binding(signature):
             continue
         arg_buckets = tuple(_type_bucket(item) for item in signature.arg_types)
@@ -1459,7 +1377,6 @@ def _reachable_type_buckets(
     nodes: Dict[str, Dict[str, Any]],
     catalog: CatalogSnapshot,
 ) -> Set[str]:
-    """Find type families that the current learned graph can actually produce."""
     reachable_types: Set[str] = set()
     for node in nodes.values():
         if bool(node.get("is_terminal")):
@@ -1542,7 +1459,6 @@ def _live_column_result_types(
     node: Dict[str, Any],
     catalog: CatalogSnapshot,
 ) -> Set[str]:
-    """Return concrete types discovered for a graph column terminal."""
     token = _normalize_token(node.get("token", ""))
     if token.startswith("COLUMN_"):
         token = "COL_" + token[len("COLUMN_") :]
@@ -1574,7 +1490,6 @@ def _possible_node_result_types(
     node: Dict[str, Any],
     catalog: CatalogSnapshot,
 ) -> Set[str]:
-    """Return concrete catalog results when available, otherwise the graph type."""
     if bool(node.get("is_terminal")):
         return _terminal_result_types(node, catalog)
     signatures = _catalog_signatures_for_node(
@@ -1599,12 +1514,7 @@ def _possible_node_result_types(
     }
     if result_types:
         return result_types
-    # For Oracle, an operator/function with no catalog signature has no
-    # trustworthy concrete return type.  Do not expand its coarse T_CMP/T_ANY
-    # label into the full numeric/string/temporal union: that union reconnects
-    # unknown expressions to every typed parent and recreates the Cartesian
-    # combinations that the catalog projection is meant to remove.  NULL is
-    # handled explicitly by _terminal_result_types and the edge matcher.
+
     if (
         catalog.db_type in {"oracle", "oracledb", "oracle_ai26"}
         and catalog.loaded
@@ -1620,15 +1530,6 @@ def _oracle_observed_result_types(
     child_ids: Sequence[Any],
     result_types_by_original: Dict[str, Set[str]],
 ) -> Set[str]:
-    """Infer a conservative concrete result type for Oracle wildcard calls.
-
-    Oracle's NVL/COALESCE/NULLIF/NVL2/DECODE families are polymorphic, but
-    their result is tied to one or more value arguments.  Treating the local
-    ``__any__`` marker as an independent type loses that correlation and lets
-    mixed DATE/NUMBER/STRING expressions through.  Keep only types common to
-    the value-producing arguments; when no common concrete type exists, drop
-    the empirical descriptor instead of reopening a Cartesian product.
-    """
     normalized = _normalize_token(token)
     if normalized.endswith("()"):
         normalized = normalized[:-2].rstrip()
@@ -1638,8 +1539,6 @@ def _oracle_observed_result_types(
     elif normalized == "NVL2":
         value_ids = ids[1:]
     elif normalized == "DECODE":
-        # DECODE(expr, search, result, ..., default): result positions are
-        # every second argument after the search expression.
         value_ids = ids[2::2]
         if len(ids) >= 3 and len(ids) % 2 == 0:
             value_ids.append(ids[-1])
@@ -1659,10 +1558,7 @@ def _oracle_observed_result_types(
     inferred = set.intersection(*concrete_sets)
     if inferred:
         return inferred
-    # Numeric aliases are represented differently by Oracle catalog rows and
-    # Stage-2 literals (NUMBER vs INTEGER/FLOAT), but they share one coercion
-    # family.  Collapse only this generic family to NUMBER; do not broaden
-    # character, LOB, JSON, or temporal types without catalog evidence.
+
     numeric_types = {
         "number", "numeric", "integer", "int", "smallint", "bigint",
         "float", "real", "binary_float", "binary_double",
@@ -1673,7 +1569,6 @@ def _oracle_observed_result_types(
 
 
 def _oracle_single_result_family(result_types: Iterable[str]) -> Optional[str]:
-    """Return a single Oracle type family, or ``None`` for a broad union."""
     families: Set[str] = set()
     for value in result_types:
         normalized = _normalize_type(value)
@@ -1766,7 +1661,6 @@ def _load_evidence(
 
 
 def _record_arg_types(record: Dict[str, Any]) -> Tuple[str, ...]:
-    """Return ordered Stage-2 argument types with a legacy-field fallback."""
     for field in ("arg_types", "slot_child_return_types"):
         values = record.get(field)
         if isinstance(values, (list, tuple)) and values:
@@ -1781,14 +1675,11 @@ def _evidence_compatibility_class(
     known_invalid_min_observations: int,
     db_type: str = "",
 ) -> str:
-    """Classify Stage-2 evidence using only definite type failures for blocking."""
     successes = max(0, int(record.get("success_count", 0) or 0))
     type_failures = max(0, int(record.get("type_failure_count", 0) or 0))
     if successes >= minimum_success:
         return "compatible"
-    # Value errors, generic execution errors, and environmental failures are
-    # not proof that a child-type combination is invalid. They stay reachable
-    # and are handled only by the sampler's weak negative weighting.
+
     if successes == 0 and type_failures >= known_invalid_min_observations:
         return "known_invalid"
     return "unknown"
@@ -1801,7 +1692,6 @@ def _evidence_confidence(
     execution_failures: int = 0,
     db_type: str = "",
 ) -> Optional[float]:
-    """Return a DBMS-aware, Laplace-smoothed evidence score."""
     successes = max(0, int(successes))
     type_weight = 1.0
     value_weight = 1.0
@@ -1825,7 +1715,6 @@ def _evidence_confidence(
             ),
         )
     elif normalized_db in {"oracle", "oracledb", "oracle_ai26"}:
-        # 复用已有 Oracle 权重，使投影报告与采样阶段使用同一套运行证据。
         type_weight = max(
             0.0,
             float(_config_value("stage3_oracle_type_failure_weight", 1.0) or 0.0),
@@ -1856,37 +1745,21 @@ def _oracle_empirical_override_allowed(
     *,
     minimum_success: int,
 ) -> bool:
-    """Allow an undocumented Oracle tuple only when its aggregate evidence is clean.
-
-    This is one evidence-quality gate shared by every operator.  Runtime value
-    and execution failures remain weak evidence; only mixed definite type
-    failures can suppress an otherwise empirical override.
-    """
     successes = max(0, int(record.get("success_count", 0) or 0))
     type_failures = max(0, int(record.get("type_failure_count", 0) or 0))
     if successes < max(1, int(minimum_success)):
         return False
     if type_failures <= 0:
         return True
-    # Require a clear success margin before retaining a tuple that also
-    # produced definite Oracle datatype errors.  The margin is intentionally
-    # generic and independent of token/function names.
+
     return successes >= 4 * type_failures and successes >= 4 * max(
         1, int(minimum_success)
     )
 
 
-# Catalog-unmatched Oracle evidence is a compatibility escape hatch, not the
-# normal projection path.  Keep only a small ranked sample per operator so a
-# broad Stage-2 success set cannot recreate the Cartesian product.
-# Match MySQL's evidence-driven expansion: retain all exact Oracle tuples up
-# to the common per-node variant bound (96), rather than a special two-tuple
-# escape hatch that made Oracle graphs artificially small.
 _ORACLE_MAX_EMPIRICAL_OVERRIDES_PER_NODE = 96
-# Keep evidence-driven exact variants bounded so strict tuple preservation does
-# not turn a compact operator graph into a large per-node Cartesian DAG.
-# Keep Oracle's evidence expansion bounded by the same per-node limit used by
-# MySQL.  The previous value (16) dropped valid Stage-2 tuples too aggressively.
+
+
 _ORACLE_EXACT_VARIANT_SAFETY_CAP = 96
 
 
@@ -1896,13 +1769,6 @@ def _partition_slot_product(
     *,
     max_rectangles: Optional[int] = None,
 ) -> List[Tuple[Tuple[str, ...], ...]]:
-    """Return disjoint Cartesian rectangles for slots minus exact tuples.
-
-    The decomposition operates on node IDs only and adds no operator-specific
-    type rules. ``max_rectangles`` is an optional safety bound used by the
-    unknown-exploration channel: only the first one or two valid rectangles are
-    materialized, preventing a large evidence set from expanding the graph.
-    """
     normalized_slots = tuple(tuple(dict.fromkeys(slot)) for slot in slots)
     arity = len(normalized_slots)
     excluded_set = {
@@ -1961,23 +1827,21 @@ def _partition_slot_product(
 
 
 _MYSQL_SAFE_MERGE_TOKENS = {
-    # MySQL 会把这些标量操作数按布尔值处理。
     "scalar": frozenset({"AND", "OR", "XOR", "&&", "||"}),
-    # 比较运算使用 MySQL 的标量转换；出现失败证据时不合并该族。
+
     "comparison": frozenset({
         "=", "!=", "<>", "<=>", "<", "<=", ">", ">=",
     }),
-    # 算术合并仅限已经明确标为数值的终端。
+
     "numeric": frozenset({
         "+", "-", "*", "/", "DIV", "MOD", "%", "&", "|", "^",
         "<<", ">>",
     }),
-    # 这些函数会把参数转为字符串；NULL 仍按 MySQL 规则保留。
+
     "string": frozenset({"CONCAT", "CONCAT_WS", "REPLACE"}),
 }
 
 _MYSQL_TERMINAL_FAMILY_TOKENS = {
-    # 仅合并以下明确等价的终端别名；列和字面量必须有完整成功证据才合并。
     "numeric_int": frozenset({"COL_INT", "VALUE_TYPICAL_INT"}),
     "numeric_float": frozenset({"COL_FLOAT", "VALUE_TYPICAL_FLOAT"}),
     "string": frozenset({"COL_STRING", "VALUE_TYPICAL_STRING"}),
@@ -1986,7 +1850,6 @@ _MYSQL_TERMINAL_FAMILY_TOKENS = {
 
 
 def _mysql_merge_policy(token: Any, arity: int) -> Optional[str]:
-    """返回某个算子的保守 MySQL 合并族；未列出的算子保持原逻辑。"""
     normalized = _normalize_token(token)
     if normalized in _MYSQL_SAFE_MERGE_TOKENS["scalar"] and arity == 2:
         return "scalar"
@@ -2005,7 +1868,6 @@ def _mysql_merge_family(
     policy: str,
     original_nodes: Dict[str, Dict[str, Any]],
 ) -> Optional[str]:
-    """仅对明确安全的终端别名返回合并族。"""
     child_node = original_nodes.get(str(child_id)) or {}
     if not bool(child_node.get("is_terminal")):
         return None
@@ -2035,7 +1897,6 @@ def _mysql_merge_key(
     child_return_types: Sequence[Any],
     original_nodes: Dict[str, Dict[str, Any]],
 ) -> Optional[Tuple[str, ...]]:
-    """Build a family key while retaining the slot order."""
     policy = _mysql_merge_policy(token, len(child_ids))
     if policy is None:
         return None
@@ -2078,7 +1939,6 @@ def _mysql_evidence_record_key(
 
 
 _ORACLE_SAFE_MERGE_TOKENS = {
-    # 仅保留 Oracle 中类型语义明确、且已由完整成功证据覆盖的基础运算。
     "boolean": frozenset({"AND", "OR"}),
     "comparison": frozenset({"=", "!=", "<>", "<", "<=", ">", ">="}),
     "numeric": frozenset({"+", "-", "*", "/"}),
@@ -2101,7 +1961,6 @@ _ORACLE_POLICY_FAMILIES = {
 
 
 def _oracle_merge_policy(token: Any, arity: int) -> Optional[str]:
-    """返回 Oracle 的保守合并族；白名单之外不做证据合并。"""
     normalized = _normalize_token(token)
     if arity != 2:
         return None
@@ -2117,7 +1976,6 @@ def _oracle_merge_family(
     policy: str,
     original_nodes: Dict[str, Dict[str, Any]],
 ) -> Optional[str]:
-    """仅把 Oracle 中已明确归类的终端别名放入同一合并族。"""
     child_node = original_nodes.get(str(child_id)) or {}
     if not bool(child_node.get("is_terminal")):
         return None
@@ -2194,7 +2052,6 @@ def _projection_descriptor_rank(
     *,
     db_type: str,
 ) -> Tuple[Any, ...]:
-    """按当前 DBMS 的证据置信度排序，不增加数据库操作。"""
     successes = max(0, int(descriptor.get("observed_success_count", 0) or 0))
     type_failures = max(0, int(descriptor.get("observed_type_failure_count", 0) or 0))
     value_failures = max(0, int(descriptor.get("observed_value_failure_count", 0) or 0))
@@ -2230,12 +2087,10 @@ def _projection_descriptor_rank(
 
 
 def _mysql_descriptor_rank(descriptor: Dict[str, Any]) -> Tuple[Any, ...]:
-    """保持 MySQL 原有证据排序。"""
     return _projection_descriptor_rank(descriptor, db_type="mysql")
 
 
 def _oracle_descriptor_rank(descriptor: Dict[str, Any]) -> Tuple[Any, ...]:
-    """使用 Oracle 自身的失败权重排列待保留变体。"""
     signature = json.dumps(
         {
             "arg_types": list(descriptor.get("arg_types") or []),
@@ -2273,7 +2128,6 @@ def _finalize_evidence_descriptors(
     rank_key: Callable[[Dict[str, Any]], Tuple[Any, ...]],
     metadata_prefix: str,
 ) -> Tuple[List[Dict[str, Any]], Dict[str, int]]:
-    """先保守合并完整成功族，再按证据应用每节点变体上限。"""
     token = node.get("token", "")
     blocked_families: Set[Tuple[str, ...]] = set()
     for record in observed_records:
@@ -2287,7 +2141,6 @@ def _finalize_evidence_descriptors(
             + int(record.get("execution_failure_count", 0) or 0)
         )
         if successes <= 0 or failures > 0:
-            # 该族只要有失败证据，就不扩大其组合范围。
             blocked_families.add(key)
 
     groups: Dict[Tuple[str, ...], List[Dict[str, Any]]] = {}
@@ -2324,8 +2177,6 @@ def _finalize_evidence_descriptors(
             passthrough.extend(group)
             continue
 
-        # 只有已观测元组覆盖完整笛卡尔积时才合并，避免凭空产生组合，
-        # 并保证未知矩形与已合并证据分支保持不相交。
         slot_members = [
             sorted({
                 str((descriptor.get("exact_child_ids") or [])[slot])
@@ -2412,7 +2263,6 @@ def _finalize_mysql_descriptors(
     *,
     max_variants: int,
 ) -> Tuple[List[Dict[str, Any]], Dict[str, int]]:
-    """先合并完整成功族，再应用 MySQL 的 K 上限。"""
     return _finalize_evidence_descriptors(
         node,
         descriptors,
@@ -2434,7 +2284,6 @@ def _finalize_oracle_descriptors(
     *,
     max_variants: int,
 ) -> Tuple[List[Dict[str, Any]], Dict[str, int]]:
-    """按 Oracle 白名单合并完整成功族，并限制每个算子的变体数。"""
     return _finalize_evidence_descriptors(
         node,
         descriptors,
@@ -2459,13 +2308,6 @@ def _mysql_evidence_descriptors(
     db_type: str = "mysql",
     include_unknown: bool = True,
 ) -> Tuple[List[Dict[str, Any]], Dict[str, int]]:
-    """Project evidence using the MySQL-style Stage-2 expansion policy.
-
-    Every valid observed tuple is represented (success or failure) so the
-    unknown channel contains only combinations absent from Stage-2 evidence.
-    Successful tuples are kept as exact observed descriptors; otherwise they
-    would disappear when removed from the unknown rectangle.
-    """
     slots = [list(slot) for slot in (node.get("slots", []) or [])]
     arity = len(slots)
     slot_members = [set(slot) for slot in slots]
@@ -2492,13 +2334,8 @@ def _mysql_evidence_descriptors(
         )
         success_count = max(0, int(record.get("success_count", 0) or 0))
         has_failures = type_failures + value_failures + execution_failures > 0
-        # Mark every meaningful observed tuple as represented. Unknown
-        # exploration must never reintroduce a tuple already seen by Stage 2,
-        # including a success-only tuple. Keep that success as one exact
-        # observed variant so it remains reachable without entering unknown.
+
         if not has_failures and success_count <= 0:
-            # Empty records carry no evidence and should not hide a tuple from
-            # the low-density unknown channel.
             continue
         represented_tuples.add(child_ids)
         if not has_failures:
@@ -2551,9 +2388,6 @@ def _mysql_evidence_descriptors(
             stats["blocked_combinations"] += 1
             continue
 
-        # A recorded failure without a successful observation remains an exact
-        # observed tuple. Mark it separately from an unobserved rectangle so
-        # the sampler applies only the configured weak failure weight.
         observed_class = (
             "weak_observed" if evidence_class == "unknown" else evidence_class
         )
@@ -2683,13 +2517,6 @@ def _projection_base_fingerprint(
     cache: Optional[Dict[str, str]] = None,
     _active: Optional[Set[str]] = None,
 ) -> str:
-    """Match Stage-2 structural fingerprints for catalog/fallback variants.
-
-    Oracle's Stage-2 graph is intentionally cyclic (self-loops are valid
-    graph edges).  Fingerprints are structural metadata only, so a back-edge
-    must contribute a stable marker instead of recursing forever.  The active
-    set is path-local; completed fingerprints continue to use the shared cache.
-    """
     if cache is None:
         cache = {}
     if node_id in cache:
@@ -2697,8 +2524,7 @@ def _projection_base_fingerprint(
     if _active is None:
         _active = set()
     node = original_nodes.get(node_id, {}) or {}
-    # A cycle marker is deterministic and node-specific, so distinct
-    # back-edges do not collapse unrelated structural identities.
+
     if node_id in _active:
         cycle_payload = {
             "cycle_node": str(node_id),
@@ -2741,13 +2567,6 @@ def _projection_terminal_fingerprint(
     original_nodes: Dict[str, Dict[str, Any]],
     cache: Optional[Dict[str, str]] = None,
 ) -> str:
-    """Fingerprint a terminal variant with its concrete Oracle type.
-
-    Stage-2 may provide the same structural terminal with a physical type
-    (NUMBER, DATE, ...).  The projection variant must use the same payload;
-    otherwise all physical variants would share one fingerprint and could not
-    be bound selectively.
-    """
     base = original_nodes.get(node_id, {}) or {}
     physical = str(physical_type or "").strip().lower()
     if not physical:
@@ -2816,7 +2635,6 @@ def _path_fingerprint(path: Optional[Path]) -> Tuple[Any, ...]:
 
 
 def _sqlserver_merge_key(item, token, original_nodes):
-    """Only logical terminals and same-type numeric comparison terminals."""
     from RL.sqlserver_evidence_types import base_type, NUMERIC
     ids = item.get("exact_child_ids") or item.get("slot_child_node_ids") or []
     types = tuple(item.get("slot_child_physical_types") or [])
@@ -2834,7 +2652,6 @@ def _sqlserver_merge_key(item, token, original_nodes):
 
 
 def _project_sqlserver_graph(graph_data, *, evidence_path, report_path, deadline, catalog_snapshot):
-    """Observed ordered tuples define variants; metadata never expands overload products."""
     from RL.sqlserver_evidence_types import (
         normalize_sqlserver_type as normalize, base_type, fixed_result_type,
     )
@@ -2894,20 +2711,16 @@ def _project_sqlserver_graph(graph_data, *, evidence_path, report_path, deadline
         "variants_before_limit": 0, "variants_after_limit": 0, "variants_pruned_by_limit": 0,
         "safe_merge_reductions": 0, "observed_variants_after_limit": 0, "unknown_variants_after_limit": 0,
         "blocked_combinations": 0, "unresolved_variants": 0, "typed_observations": 0,
-        # Legacy heuristic counters stay zero. Evidence classifications and
-        # actual physical types, rather than coarse rules, govern binding.
+
         "value_sensitive_variants": 0, "condition_scalar_mismatches": 0,
     }
-    # Observations supply exact literal/system-terminal types and physical column
-    # types when the catalog cannot be loaded. Never mutate the evidence file.
+
     leaf_types = {nid: set(catalog.terminal_types.get(n.get("token"), set()))
                   for nid, n in nodes.items() if n.get("is_terminal")}
     for records in evidence.values():
         for record in records:
             for cid, dtype in zip(record.get("slot_child_node_ids") or [], record.get("slot_child_physical_types") or []):
                 if cid in leaf_types and normalize(dtype):
-                    # When live columns are known, an absent type cannot be
-                    # instantiated from this table; retain only available types.
                     token = nodes[cid].get("token", "")
                     if token.startswith("COL_") and catalog.loaded:
                         continue
@@ -2932,8 +2745,6 @@ def _project_sqlserver_graph(graph_data, *, evidence_path, report_path, deadline
             copied = copy.deepcopy(node)
             copied.update(base_node_id=nid, stage3_result_types=[dtype] if dtype else [])
             if token.startswith("COL_") and dtype:
-                # The full declaration is retained in result_types/metadata;
-                # the existing column hint carrier currently takes base names.
                 copied["stage3_column_type"] = base_type(dtype)
                 copied["stage3_column_metadata"] = [
                     row for row in catalog.terminal_metadata.get(token, [])
@@ -2972,9 +2783,7 @@ def _project_sqlserver_graph(graph_data, *, evidence_path, report_path, deadline
             inputs = inputs if len(inputs) == len(required) else ("",) * len(required)
             dtype = normalize(item.get("physical_type")) or fixed_result_type(token, inputs)
             unresolved = not dtype or not all(inputs)
-            # Keep the shared observed/weak-observed evidence classification,
-            # as Oracle does. Mixed parameter types and value failures do not
-            # make an entire interface unknown; sampling already weighs them.
+
             item.update(physical_type=dtype, slot_child_physical_types=inputs,
                         result_types={dtype} if dtype else set())
             stats["typed_observations"] += int(bool(dtype) and all(inputs))
@@ -2992,8 +2801,7 @@ def _project_sqlserver_graph(graph_data, *, evidence_path, report_path, deadline
                 "base": nid, "children": item.get("exact_child_ids"),
                 "allowed": item.get("allowed_child_ids_by_slot"),
                 "inputs": item["slot_child_physical_types"], "output": item["physical_type"],
-                # Observed interfaces bind descendants by concrete result
-                # type; unresolved inputs retain their witnesses below.
+
                 "witness": [
                     "" if index < len(item["slot_child_physical_types"])
                     and item["slot_child_physical_types"][index] else fingerprint
@@ -3024,8 +2832,6 @@ def _project_sqlserver_graph(graph_data, *, evidence_path, report_path, deadline
             descriptors[vid] = item
             variants.setdefault(nid, []).append(vid)
 
-    # Match Oracle's local unknown-child policy without propagating a child's
-    # evidence class through all ancestors of the cyclic knowledge graph.
     child_has_compatible_variant = {
         nid: any(projected[vid]["stage3_type_signature"]["compatibility_class"] != "unknown"
                  for vid in vids)
@@ -3054,8 +2860,6 @@ def _project_sqlserver_graph(graph_data, *, evidence_path, report_path, deadline
                         child = projected[cvid]["stage3_type_signature"]
                         actual = child.get("physical_type", "")
                         if expected:
-                            # Bind the child's actual result, not a castability
-                            # union or the original A::T_CMP node's possible types.
                             if actual != expected:
                                 continue
                         elif descriptor["source"] != "unknown_exploration":
@@ -3069,7 +2873,7 @@ def _project_sqlserver_graph(graph_data, *, evidence_path, report_path, deadline
                         children.append(cvid)
                 slots.append(sorted(set(children)))
             projected[vid]["slots"] = slots
-    # Retain the report field for existing consumers; propagation is disabled.
+
     report["sqlserver_risk_propagated_variants"] = 0
     removed = _prune_projection(projected)
     graph = {"nodes": projected, "roots": sorted({v for root in roots for v in variants.get(root, []) if v in projected})}
@@ -3092,7 +2896,6 @@ def project_graph_for_stage3(
     catalog_snapshot: Optional[CatalogSnapshot] = None,
     db_type: Optional[str] = None,
 ) -> Tuple[Dict[str, Any], Dict[str, Any]]:
-    """Return a projected graph while leaving graph_data and its source untouched."""
     check_deadline(deadline, "type projection initialization")
     normalized_db = str(db_type or _current_db_type()).lower().strip()
     if normalized_db == "sqlserver":
@@ -3254,8 +3057,7 @@ def project_graph_for_stage3(
     report["catalog_terminal_metadata_count"] = sum(
         len(items) for items in (catalog.terminal_metadata or {}).values()
     )
-    # MySQL's provider intentionally supplies column metadata only; it does
-    # not pretend to have PostgreSQL-style operator overload signatures.
+
     report["exact_signature_compatibility"] = bool(
         catalog.loaded
         and (catalog.operator_signatures or catalog.function_records)
@@ -3283,8 +3085,6 @@ def project_graph_for_stage3(
         from RL.oracle_evidence_types import complete_observed_types
         evidence_by_outer, report["oracle_type_completion"] = complete_observed_types(evidence_by_outer)
 
-    # MySQL 与 Oracle 在目录不可用时仍可使用 Stage-2 运行证据继续投影；
-    # 其他数据库保持原有的目录成功保护条件。
     evidence_driven_db = normalized_db == "mysql" or normalized_db in {
         "oracle", "oracledb", "oracle_ai26",
     }
@@ -3375,13 +3175,9 @@ def project_graph_for_stage3(
                 copied = copy.deepcopy(node)
                 copied["base_node_id"] = node_id
                 copied["stage3_result_types"] = [result_type]
-                # This source-type tag survives DAG unfolding and is rendered as
-                # a column hint; it does not add casts or change SQL semantics.
+
                 copied["stage3_column_type"] = result_type
-                # Keep the structural identity on terminal variants as well.
-                # Stage-2 Oracle tuples refer to this identity when binding
-                # children; without it a valid terminal edge looked like an
-                # unknown/mismatching child during projection.
+
                 terminal_fingerprint = _projection_terminal_fingerprint(
                     node_id, result_type, original_nodes, projection_fingerprint_cache
                 )
@@ -3412,7 +3208,7 @@ def project_graph_for_stage3(
         terminal_physical = ""
         if normalized_db in {"oracle", "oracledb", "oracle_ai26"}:
             token = str(node.get("token", "")).upper()
-            # Literal SQL types, not function-specific merge rules.
+
             if token.startswith("VALUE_") and token.endswith(("_INT", "_FLOAT")):
                 terminal_physical = "number"
             elif token.startswith("VALUE_") and token.endswith("_STRING"):
@@ -3464,12 +3260,7 @@ def project_graph_for_stage3(
             for signature in catalog_signatures
             if _coarse_accepts(str(node.get("return_type", "")), signature.result_type)
         ]
-        # Oracle projection is evidence-driven, like the MySQL path.  The
-        # catalog may still provide terminal/return-type metadata, but its
-        # operator/function overload rows must not create descriptors or be
-        # used to rebuild a Cartesian product of child nodes.  Only Stage-2
-        # child tuples below define Oracle variants; the small safe-merge
-        # policy is applied afterward by _finalize_oracle_descriptors().
+
         if normalized_db in {"oracle", "oracledb", "oracle_ai26"}:
             catalog_signatures = []
         oracle_catalog_has_signature = bool(catalog_signatures)
@@ -3490,10 +3281,7 @@ def project_graph_for_stage3(
         signature_groups = _group_catalog_signatures(
             catalog_signatures,
             reachable_arg_buckets=reachable_buckets,
-            # Oracle's local ``__any__`` rows describe unresolved overloads,
-            # not independent argument types.  They are handled only through
-            # exact observed evidence below; never expand them as catalog
-            # Cartesian products.  PostgreSQL keeps its polymorphic path.
+
             allow_wildcard=(
                 normalized_db not in {"oracle", "oracledb", "oracle_ai26"}
                 or _normalize_token(token) in {"IS NULL", "IS NOT NULL"}
@@ -3507,11 +3295,6 @@ def project_graph_for_stage3(
             "oracle", "oracledb", "oracle_ai26",
         }
         if normalized_db == "mysql":
-            # MySQL has broad implicit-conversion behavior and no complete
-            # overload catalog here. Keep every observed tuple as an exact
-            # evidence variant and subtract all observed tuples from the
-            # bounded unobserved rectangle. Repeated definite type failures
-            # are omitted from the evidence variants but remain excluded.
             mysql_descriptors, mysql_partition_stats = _mysql_evidence_descriptors(
                 node,
                 observed_records,
@@ -3550,13 +3333,6 @@ def project_graph_for_stage3(
                 mysql_variant_stats.get("safe_merge_reductions", 0)
             )
         if normalized_db in {"oracle", "oracledb", "oracle_ai26"}:
-            # Oracle follows the same evidence-driven expansion policy as
-            # MySQL: successful Stage-2 tuples are retained exactly, tuples
-            # with only repeated type failures are excluded, and mixed/value
-            # failures remain as weakly weighted exact tuples.  Oracle catalog
-            # metadata still supplies terminal types and is used by the normal
-            # edge compatibility checks; it must not replace observed tuple
-            # coverage with a Cartesian overload expansion.
             oracle_descriptors, oracle_evidence_stats = _mysql_evidence_descriptors(
                 node,
                 observed_records,
@@ -3565,10 +3341,7 @@ def project_graph_for_stage3(
                 known_invalid_min_observations=known_invalid_min_observations,
                 max_unknown_variants=max_unknown_exploration_variants,
                 db_type=normalized_db,
-                # When Stage 2 has any tuple evidence, Oracle must not add a
-                # broad rectangle that reconnects unobserved child variants.
-                # A single low-density unknown rectangle is allowed only for
-                # nodes with no evidence at all.
+
                 include_unknown=not bool(observed_records),
             )
             descriptors.extend(oracle_descriptors)
@@ -3634,7 +3407,7 @@ def project_graph_for_stage3(
                     ):
                         record_matches = False
                         break
-                # 全部参数匹配后才登记整组证据，避免部分匹配被误覆盖或重复计数。
+
                 if record_matches:
                     if oracle_evidence_mode:
                         oracle_catalog_matched_observations.add(evidence_index)
@@ -3677,12 +3450,7 @@ def project_graph_for_stage3(
                         and len(child_ids) == len(slots)
                     ):
                         oracle_matched_success_records.append(record)
-                    # Keep every observed Oracle tuple (including mixed
-                    # success/failure evidence) as an exact variant.  This
-                    # mirrors the MySQL evidence path: only tuples that are
-                    # exclusively definite type failures are discarded;
-                    # mixed/value/execution failures remain reachable and
-                    # are down-weighted by their evidence score.
+
                     if (
                         oracle_evidence_mode
                         and has_observations
@@ -3695,22 +3463,14 @@ def project_graph_for_stage3(
                 and observed_support < minimum_success
                 and oracle_known_invalid
             ):
-                # 重复出现确定类型错误时，与 MySQL 一样不保留该组合。
                 continue
             if (
                 oracle_evidence_mode
                 and observed_support <= 0
                 and observed_type_failures > 0
             ):
-                # A catalog overload with only definite Oracle type failures
-                # is not a safe generic fallback.  Do not regenerate it just
-                # because its broad signature exists in the dictionary.
                 continue
             if oracle_evidence_mode and oracle_matched_records:
-                # Once Stage-2 has observed this signature, retain only the
-                # successful exact child tuples.  A generic catalog descriptor
-                # here would reconnect every type-compatible child in each
-                # slot and recreate unobserved Cartesian combinations.
                 seen_exact: Set[Tuple[str, ...]] = set()
                 for record in oracle_matched_records:
                     exact_child_ids = tuple(
@@ -3768,11 +3528,6 @@ def project_graph_for_stage3(
             if evidence_index in represented_observations:
                 continue
             if oracle_evidence_mode and catalog.loaded:
-                # When Oracle exposes any catalog signature for this token,
-                # unmatched coarse Stage-2 evidence is not an overload.  It
-                # must not bypass the catalog and recreate cross-type tuples.
-                # Empirical fallback remains available for tokens absent from
-                # the catalog altogether.
                 if oracle_has_concrete_signature and evidence_index not in oracle_catalog_matched_observations:
                     oracle_catalog_incompatible_failures_pruned += 1
                     continue
@@ -3783,9 +3538,6 @@ def project_graph_for_stage3(
                     and success_count < minimum_success
                     and type_failure_count > 0
                 ):
-                    # A definite Oracle type failure that contradicts an
-                    # available exact catalog signature cannot become a weak
-                    # empirical override.
                     oracle_catalog_incompatible_failures_pruned += 1
                     continue
                 if (
@@ -3797,8 +3549,6 @@ def project_graph_for_stage3(
                         minimum_success=minimum_success,
                     )
                 ):
-                    # Mixed success/type-failure tuples are retained only when
-                    # their aggregate evidence has a clear success margin.
                     oracle_mixed_type_evidence_pruned += 1
                     continue
             evidence_class = _evidence_compatibility_class(
@@ -3826,14 +3576,8 @@ def project_graph_for_stage3(
                 elif _normalize_token(token).removesuffix("()") in {
                     "NVL", "COALESCE", "NULLIF", "NVL2", "DECODE",
                 }:
-                    # A polymorphic call with no common concrete result type
-                    # is unsafe to project; retain no broad wildcard variant.
                     continue
                 elif _oracle_single_result_family(empirical_result_types) is None:
-                    # An undocumented Oracle expression whose Stage-2 return
-                    # type is only T_CMP/T_ANY would reconnect all numeric,
-                    # character, and temporal parents.  Keep exact evidence
-                    # only when its return family is actually identifiable.
                     continue
             empirical_descriptor = {
                 "source": "observed",
@@ -3874,13 +3618,6 @@ def project_graph_for_stage3(
             )
             descriptors.extend(retained_empirical)
 
-        # Unconfirmed combinations remain reachable in a separate low-density
-        # channel. Restrict the channel to tuples absent from Stage-2 evidence:
-        # an observed tuple (successful, weakly failed, or known-invalid) must
-        # not be reintroduced by generic exploration. The partition is bounded
-        # to one (or, if configured, two) rectangles before variants are added,
-        # so evidence cannot fragment the projection graph into thousands of
-        # nodes. This is node-id based and adds no operator-specific type rules.
         if (
             normalized_db not in {"mysql", "oracle", "oracledb", "oracle_ai26"}
             and unknown_exploration_ratio > 0.0
@@ -3905,8 +3642,6 @@ def project_graph_for_stage3(
                     continue
                 observed_tuples.add(child_ids)
 
-            # _partition_slot_product returns disjoint Cartesian rectangles,
-            # so only completely unrecorded combinations are left reachable.
             for allowed_child_ids_by_slot in _partition_slot_product(
                 slots,
                 observed_tuples,
@@ -3933,8 +3668,6 @@ def project_graph_for_stage3(
 
         if not descriptors:
             if catalog.loaded:
-                # A loaded PostgreSQL catalog is authoritative for basic
-                # callable/operator existence; empirical success can override it.
                 continue
             descriptors.append({
                 "source": "fallback",
@@ -3963,7 +3696,7 @@ def project_graph_for_stage3(
                 physical = descriptor.get("physical_type")
                 if physical:
                     descriptor["result_types"] = {normalize_oracle_type(physical)}
-            # 与 MySQL 对齐：先做有完整成功证据的保守合并，再限制单节点变体数。
+
             descriptors, oracle_variant_stats = _finalize_oracle_descriptors(
                 node,
                 descriptors,
@@ -4055,9 +3788,6 @@ def project_graph_for_stage3(
             elif descriptor["source"] == "unknown_exploration":
                 unknown_exploration_variants += 1
 
-    # These values are invariant during edge construction.  Compute them once
-    # per projection call instead of rescanning every child variant for every
-    # parent slot (the projected graph can contain millions of such checks).
     child_has_compatible_variant = {
         child_original_id: any(
             descriptors_by_variant.get(child_variant_id, {}).get(
@@ -4129,10 +3859,7 @@ def project_graph_for_stage3(
                                 )
                                 or ""
                             )
-                            # A terminal variant can originate from a graph
-                            # node created before descriptors were materialized.
-                            # Recover its stable structural fingerprint from
-                            # the original child instead of dropping the edge.
+
                             if (
                                 normalized_db in {"oracle", "oracledb", "oracle_ai26"}
                                 and not actual_fingerprint
@@ -4170,11 +3897,6 @@ def project_graph_for_stage3(
                                 and physical_binding_match
                             )
                             if not local_type_match and actual_fingerprint != expected_fingerprint:
-                                # Legacy evidence predates physical-type
-                                # metadata.  It carries a structural
-                                # fingerprint only, so compare against the
-                                # base terminal identity; new evidence with a
-                                # non-empty physical slot list stays exact.
                                 has_physical_binding = bool(
                                     expected_physical_types
                                     and any(
@@ -4186,10 +3908,6 @@ def project_graph_for_stage3(
                                     descriptor.get("oracle_binding_version") == 1
                                     and not original_nodes.get(child_original_id, {}).get("is_terminal")
                                 ):
-                                    # An unresolved new local interface must
-                                    # retain its witnessed operator subtree;
-                                    # the graph's first-child fingerprint is
-                                    # not evidence for another operator variant.
                                     continue
                                 base_fingerprint = _projection_base_fingerprint(
                                     child_original_id,
@@ -4212,11 +3930,7 @@ def project_graph_for_stage3(
                             )
                         ):
                             continue
-                        # A catalog-bound physical type is more specific than
-                        # the coarse Stage-2 return type (e.g. INT may carry
-                        # NUMBER or DATE metadata).  Once the exact physical
-                        # binding matched, do not reject it using the legacy
-                        # coarse compatibility check.
+
                         if physical_binding_match:
                             projected_children.append(child_variant_id)
                             continue
@@ -4321,9 +4035,6 @@ def project_graph_for_stage3(
 
     if not projected_roots:
         if normalized_db in {"oracle", "oracledb", "oracle_ai26"}:
-            # Never reintroduce the unfiltered Oracle graph after strict
-            # projection removes every root.  Returning the original graph
-            # here would silently undo all type/error filtering.
             report["status"] = "projected_empty"
             report.update({
                 "projected_nodes": 0,

@@ -1,5 +1,3 @@
-"""第三阶段共享的截止时间、精确计数编码和原子输出工具。"""
-
 from __future__ import annotations
 
 import csv
@@ -10,8 +8,6 @@ from pathlib import Path
 from typing import Any, Dict, Optional
 
 
-# 十进制整数超过 Python 默认安全阈值后，json.dump 会在转换阶段失败。
-# 这里按 bit_length 提前切换为可逆十六进制字符串；计数值保持完全精确。
 COUNT_HEX_PREFIX = "hex:"
 COUNT_DECIMAL_SAFE_BITS = 12000
 
@@ -29,9 +25,6 @@ def merge_signature_feedback(
     current: Optional[dict],
     incoming: Optional[dict],
 ) -> dict:
-    """Merge compact Stage-3 signature counters without per-predicate storage."""
-    # Preserve SQL Server's execution/environment split only when supplied.
-    # Existing DBMS payloads retain their original keys and merge behavior.
     counters = SIGNATURE_FEEDBACK_COUNTERS + tuple(
         counter for counter in ("execution_failure_count", "environment_failure_count")
         if any(isinstance(value, dict) and counter in value
@@ -58,8 +51,6 @@ def merge_signature_feedback(
 
 
 class Stage3MetricsRecorder:
-    """Low-I/O Stage-3 wall-clock, phase, and stability recorder."""
-
     CSV_FIELDS = (
         "timestamp",
         "elapsed_seconds",
@@ -202,7 +193,6 @@ class Stage3MetricsRecorder:
         self._add_statistics_overhead(time.perf_counter() - started)
 
     def update_oracle_exclusions(self, current: dict, base: Optional[dict] = None) -> None:
-        """Oracle opt-in only; normal result counters already omit faulty groups."""
         if not self.oracle_fault_exclusion:
             return
         base = base or {}
@@ -218,7 +208,6 @@ class Stage3MetricsRecorder:
         return counters
 
     def add_phase_detail(self, phase: str, seconds: float) -> None:
-        """Accumulate an internally measured phase without changing active timing."""
         if not self.enabled:
             return
         started = time.perf_counter()
@@ -247,7 +236,7 @@ class Stage3MetricsRecorder:
             self.statistics_overhead_by_phase.get("database_validation", 0.0),
         )
         db_net = max(0.0, db_raw - db_stats)
-        # Subtract the union of database work and statistics exactly once.
+
         net_non_database = max(
             0.0,
             elapsed - db_net - self.statistics_overhead_seconds,
@@ -260,8 +249,7 @@ class Stage3MetricsRecorder:
             extra = dict(generated_raw=self.counters["generated"], elapsed_seconds_raw=elapsed,
                          oracle_excluded_cases=self.oracle_excluded_cases,
                          oracle_excluded_wall_seconds=self.oracle_excluded_wall_seconds)
-            # Fault intervals occur within DB validation. Non-DB time has
-            # already excluded that phase, so do not subtract them there again.
+
             elapsed = max(0.0, elapsed - self.oracle_excluded_wall_seconds)
             db_net = max(0.0, db_net - self.oracle_excluded_wall_seconds)
         return {
@@ -344,8 +332,7 @@ class Stage3MetricsRecorder:
             for key in ("generated_raw", "elapsed_seconds_raw", "oracle_excluded_cases",
                         "oracle_excluded_wall_seconds"):
                 row[key] = values[key]
-            # Late exclusions can revise a previous snapshot's population or
-            # time. A rate for that interval is unavailable, never negative.
+
             if self.oracle_excluded_cases != (previous or {}).get("oracle_excluded_cases", 0):
                 row["interval_net_processing_rate_predicates_per_second"] = ""
             if self.oracle_excluded_wall_seconds != (previous or {}).get("oracle_excluded_wall_seconds", 0):
@@ -418,21 +405,17 @@ class Stage3MetricsRecorder:
         self.record(event="stage3_finished", force=True, phase="orchestration")
         report = self.summary()
         self.write_measured_status(report, self.summary_path)
-        # The returned report and the main run status include summary-write cost.
+
         return self.summary()
 
 
 class Stage3DeadlineReached(RuntimeError):
-    """第三阶段达到统一截止时间时使用的内部控制异常。"""
-
     def __init__(self, phase: str):
         super().__init__(f"Stage-3 deadline reached during {phase}")
         self.phase = phase
 
 
 class Stage3ResourceLimitReached(RuntimeError):
-    """精确计数预计内存超过第三阶段安全预算时使用的控制异常。"""
-
     def __init__(self, phase: str, detail: str):
         super().__init__(f"Stage-3 resource limit reached during {phase}: {detail}")
         self.phase = phase
@@ -463,7 +446,6 @@ def estimate_downstream_reserve(
     safety_factor: float,
     fixed_seconds: float,
 ) -> dict:
-    """估算已采样谓词完成 TLP 生成和数据库扫描所需的预留时间。"""
     model = cost_model or {}
     generation_seconds_per_byte = max(
         0.0,
@@ -502,7 +484,6 @@ def estimate_downstream_reserve(
 
 
 def format_large_int(value: Any, max_bits: int = 256) -> str:
-    """用有界文本显示超大整数，避免控制台被完整步长或计数占满。"""
     number = decode_count(value)
     bit_length = number.bit_length()
     if bit_length <= max_bits:
@@ -512,7 +493,6 @@ def format_large_int(value: Any, max_bits: int = 256) -> str:
 
 
 def encode_count(value: Any) -> Any:
-    """将超大精确整数编码为 JSON 安全且可逆的十六进制字符串。"""
     if value is None:
         return None
     number = int(value)
@@ -522,7 +502,6 @@ def encode_count(value: Any) -> Any:
 
 
 def decode_count(value: Any) -> int:
-    """读取新十六进制计数，同时兼容原有 JSON 整数。"""
     if isinstance(value, int):
         return value
     if isinstance(value, str):
@@ -535,7 +514,6 @@ def decode_count(value: Any) -> int:
 
 
 def encode_counts_in_place(dag_data: dict, deadline: Optional[float] = None) -> None:
-    """仅转换节点 count 的存储形式，不改变其精确数值。"""
     for node_id, node in dag_data.get("nodes", {}).items():
         check_deadline(deadline, f"count encoding at node {node_id}")
         if "count" in node:
@@ -548,7 +526,6 @@ def encode_counts_in_place(dag_data: dict, deadline: Optional[float] = None) -> 
 
 
 def decode_counts_in_place(dag_data: dict, deadline: Optional[float] = None) -> None:
-    """在采样前恢复 Python 精确整数，兼容旧 counted DAG。"""
     for node_id, node in dag_data.get("nodes", {}).items():
         check_deadline(deadline, f"count decoding at node {node_id}")
         if "count" in node:
@@ -565,12 +542,6 @@ def atomic_json_dump(
     ensure_ascii: bool = False,
     buffering: int = 1024 * 1024,
 ) -> Path:
-    """
-    先写 ``.partial``，完整关闭后再原子替换正式文件。
-
-    异常或强制终止时，旧正式文件不会变成半截 JSON；``.partial`` 保留现场，
-    下一次同一路径写入时会直接覆盖该临时文件。
-    """
     output = Path(output_path)
     output.parent.mkdir(parents=True, exist_ok=True)
     partial = Path(str(output) + ".partial")
@@ -592,7 +563,6 @@ def atomic_json_dump(
 
 
 def write_status_json(data: Any, output_path: os.PathLike | str) -> Path:
-    """写入体积很小的第三阶段状态摘要，不替代任何完整输出。"""
     return atomic_json_dump(
         data,
         output_path,
