@@ -1,5 +1,3 @@
-"""Export nonempty TLP partitions from the existing validation results."""
-
 import gzip
 import json
 import os
@@ -18,7 +16,6 @@ _TLP_SELECT = re.compile(
 
 
 def extract_tlp_predicate(sql):
-    """Remove only the generated COUNT/WHERE wrapper, preserving the tested text."""
     text = str(sql).strip()
     if text.endswith(";"):
         text = text[:-1].rstrip()
@@ -32,8 +29,6 @@ def extract_tlp_predicate(sql):
 
 
 class SatisfiablePredicateReport:
-    """Stream each round before report rotation, then prepend the final rates."""
-
     def __init__(self, output_path):
         self.output_path = Path(output_path)
         self._body = None
@@ -48,8 +43,7 @@ class SatisfiablePredicateReport:
     def append_cardinality_results(self, path):
         if not path:
             return
-        # These records contain only predicates whose four validation SELECTs
-        # succeeded. Keep each nonempty partition, including repeated predicates.
+
         with gzip.open(path, "rt", encoding="utf-8") as source:
             for line in source:
                 record = json.loads(line)

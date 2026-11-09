@@ -1,10 +1,3 @@
-"""Oracle Stage-3 workers with bounded waits and crash diagnostics.
-
-One pipe and a fixed 32 KiB SQL snapshot per worker; no per-query disk writes.
-Unlike multiprocessing.Pool, a dead worker cannot silently lose a result while
-the parent waits forever. A failed case is excluded once; untouched cases in
-its chunk are rescheduled before the next validation batch.
-"""
 from __future__ import annotations
 
 import faulthandler
@@ -34,11 +27,9 @@ class OracleValidationDeadline(RuntimeError):
 
 
 class WorkerProgress:
-    """Single writer, lock-free snapshot; a crashed writer cannot hold a lock."""
     SQL_BYTES = 32768
 
     def __init__(self, context):
-        # sequence, case, phase, attempt, operation start, case start, SQL length
         self.state = context.RawArray("q", 7)
         self.sql = context.RawArray("c", self.SQL_BYTES)
         self.mark("starting")
@@ -76,7 +67,6 @@ class WorkerProgress:
 
 def _worker_main(pipe, initializer, task_function, progress):
     try:
-        # Native driver crashes now retain the Python call stack in console.
         faulthandler.enable()
         progress.mark("connect")
         initializer(progress)
@@ -88,8 +78,7 @@ def _worker_main(pipe, initializer, task_function, progress):
                 return
             for task in chunk:
                 started = time.monotonic()
-                # Ordered on the same pipe as results, so the parent can name
-                # the active case even if the native driver dies immediately.
+
                 pipe.send(("started", (task[0], task[1], started)))
                 progress.mark("case", case_idx=task[1])
                 result = task_function(task)
@@ -98,7 +87,6 @@ def _worker_main(pipe, initializer, task_function, progress):
     except EOFError:
         pass
     except BaseException as exc:
-        # Do not serialize connection error text, which can contain credentials.
         try:
             pipe.send(("error", type(exc).__name__))
         except (BrokenPipeError, EOFError, OSError):
@@ -120,7 +108,6 @@ def _merged_intervals(intervals):
 
 
 def excluded_wall_time(fault_intervals, productive_intervals):
-    """Fault/recovery wall time minus concurrent useful work, counted once."""
     faults = _merged_intervals(fault_intervals)
     useful = _merged_intervals(productive_intervals)
     total = sum(end - start for start, end in faults)
@@ -187,8 +174,7 @@ class OracleValidationPool:
                    "file": current[0] if current else None,
                    "pending_case_indices": [task[1] for task in worker["pending"]],
                    **extra}
-        # Shared memory may describe the next operation or an interrupted
-        # publication. Identity comes from the ordered START/result protocol.
+
         if current is not None:
             details.update(file=current[0], case_idx=current[1], tlp_mode=current[3])
         else:
@@ -203,14 +189,13 @@ class OracleValidationPool:
         for worker in self.workers:
             if worker.get("process") is None:
                 continue
-            # Consume complete START/results before diagnosing their writer.
+
             if worker["pipe"].poll():
                 continue
             if worker["process"].exitcode is not None:
                 return worker, self._failure(worker, "unexpected_exit")
             snapshot = worker["progress"].snapshot()
-            # An interrupted snapshot is still bounded by the parent dispatch
-            # timer, so a process dying during publication cannot defeat limits.
+
             elapsed = time.monotonic() - worker["started"]
             if not worker["ready"] and not worker["pending"]:
                 if elapsed > self.startup_timeout:
@@ -260,7 +245,7 @@ class OracleValidationPool:
         batch_started = time.monotonic()
         pending = deque(tasks)
         remaining = len(tasks)
-        useful, faults = [], []  # bounded by this batch, never the whole run
+        useful, faults = [], []  
         try:
             while remaining:
                 self._check_deadline()
@@ -386,5 +371,4 @@ class OracleValidationPool:
         self._shutdown(abort=True)
 
     def join(self):
-        # close/terminate already join with explicit wall-clock bounds.
         pass

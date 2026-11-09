@@ -1,8 +1,3 @@
-"""Preserve seeded WHERE column choices after removing unused UPDATE generation.
-
-The former generator consumed random draws even when data changes were disabled.
-Replay only those draws; this module never constructs SQL or connects to a DB.
-"""
 import json
 import random
 import re
@@ -18,8 +13,6 @@ NULL_PROBABILITY = 0.15
 
 
 class RandomDataFactory:
-    """Keep the historical random draws local, without database initialization."""
-
     @staticmethod
     def generate_value(category: str) -> Any:
         if random.random() < NULL_PROBABILITY:
@@ -79,7 +72,6 @@ class RandomDataFactory:
 
 
 def _value_category(column: Dict[str, Any]) -> str:
-    """Map a live table column to a category understood by RandomDataFactory."""
     col_name = str(column.get("name", "") or "").lower()
     name_categories = (
         ("col_integer_", "INTEGER"),
@@ -93,8 +85,6 @@ def _value_category(column: Dict[str, Any]) -> str:
         if col_name.startswith(prefix):
             return category
 
-    # Column names are authoritative for the generated wide table. Real SQL
-    # types provide a DBMS-neutral fallback for manually deployed schemas.
     col_type = str(column.get("type", "") or "").upper()
     numeric_match = re.search(
         r"\b(?:NUMERIC|DECIMAL)\s*\(\s*\d+\s*,\s*(\d+)\s*\)",
@@ -115,10 +105,7 @@ def _value_category(column: Dict[str, Any]) -> str:
     return "STRING"
 
 
-
-
 def _oracle_column_kind(column: Dict[str, Any]) -> str:
-    """Return a historical random-draw category for an Oracle column."""
     col_type = " ".join(str(column.get("type", "") or "").upper().split())
 
     if "BOOLEAN" in col_type or col_type == "BOOL":
@@ -141,7 +128,6 @@ def _oracle_column_kind(column: Dict[str, Any]) -> str:
 
 
 def _oracle_condition_kind(column: Dict[str, Any]) -> Optional[str]:
-    """Return a safe Oracle WHERE condition kind, or None for unsupported types."""
     col_type = " ".join(str(column.get("type", "") or "").upper().split())
     if any(token in col_type for token in ("BLOB", "CLOB", "NCLOB", "JSON", "XMLTYPE", "VECTOR")):
         return None
@@ -178,7 +164,7 @@ class _SQLServerDraws:
     @classmethod
     def is_nullable(cls, column):
         row = cls._metadata(column)
-        # Missing nullability is not permission to assign NULL.
+
         return cls._flag(row.get("is_nullable", row.get("null")))
 
     @classmethod
@@ -192,7 +178,7 @@ class _SQLServerDraws:
         if base in {"char", "varchar", "nchar", "nvarchar", "binary", "varbinary"}:
             width = args[0] if args else "1"
             if width == "max" and base in {"varchar", "nvarchar", "varbinary"}:
-                return base, (32,)  # Keep random-draw values bounded; this is not the column's capacity.
+                return base, (32,)  
             width = int(width)
             limit = 4000 if base in {"nchar", "nvarchar"} else 8000
             if not 1 <= width <= limit:
@@ -233,9 +219,7 @@ class _SQLServerDraws:
             return False
         if any(cls._flag(row.get(key)) for key in ("is_identity", "is_computed", "is_hidden")):
             return False
-        # A physical nvarchar type does not reveal an ISJSON CHECK (or another
-        # value constraint). Until a constraint-specific generator exists, exclude
-        # constrained columns from the historical target draw.
+
         if cls._flag(row.get("has_check_constraint")):
             return False
         if int(row.get("generated_always_type") or 0) != 0:
@@ -291,7 +275,7 @@ def _sqlserver_value_draws(column):
     elif base in STRINGS:
         width = args[0] if args else 32
         size = random.choice([0, 1, width, random.randint(0, width)])
-        # random.choices consumes one random() per character, regardless of alphabet.
+
         for _ in range(size): random.random()
     elif base in BINARY:
         width = 8 if base == "rowversion" else (args[0] if args else 32)
@@ -313,7 +297,6 @@ def _sqlserver_value_draws(column):
 
 
 def advance_instantiation_rng(instantiator, table_name):
-    """Advance the shared RNG exactly as before, without generating a statement."""
     db_type = str(getattr(DB_CONFIG, "db_type", "") or "").strip().lower()
     if db_type == "sqlserver":
         cached = instantiator._sqlserver_table_cache(table_name)

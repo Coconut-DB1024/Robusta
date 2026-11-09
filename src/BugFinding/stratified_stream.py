@@ -1,5 +1,3 @@
-"""枚举/随机的分层后处理：有界批次轮转，不改变四条 TLP SELECT 或验证规则。"""
-
 import os
 import time
 from collections import deque
@@ -11,8 +9,6 @@ from pkg.stage3_runtime import write_status_json
 
 
 class StratifiedTaskSource:
-    """每批各层取近似等量谓词；SQL 落盘与验证共用同一组，避免重复读写。"""
-
     def __init__(self, generator, predicate_files, layers, *, deadline, batch_size,
                  output_dir, metrics_recorder=None, depth=None):
         self.generator = generator
@@ -47,7 +43,7 @@ class StratifiedTaskSource:
                 if self.generator.compress_test_cases:
                     name += ".gz"
                 target = self.output_dir / name
-                # 先登记目标，初始化失败时也能准确清理本次 partial。
+
                 state = dict(source=path, target=target, level=level, count=0,
                              text_characters=0, source_characters=0)
                 self.states.append(state)
@@ -84,7 +80,6 @@ class StratifiedTaskSource:
         return {s["source"].name: str(s["target"]) for s in self.states}
 
     def _fill_batch(self):
-        # 切换计时只发生在批次边界，禁止把 TLP 构造时间记入数据库验证。
         if self.metrics is not None:
             self.metrics.finish_phase("database_validation")
             self.metrics.start_phase("tlp_generation", self.depth)

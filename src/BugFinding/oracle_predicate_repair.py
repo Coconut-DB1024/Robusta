@@ -1,8 +1,3 @@
-"""Bounded Oracle-only value repair of a *whole* TLP validation group.
-
-No table writes, raw-predicate writes, or per-case output files. This module
-is loaded only by the Oracle TLP worker after an execution failure.
-"""
 from __future__ import annotations
 
 import hashlib
@@ -36,7 +31,6 @@ def _family(dtype):
 
 
 class _Parser(SimpleParser):
-    """Private source-preserving parser; shared Stage-1/2 parser unchanged."""
     def tokenize(self, text):
         operators = set(self.precedence) | set(self.unary_operators) | set(self.operator_templates)
         operators = [o for o in operators if o != "UNARY_HIGH" and not o.endswith("()")]
@@ -69,7 +63,7 @@ class _Parser(SimpleParser):
 
     def parse_atom(self):
         start = self.pos
-        # Standard typed literals remain one leaf, including their type tag.
+
         if (str(self.current()).upper() in {"DATE", "TIMESTAMP"}
                 and self.pos + 1 < len(self.tokens) and self.tokens[self.pos + 1].startswith("'")):
             token = self.consume() + " " + self.consume()
@@ -147,7 +141,7 @@ class OraclePredicateRepair:
     def _load_columns(self, table):
         if self.columns is not None:
             return
-        self.columns = {}  # one attempt per worker, including failures
+        self.columns = {}  
         if self.executor is not None:
             self._mark("columns")
             result = self.executor.list_columns(table.strip('"'))
@@ -165,10 +159,6 @@ class OraclePredicateRepair:
 
     @staticmethod
     def _connection_healthy(conn):
-        # python-oracledb's local check performs no network round trip. In Thin
-        # 4.0.2 a Connection can still hold its implementation after the protocol
-        # transport has been cleared; setting call_timeout then enters native
-        # set_call_timeout with a missing transport and can crash the process.
         try:
             return conn is not None and bool(conn.is_healthy())
         except Exception:
@@ -201,9 +191,6 @@ class OraclePredicateRepair:
         except Exception:
             pass
         finally:
-            # A failed/expired parse can disconnect the transport. Do not touch
-            # call_timeout on that connection, including in exception cleanup.
-            # The executor's existing reconnect path handles the next query.
             if old_timeout is not None and self._connection_healthy(conn):
                 self._mark("describe_restore_timeout", sql)
                 try:
@@ -284,7 +271,6 @@ class OraclePredicateRepair:
 
         def replace(node, value):
             if text(node) != value:
-                # Outer replacement supersedes any pending inner edits.
                 for span in list(edits):
                     if node.start <= span[0] and span[1] <= node.end:
                         del edits[span]
@@ -303,7 +289,7 @@ class OraclePredicateRepair:
                         value = "'" + date_text + "'"
                     replace(node, value)
                 return
-            # First attempt preserves functions and works on their arguments.
+
             protected_slots = fixed.get(token(node) + "()", {})
             for i, child in enumerate(node.children):
                 if str(i) in protected_slots:
@@ -337,7 +323,7 @@ class OraclePredicateRepair:
                         if dtype == "string":
                             force(child, "number")
                 return
-            # Reuse Stage-2 safe sibling values, not its graph-building flow.
+
             slots = fixed.get(name + "()", {})
             if domain in {"number", "date", "json", "raw"}:
                 for slot, value in slots.items():
@@ -394,7 +380,6 @@ class OraclePredicateRepair:
 
 
 def execute_oracle_group(executor, group, *, cleaner=lambda sql: sql):
-    """At most two repairs; discard partial counts before every full retry."""
     current = list(group)
     summary = {"attempts": 0, "successes": 0, "rewritten_arguments": 0}
     repairer = getattr(executor, "_stage3_value_repairer", None)
@@ -425,13 +410,8 @@ def execute_oracle_group(executor, group, *, cleaner=lambda sql: sql):
                 progress.mark("repair", failure["sql"], attempt=attempt)
             repaired, count = repairer.repair_group(current, failure, fallback=attempt > 0)
             if not count and attempt == 0:
-                # E.g. CHR(number) cannot become numeric by fixing a string
-                # argument. Only then replace the offending operand itself;
-                # do not spend a database retry on an unchanged predicate.
                 repaired, count = repairer.repair_group(current, failure, fallback=True)
         except Exception:
-            # Repair is auxiliary: unsupported SQL/metadata must remain a
-            # normal validation failure, never crash a worker or pass a case.
             return current, None, failure, summary
         if not count:
             return current, None, failure, summary
