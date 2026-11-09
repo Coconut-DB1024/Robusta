@@ -1,30 +1,21 @@
-"""Exact ordered TED with unit insertion/deletion and fixed relabel cost 2.
-
-All backends use the same semantic predicate AST and the same edit costs.
-Numba accelerates forest dynamic programming when available; the Python and
-APTED implementations remain exact fallbacks. No all-pairs matrix is needed.
-"""
 from __future__ import annotations
 
 from collections import Counter
 from functools import lru_cache
 
 
-# Bound the two per-pair DP matrices. Above this, use the original APTED path
-# instead of making the small-tree implementation handle pathological inputs.
 _MAX_DP_CELLS = 65_536
-_NODE_RECORD_SIZE = 18  # 128-bit label + uint16 little-endian child count.
+_NODE_RECORD_SIZE = 18  
 _NATIVE_CHECKED = False
 _NATIVE = None
 _NATIVE_ERROR = None
-# A different label costs one deletion plus one insertion. Keep every backend,
-# fast path and pruning bound consistent with this metric.
+
+
 RELABEL_COST = 2
 
 
 @lru_cache(maxsize=4)
 def apted_config():
-    # Load the fallback dependency only when needed.
     from apted import Config
 
     class LabelReplacementConfig(Config):
@@ -35,13 +26,11 @@ def apted_config():
 
 
 def apted_calculator(left_tree, right_tree):
-    """Shared fixed-cost APTED setup for prepared and public tree entry points."""
     from apted import APTED
     return APTED(left_tree, right_tree, config=apted_config())
 
 
 def _native_engine():
-    """Load the optional Numba/NumPy accelerator lazily."""
     global _NATIVE_CHECKED, _NATIVE, _NATIVE_ERROR
     if not _NATIVE_CHECKED:
         _NATIVE_CHECKED = True
@@ -51,8 +40,6 @@ def _native_engine():
             ast_native.warmup()
             _NATIVE = ast_native
         except Exception as exc:
-            # An absent/incompatible accelerator must not prevent an existing
-            # installation from running the same exact calculation.
             _NATIVE_ERROR = f"{type(exc).__name__}: {exc}"
     return _NATIVE
 
@@ -80,7 +67,7 @@ class PreparedTree:
 
     def __init__(self, encoded: bytes):
         self.encoded = encoded
-        labels = [b""]  # Postorder numbering starts at one.
+        labels = [b""]  
         leftmost = [0]
         cursor = 0
 
@@ -114,12 +101,6 @@ class PreparedTree:
 
 
 def distance_lower_bound(left: PreparedTree, right: PreparedTree) -> int:
-    """Ignore structure: count unmatched labels on BOTH sides.
-
-    With C common labels, n-C deletions and m-C insertions are needed; a relabel
-    costs the same two units.
-    n+m-2*C is a lower bound, NOT the actual TED.
-    """
     a, b = left.histogram, right.histogram
     if len(a) > len(b):
         a, b = b, a
@@ -132,9 +113,7 @@ def exact_distance(left: PreparedTree, right: PreparedTree,
     if left.encoded == right.encoded:
         return 0
     bound = distance_lower_bound(left, right) if lower_bound is None else lower_bound
-    # For the same topology, relabeling corresponding nodes is a valid upper
-    # bound. Only return it when it meets the proven lower bound (never use an
-    # approximate Hamming distance as a replacement for tree edit distance).
+
     if left.leftmost == right.leftmost:
         upper = RELABEL_COST * sum(a != b for a, b in zip(left.labels, right.labels))
         if upper == bound:
@@ -155,7 +134,6 @@ def exact_distance(left: PreparedTree, right: PreparedTree,
 
 
 def _forest_distance(left: PreparedTree, right: PreparedTree) -> int:
-    """Exact Zhang--Shasha with fixed insertion/deletion/relabel costs."""
     n, m = left.size, right.size
     a, b = left.labels, right.labels
     la, lb = left.leftmost, right.leftmost

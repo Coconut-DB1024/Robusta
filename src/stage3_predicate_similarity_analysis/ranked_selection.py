@@ -1,4 +1,3 @@
-"""Select an exact descending similarity rank without changing candidates."""
 from __future__ import annotations
 
 import sqlite3
@@ -8,8 +7,6 @@ from pathlib import Path
 
 
 def skip_ratio(value) -> Fraction:
-    # Decimal configuration values such as 0.05 must give exactly floor(20/20),
-    # not a floating-point value just below/above the intended rank boundary.
     try:
         ratio = Fraction(str(value))
     except (ValueError, ZeroDivisionError) as exc:
@@ -24,7 +21,6 @@ def selected_rank(count: int, ratio: Fraction) -> int:
 
 
 def _compare_rows(a, b):
-    # Descending rational score; equal scores retain the smaller-ID tie rule.
     delta = a[0] * b[1] - b[0] * a[1]
     if delta:
         return -1 if delta > 0 else 1
@@ -39,13 +35,6 @@ def _compare_score_text(a, b):
 
 
 class RankedCandidates:
-    """Finish owner i after all its incoming and outgoing pairs have arrived.
-
-    Pure-window runs retain only the next window's scores (not N lists). Optional
-    LSH has long-range incoming matches, so it uses a temporary disk spool with
-    an 8-MiB SQLite page cache and disk-backed sorting, not unbounded Python lists.
-    Each pair is still scored just once. No candidate or distinct score is dropped.
-    """
     def __init__(self, fraction, disk_path: Path | None = None):
         self.ratio = skip_ratio(fraction)
         self.pending = {}

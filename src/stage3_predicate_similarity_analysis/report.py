@@ -74,7 +74,6 @@ def write_similarity_reports(
     ast_parse_status: Sequence[int] | None = None,
     rank_candidate_counts: Sequence[int] | None = None,
 ) -> Dict[str, Any]:
-    """Write bounded per-predicate detail plus compact distribution reports."""
     run_dir = Path(run_dir)
     predicate_count = len(nearest_ids)
     distribution = {label: 0 for label in BUCKET_ORDER}
@@ -115,15 +114,12 @@ def write_similarity_reports(
                     if best_node_totals is not None else None
                 )
                 if rank_ratio and similarity is None:
-                    # Ranked mode has no selected pair in this case. Keep
-                    # the legacy maximum-mode output unchanged at fraction 0.
                     distance = node_total = None
                 if bucket is not None:
                     distribution[bucket] += 1
                     scored_predicate_count += 1
                     average_score_sum += float(similarity)
-                    # Welford accumulation keeps population variance stable
-                    # without storing scores or rounding individual values.
+
                     delta = float(similarity) - running_mean
                     running_mean += delta / scored_predicate_count
                     squared_deviation_sum += delta * (float(similarity) - running_mean)

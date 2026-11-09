@@ -1,8 +1,3 @@
-"""Compiled exact ordered TED with unit insert/delete and fixed relabel cost 2.
-
-Imported lazily by AST mode only. No fastmath, approximate scores, reduced labels,
-parallel candidate scheduling, or persistent compilation files are involved.
-"""
 from __future__ import annotations
 
 
@@ -12,9 +7,6 @@ from numba import njit
 from .ast_distance import RELABEL_COST
 
 
-# At most two int32 matrices (8 MiB combined). The operation budget also avoids
-# sending extremely bushy trees into an unsuitable Zhang--Shasha decomposition.
-# These limits select an exact implementation; they never drop a candidate.
 MAX_MATRIX_CELLS = 1_048_576
 MAX_FOREST_WORK = 32_000_000
 
@@ -38,7 +30,6 @@ def forest_distance(a, la, ka, b, lb, kb):
                     insert = forest[x, y - 1] + 1
                     value = delete if delete < insert else insert
                     if lx0 == i0 and lb[y] - 1 == j0:
-                        # Compare BOTH halves of the original 128-bit label.
                         cost = RELABEL_COST * int(a[x, 0] != b[y, 0] or a[x, 1] != b[y, 1])
                         rename = forest[x - 1, y - 1] + cost
                         if rename < value:
@@ -53,8 +44,6 @@ def forest_distance(a, la, ka, b, lb, kb):
 
 
 def prepare(tree):
-    """Arrays live in the existing bounded tree cache, not a global tree list."""
-    # Bytes are compared unchanged, without a smaller hash or label interning.
     labels = np.frombuffer(b'\0' * 16 + b''.join(tree.labels[1:]), dtype=np.uint64).reshape(-1, 2)
     arrays = (labels, np.asarray(tree.leftmost, dtype=np.int32),
               np.asarray(tree.keyroots, dtype=np.int32))
@@ -62,7 +51,6 @@ def prepare(tree):
 
 
 def warmup():
-    """Compile once per process, including tiny result checks before selecting it."""
     if numba.config.DISABLE_JIT:
         raise RuntimeError('Numba JIT is disabled by the environment')
     a = np.frombuffer(b'\0' * 32, dtype=np.uint64).reshape(-1, 2)
