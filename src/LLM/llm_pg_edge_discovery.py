@@ -64,7 +64,6 @@ FIXTURE_DOCUMENT = (
 )
 
 
-
 def require_internal_path(path: Path) -> Path:
     resolved = path.resolve()
     try:
@@ -211,7 +210,6 @@ def read_jsonl(
     return records
 
 
-
 def rewrite_generated_predicates_txt(
     path: Path,
     interactions: Iterable[dict[str, Any]],
@@ -343,7 +341,6 @@ def load_examples(path: Path) -> list[str]:
     return examples
 
 
-
 @dataclass(frozen=True)
 class Target:
     source_operator: str
@@ -385,7 +382,6 @@ def enumerate_targets(
                 )
 
 
-
 def strict_predicates_json(
     raw_output: str,
     max_predicates: int,
@@ -395,7 +391,6 @@ def strict_predicates_json(
     bool,
     Optional[str],
 ]:
-
     try:
         decoder = json.JSONDecoder()
         parsed, end = decoder.raw_decode(raw_output)
@@ -501,7 +496,6 @@ def predicate_is_safe_for_validation(
     return True, None
 
 
-
 @dataclass
 class DocumentChunk:
     chunk_id: str
@@ -543,7 +537,6 @@ def char_signature(
 
 
 class LexicalRAG:
-
     def __init__(
         self,
         chunks: list[DocumentChunk],
@@ -888,7 +881,6 @@ def fixture_rag() -> LexicalRAG:
     )
 
 
-
 def build_prompt(
     target: Target,
     columns: list[dict[str, Any]],
@@ -967,7 +959,6 @@ def build_prompt(
     )
 
 
-
 @dataclass
 class BackendResponse:
     raw_output: str
@@ -992,7 +983,6 @@ class BackendResponse:
 
 
 class QwenBackend:
-
     def __init__(
         self,
         model_config: dict[str, Any],
@@ -1323,7 +1313,6 @@ def terminal_online_error(
 
 
 class OnlineQwenBackend:
-
     def __init__(
         self,
         model_config: dict[str, Any],
@@ -1629,7 +1618,6 @@ class OnlineQwenBackend:
 
 
 class MockBackend:
-
     def __init__(self) -> None:
         self.calls = 0
 
@@ -1694,7 +1682,6 @@ class MockBackend:
         )
 
 
-
 def load_ast_map(
     path: Path,
 ) -> dict[str, Any]:
@@ -1722,7 +1709,6 @@ def load_ast_map(
 
 
 class StructureChecker:
-
     def __init__(
         self,
         mapping: dict[str, Any],
@@ -2739,9 +2725,7 @@ class StructureChecker:
         )
 
 
-
 class PostgreSQLAdapter:
-
     def __init__(
         self,
         config: dict[str, Any],
@@ -2927,7 +2911,6 @@ class PostgreSQLAdapter:
 
 
 class FakeDatabaseAdapter:
-
     def get_columns(
         self,
     ) -> list[dict[str, Any]]:
@@ -2957,7 +2940,6 @@ class FakeDatabaseAdapter:
             "sqlstate": None,
             "db_error": reason,
         }
-
 
 
 @dataclass
@@ -3021,7 +3003,6 @@ class ResultPaths:
         )
 
 
-
 def configure_logger(
     path: Path,
 ) -> logging.Logger:
@@ -3073,7 +3054,6 @@ def close_logger(
             handler
         )
         handler.close()
-
 
 
 class ProgressState:
@@ -3344,7 +3324,6 @@ def append_progress(
         )
 
 
-
 def plan_hash(
     targets: list[Target],
 ) -> str:
@@ -3519,7 +3498,6 @@ def index_validations(
     return indexed
 
 
-
 def load_reference_edges(
     path: Path,
 ) -> Optional[set[str]]:
@@ -3594,7 +3572,6 @@ def load_reference_edges(
         )
 
     return values
-
 
 
 def build_summary(
@@ -3979,7 +3956,6 @@ def write_summary_snapshot(
     return summary
 
 
-
 def run_experiment(
     arguments: argparse.Namespace,
 ) -> dict[str, Any]:
@@ -4306,7 +4282,6 @@ def run_experiment(
     )
 
     try:
-
         if arguments.dry_run:
             rag = fixture_rag()
 
@@ -4420,7 +4395,6 @@ def run_experiment(
                 5,
             )
         )
-
 
         run_status = (
             "running_generation"
@@ -4636,7 +4610,6 @@ def run_experiment(
                 "Beginning validation phase."
             )
         )
-
 
         run_status = (
             "running_validation"
@@ -4968,7 +4941,6 @@ def run_experiment(
         close_logger(
             logger
         )
-
 
 
 def parse_arguments(
