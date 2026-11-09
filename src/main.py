@@ -564,7 +564,6 @@ def run_BugFinding(
                 phase="database_validation",
                 depth=current_depth,
             )
-        print(f'>>> [TLP] Bugs found in this scan: {finder.total_bugs_found}')
         round_summary["tlp"] = {
             "cases_loaded": scan_report.get("cases_loaded", finder.total_cases_loaded),
             "cases_run": finder.total_cases_run,
@@ -726,7 +725,6 @@ def _write_stage3_signature_feedback(
 
 
 def _print_stage3_validation_rates(generated_count, tlp_report):
-    """Report execution coverage and satisfiability among executable predicates."""
     generated = int(generated_count or 0)
     executable = int(tlp_report.get("cases_validated", 0) or 0)
     satisfiable = int(tlp_report.get("cases_satisfiable", 0) or 0)
@@ -1024,7 +1022,6 @@ def _run_stage3(predicate_report):
             f"allow_duplicates=True"
         )
     for _ in range(1):
-
         round_count += 1
         round_kind = (
             "enumeration"
@@ -1247,7 +1244,6 @@ def _run_stage3(predicate_report):
             "not starting a second depth round."
         )
         break
-
 
     elapsed = max(time.monotonic() - stage3_start, 1e-9)
     effective_generated = max(0, cumulative_generated - cumulative_tlp.get("oracle_excluded_cases", 0))
@@ -1859,7 +1855,6 @@ def run_auto_cycle(num_cycles_override=None):
         print('[AutoCycle] auto_cycle_run_stage3_after_cycles=False; skipping Stage 3.')
 
 
-
 if __name__ == "__main__":
     mode = "auto_cycle"
     if len(sys.argv) > 1:
@@ -2062,4 +2057,3 @@ if __name__ == "__main__":
         print(f"{'=' * 50}")
 
         run_stage3_predicate_similarity_post_analysis(stage3_report)
-
