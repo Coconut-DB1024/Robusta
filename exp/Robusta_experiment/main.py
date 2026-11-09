@@ -1,5 +1,3 @@
-"""Launch the full experiment using the existing src configuration."""
-
 from pathlib import Path
 import json
 import math
@@ -47,7 +45,6 @@ _MODEL_DOWNLOAD_HELP = (
 
 
 def _model_files_complete(directory):
-    """Check the eight required filenames without inspecting file contents."""
     return directory.is_dir() and all((directory / name).is_file() for name in _MODEL_FILES)
 
 
@@ -66,7 +63,6 @@ def _prepare_transformer(project_dir):
         print(f"{problem} {_MODEL_DOWNLOAD_HELP}", flush=True)
         return False
 
-    # Keep replacement and temporary cleanup inside the actual src directory.
     if source_dir.resolve() != source_dir or runtime_model.resolve() != runtime_model:
         raise RuntimeError(f"Refusing to replace a redirected model directory: {runtime_model}")
     with tempfile.TemporaryDirectory(prefix=".codet5-copy-", dir=source_dir) as temporary:
@@ -76,7 +72,7 @@ def _prepare_transformer(project_dir):
         shutil.copytree(root_model, copied_model)
         if not _model_files_complete(copied_model):
             raise RuntimeError(f"Transformer model files are incomplete. Exiting. {_MODEL_DOWNLOAD_HELP}")
-        # Preserve the previous copy until the complete new copy is installed.
+
         if runtime_model.exists():
             runtime_model.replace(previous_model)
         try:
@@ -89,7 +85,6 @@ def _prepare_transformer(project_dir):
 
 
 def _reset_source_outputs(project_dir, *, db_type):
-    """Reset only the named outputs, once before starting the experiment."""
     source_dir = Path(project_dir).resolve() / "src"
     if source_dir.resolve() != source_dir:
         raise RuntimeError(f"Refusing to clear outputs through a redirected src directory: {source_dir}")
@@ -99,8 +94,7 @@ def _reset_source_outputs(project_dir, *, db_type):
     directories = [source_dir / name for name in _SOURCE_OUTPUT_DIRECTORIES]
     files = [source_dir / name for name in _SOURCE_OUTPUT_FILES]
     generated_dir = source_dir / _GENERATED_SQLS_DIRECTORY
-    # Validate every absolute target before deleting anything. Symlinks and
-    # junctions must not redirect cleanup to model files, inputs or another tree.
+
     for path in directories + [generated_dir] + files:
         if path.resolve() != path or not path.is_relative_to(source_dir):
             raise RuntimeError(f"Refusing to clear a redirected output path: {path}")
@@ -117,7 +111,6 @@ def _reset_source_outputs(project_dir, *, db_type):
     if feedback_dir.exists() and not feedback_dir.is_dir():
         raise RuntimeError(f"Feedback path is not a directory: {feedback_dir}")
 
-    # Match the existing Stage-3 feedback filenames and database aliases.
     feedback_db = {
         "mysql": "mysql",
         "postgresql": "postgresql", "postgres": "postgresql", "pg": "postgresql",
@@ -136,7 +129,7 @@ def _reset_source_outputs(project_dir, *, db_type):
         if directory.exists():
             shutil.rmtree(directory)
         directory.mkdir(parents=True, exist_ok=True)
-    # Preserve the baseline folder, but discard all per-run files and folders.
+
     generated_dir.mkdir(parents=True, exist_ok=True)
     for path in generated_children:
         if path == feedback_dir:
@@ -187,7 +180,6 @@ def _format_stat(value, places=4, suffix=""):
 
 
 def _summary_text(graph, stage3, similarity):
-    """Summarize existing results without rerunning generation or validation."""
     nodes = graph["nodes"]
     edge_count = sum(
         len(slot) for node in nodes.values() for slot in node.get("slots", [])
@@ -232,7 +224,6 @@ def _summary_text(graph, stage3, similarity):
 
 
 def _copy_predicates_without_rates(source_path, output_path):
-    # Remove only the two rate lines; preserve the heading and all TLP variants.
     with source_path.open("r", encoding="utf-8", newline="") as source:
         for prefix in ("[Stage3] Executability rate:", "[Stage3] Satisfiability rate:"):
             if not source.readline().startswith(prefix):
@@ -271,8 +262,7 @@ def _archive_results(project_dir, previous_states, similarity_root, previous_run
         _read_json(status_path),
         similarity,
     )
-    # Prepare both exports before removing old results, so report errors leave
-    # the previous data intact. Temporary files never touch the source outputs.
+
     with tempfile.TemporaryDirectory(prefix=".robusta-results-", dir=project_dir) as temporary:
         staging_dir = Path(temporary)
         _copy_predicates_without_rates(predicate_path, staging_dir / "satisfiable_predicates.txt")
