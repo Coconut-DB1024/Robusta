@@ -1,5 +1,3 @@
-"""One optional LLM supplement after CSV preprocessing, before training."""
-
 import asyncio
 import json
 import math
@@ -48,8 +46,7 @@ def _create_client(settings, key):
 
 def _request_budget(settings, context):
     count = max(1, len(context.nodes)) * 2
-    # Budget the initial supplement locally; independent LLM experiments keep
-    # their configured token limits and timeouts.
+
     tokens = math.ceil(max(settings["max_tokens"], count * 48 + 256) / 1024) * 1024
     seconds = max(600, math.ceil((60 + tokens / 25) / 60) * 60)
     return count, tokens, seconds
@@ -87,12 +84,11 @@ async def _request(client, settings, context, count, tokens):
     )
     if "enable_thinking" in settings:
         options["extra_body"] = {"enable_thinking": settings["enable_thinking"]}
-    # This is the only API request; receiving a response establishes the connection.
+
     return await client.chat.completions.create(**options)
 
 
 def _read_predicates(text):
-    """Recover complete JSON strings, including from a truncated final array."""
     text = text.strip()
     if text.startswith("```"):
         text = text.partition("\n")[2].strip()
@@ -113,7 +109,7 @@ def _read_predicates(text):
             try:
                 value, offset = decoder.raw_decode(text, offset)
             except json.JSONDecodeError:
-                break  # Never guess how an unfinished predicate should end.
+                break  
             predicates.append(value)
             while offset < len(text) and text[offset].isspace():
                 offset += 1
@@ -177,8 +173,6 @@ async def _generate(settings, key, context):
             pieces.append(response.choices[0].message.content or "")
 
     try:
-        # Unlike an HTTP idle timeout, this also stops a response that keeps
-        # trickling data indefinitely. Completed strings survive cancellation.
         await asyncio.wait_for(receive(), timeout=seconds)
     except Exception as exc:
         if not connected:
@@ -209,7 +203,6 @@ async def _generate(settings, key, context):
 
 
 def _write_supplement(path, templates):
-    """Publish atomically; preserve every byte of the original CSV-derived file."""
     path = Path(path)
     original = path.read_bytes()
     temporary = None

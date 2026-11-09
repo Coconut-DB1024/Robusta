@@ -1,5 +1,3 @@
-"""Schema context, read-only predicate validation and lossless DSL formatting."""
-
 from dataclasses import dataclass
 import json
 import re
@@ -106,7 +104,7 @@ def validate_predicate(predicate, context):
     else:
         sql = f"SELECT 1 FROM {context.table_sql} WHERE ({predicate}) LIMIT 1"
     result = context.executor.execute_query(sql, fetch="one")
-    # Executability only: a successful query returning zero rows is accepted.
+
     return parsed if result.success else None
 
 
