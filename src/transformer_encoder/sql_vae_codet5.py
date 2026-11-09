@@ -1,5 +1,3 @@
-"""CodeT5 encoder used by predicate encoding and contrastive learning."""
-
 import json
 import logging
 import os
@@ -13,8 +11,6 @@ from RL.config import DB_CONFIG
 
 
 class _EmbeddingResizeLogFilter(logging.Filter):
-    """Hide only the informational embedding-initialization notice."""
-
     def filter(self, record):
         return not record.getMessage().startswith(
             "The new embeddings will be initialized from a multivariate normal distribution"
@@ -22,7 +18,6 @@ class _EmbeddingResizeLogFilter(logging.Filter):
 
 
 def _resolve_masking_rules_path(db_type: Optional[str] = None) -> str:
-    """Return the existing SQL vocabulary configuration for the active DBMS."""
     normalized_db_type = str(
         db_type if db_type is not None else getattr(DB_CONFIG, "db_type", "mysql")
     ).strip().lower()
@@ -36,8 +31,6 @@ def _resolve_masking_rules_path(db_type: Optional[str] = None) -> str:
 
 
 class _EncoderBackbone(nn.Module):
-    """Keep the pretrained shared embedding and encoder, with no decoder."""
-
     def __init__(self, pretrained_model):
         super().__init__()
         self.config = pretrained_model.config
@@ -49,13 +42,6 @@ class _EncoderBackbone(nn.Module):
 
 
 def _preserve_initialization_rng(hidden_size: int) -> None:
-    """Preserve seeded training after removing unused parameter initialization.
-
-    The previous stage-one constructor consumed these six random draws after
-    resizing token embeddings. Advancing the same generator keeps subsequent
-    dropout and DataLoader draws unchanged, without creating discarded modules,
-    model parameters, or a selectable latent-model path.
-    """
     for count in (
         hidden_size * 256, 256,
         hidden_size * 256, 256,
@@ -65,8 +51,6 @@ def _preserve_initialization_rng(hidden_size: int) -> None:
 
 
 class CodeT5Encoder(nn.Module):
-    """Encode SQL with CodeT5 and attention-mask-aware mean pooling."""
-
     def __init__(
         self,
         model_name_or_path: str = "./codet5-small",
@@ -83,8 +67,6 @@ class CodeT5Encoder(nn.Module):
         else:
             print(f"[CodeT5Encoder] SQL vocabulary configuration not found: {vocabulary_path}")
 
-        # Keep the same pretrained loader and embedding resize operation so
-        # existing weights, added-token initialization and RNG behavior match.
         pretrained_model = AutoModelForSeq2SeqLM.from_pretrained(model_name_or_path)
         resize_logger = logging.getLogger("transformers.modeling_utils")
         resize_log_filter = _EmbeddingResizeLogFilter()
@@ -119,14 +101,12 @@ class CodeT5Encoder(nn.Module):
         return token_embeddings, self.mean_pooling(token_embeddings, attention_mask)
 
     def encoder_state_dict(self) -> Dict[str, Dict[str, torch.Tensor]]:
-        """Keep the existing encoder/shared checkpoint format."""
         return {
             "encoder": self.base_model.get_encoder().state_dict(),
             "shared": self.base_model.shared.state_dict(),
         }
 
     def load_encoder_state_dict(self, state_dict: Dict[str, Any]) -> None:
-        """Load existing structured or flat encoder checkpoints."""
         if "encoder" in state_dict:
             self.base_model.get_encoder().load_state_dict(state_dict["encoder"], strict=False)
             if "shared" in state_dict:
@@ -146,6 +126,4 @@ class CodeT5Encoder(nn.Module):
         return sum_embeddings / lengths
 
 
-# Preserve import resolution for untouched modules outside stage one.
-# This name exposes only the encoder; no VAE implementation or mode remains.
 SQLVAEModel = CodeT5Encoder

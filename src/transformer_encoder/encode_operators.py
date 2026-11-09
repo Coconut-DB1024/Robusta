@@ -16,7 +16,7 @@ MODEL_DIR = os.path.join(PROJECT_ROOT, "codet5-small")
 INPUT_FILE = os.path.join(PROJECT_ROOT, "output", "predicate.txt")
 OUTPUT_SENT_EMB_FILE = os.path.join(PROJECT_ROOT, "output", "predicate_embeddings_codet5.npy")
 ENCODER_STATE_FILE = os.path.join(MODEL_DIR, "encoder_state.pt")
-ENCODE_BATCH_SIZE = 32  # 批量编码大小；只影响吞吐，不改变谓词顺序和向量语义。
+ENCODE_BATCH_SIZE = 32  
 USE_GPU = torch.cuda.is_available()
 
 
@@ -26,7 +26,6 @@ def encode_sentence(
     model: CodeT5Encoder,
     device: torch.device,
 ) -> np.ndarray:
-    """兼容旧调用的单句 Encoder mean-pooling 接口。"""
     encoded = tokenizer(
         text,
         return_tensors="pt",

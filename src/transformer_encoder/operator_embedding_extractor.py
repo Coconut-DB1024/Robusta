@@ -57,8 +57,7 @@ LITERAL_WORDS = {
     "NULL",
 }
 
-# These keywords should not be treated as function names even when followed by "(".
-# For example, IN (...) is predicate operator syntax, not an IN() function.
+
 SQL_KEYWORDS_NOT_FUNCTIONS = {
     "IN",
     "LIKE",
@@ -133,8 +132,6 @@ def _collect_parser_operators(parser_config: Dict[str, Any]) -> List[str]:
     )
     definitions = parser_config.get("definitions", {}) or {}
     if isinstance(definitions, dict):
-        # Candidate-bitmap outer operators come from definitions; several
-        # function operators are not present in precedence/operator_templates.
         ops |= {
             str(operator)
             for operator in definitions.keys()
@@ -149,7 +146,6 @@ def _collect_parser_operators(parser_config: Dict[str, Any]) -> List[str]:
 
 
 def _operator_prototype_aliases(parser_config: Dict[str, Any]) -> Dict[str, List[str]]:
-    """Load optional prototype-only aliases without changing parser semantics."""
     bitmap_config = parser_config.get("candidate_bitmap", {}) or {}
     raw_aliases = bitmap_config.get("operator_prototype_aliases", {}) or {}
     if not isinstance(raw_aliases, dict):
@@ -254,17 +250,6 @@ def _build_operator_regex(operators: List[str]) -> re.Pattern:
 
 
 def _drop_between_separator_and(items: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-    """
-    去掉 BETWEEN / NOT BETWEEN 语法中的分隔符 AND。
-
-    例如：
-        col(age) BETWEEN int(18) AND int(30)
-
-    算子抽取时应该保留：
-        BETWEEN
-
-    不应该额外把中间的 AND 当成逻辑 AND 算子。
-    """
     cleaned: List[Dict[str, Any]] = []
     waiting_between_and = False
 
@@ -317,8 +302,6 @@ def find_operator_spans(
         )
 
     if str(parser_config.get("sql_render", {}).get("version", "")).startswith("sqlserver_"):
-        # FROM followed by '(' belongs to IS [NOT] DISTINCT FROM, not a
-        # function call. Keep real functions after the complete operator.
         operator_spans = [item for item in results if item["kind"] == "operator"]
         results = [
             item for item in results
@@ -543,9 +526,6 @@ def build_operator_prototypes(
     prototype_aliases = _operator_prototype_aliases(parser_config)
     unresolved_operators: List[str] = []
 
-    # Fill operators absent from predicate.txt without changing the observed
-    # prototypes: explicit semantic alias first, then a model embedding of the
-    # operator's canonical parser spelling.
     for operator in sorted(configured_operators):
         if operator in prototypes:
             continue
@@ -714,7 +694,6 @@ def run_extraction(
         parser_config=parser_config,
     )
 
-    # Record the exact DBMS rules used to make generated artifacts auditable.
     metadata["db_type"] = db_type
     metadata["parser_config_path"] = parser_config_path
 
