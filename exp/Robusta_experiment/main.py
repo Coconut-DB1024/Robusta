@@ -151,22 +151,24 @@ def _file_state(path):
     return stat.st_mtime_ns, stat.st_ctime_ns, stat.st_size
 
 
-def _clear_previous_results(project_dir):
+def _clear_previous_results(project_dir, *, db_type):
+    project_dir = Path(project_dir).resolve()
     data_dir = project_dir / "data"
-    data_dir.mkdir(parents=True, exist_ok=True)
     data_root = data_dir.resolve()
-    if data_root != project_dir.resolve() / "data":
+    if data_root != data_dir:
         raise RuntimeError("Refusing to clear a data directory outside the project.")
-    for old_output in data_dir.iterdir():
-        if old_output.name.casefold() == "readme.md":
-            continue
+    result_dir = data_dir / f"Robusta-{str(db_type).strip().lower()}"
+    if result_dir.parent != data_dir or result_dir.resolve() != result_dir:
+        raise RuntimeError(f"Refusing to clear a redirected result directory: {result_dir}")
+    result_dir.mkdir(parents=True, exist_ok=True)
+    for old_output in result_dir.iterdir():
         if old_output.is_symlink() or not old_output.is_dir():
             old_output.unlink()
         else:
-            if old_output.resolve().parent != data_root:
-                raise RuntimeError(f"Refusing to clear an output outside data: {old_output}")
+            if old_output.resolve().parent != result_dir:
+                raise RuntimeError(f"Refusing to clear an output outside the result directory: {old_output}")
             shutil.rmtree(old_output)
-    return data_dir
+    return result_dir
 
 
 def _read_json(path):
@@ -232,7 +234,7 @@ def _copy_predicates_without_rates(source_path, output_path):
             shutil.copyfileobj(source, output, length=1024 * 1024)
 
 
-def _archive_results(project_dir, previous_states, similarity_root, previous_runs):
+def _archive_results(project_dir, previous_states, similarity_root, previous_runs, *, db_type):
     source_dir = project_dir / "src"
     predicate_path = source_dir / "BugFinding/generated_test_cases/satisfiable_predicates.txt"
     status_path = source_dir / "pkg/generated_sqls/stage3_run_status.json"
@@ -267,10 +269,10 @@ def _archive_results(project_dir, previous_states, similarity_root, previous_run
         staging_dir = Path(temporary)
         _copy_predicates_without_rates(predicate_path, staging_dir / "satisfiable_predicates.txt")
         (staging_dir / "experiment_summary.txt").write_text(summary, encoding="utf-8")
-        data_dir = _clear_previous_results(project_dir)
+        data_dir = _clear_previous_results(project_dir, db_type=db_type)
         for name in ("satisfiable_predicates.txt", "experiment_summary.txt"):
             (staging_dir / name).replace(data_dir / name)
-    print("[Archive] Final experiment results are saved in Robusta/data/.", flush=True)
+    print(f"[Archive] Final experiment results are saved in Robusta/data/{data_dir.name}/.", flush=True)
 
 
 def main() -> int:
@@ -298,7 +300,7 @@ def main() -> int:
         env=env,
     )
     if result.returncode == 0:
-        _archive_results(project_dir, previous_states, similarity_root, previous_runs)
+        _archive_results(project_dir, previous_states, similarity_root, previous_runs, db_type=DB_CONFIG.db_type)
     return result.returncode
 
 
