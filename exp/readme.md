@@ -1,5 +1,15 @@
 This directory contains scripts for running the experiments in Robusta. All commands should be executed from the Robusta root directory.
 
+**Database Initialization**
+
+Initialize the database table using the database connection settings and `table_name` in `configuration.json`:
+
+```bash
+python exp/db_initializer/db_initializer.py
+```
+
+The selected database must already exist. Each run drops the existing table with the configured name, recreates it, and populates it with test data.
+
 **Robusta Experiment**
 
 Run the complete end-to-end workflow using the settings in `configuration.json`:
@@ -30,12 +40,13 @@ python exp/L-error/main.py
 
 Only PostgreSQL is supported. Each selected experiment archives `results.csv` and `l_error_summary.txt` in `data/L-error_results/<experiment>_results/`.
 
-**Database Initialization**
+**Q-error Experiment**
 
-Initialize the database table using the database connection settings and `table_name` in `configuration.json`:
+Run the independent Q-error experiment using the settings and experiment selection in `configuration-qerror.json`:
 
 ```bash
-python exp/db_initializer/db_initializer.py
+python exp/Qerror/main.py
 ```
 
-The selected database must already exist. Each run drops the existing table with the configured name, recreates it, and populates it with test data.
+The experimental results will be saved in the `data/Qerror/<experiment>/` directory.
+
