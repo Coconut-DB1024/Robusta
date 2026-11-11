@@ -1,5 +1,5 @@
 {
   "method": "mscn",
   "workload": "job-light",
-  "mode": "predict"
+  "mode": "train_and_predict"
 }
