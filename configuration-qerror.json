@@ -1,0 +1,8 @@
+{
+  "_comment_method": "Options: mscn, robusta.",
+  "method": "mscn",
+  "_comment_workload": "Options: job-light, job-exclude.",
+  "workload": "job-light",
+  "_comment_mode": "Options: predict, train_and_predict.",
+  "mode": "predict"
+}
