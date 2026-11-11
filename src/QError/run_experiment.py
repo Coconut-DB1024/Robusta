@@ -1,8 +1,24 @@
 import argparse
+import gzip
 import os
 from pathlib import Path
+import shutil
 import subprocess
 import sys
+from tempfile import TemporaryDirectory
+
+
+def _prepare_training_bitmaps(root):
+    target = root / "data" / "train.bitmaps"
+    archive = target.with_suffix(".bitmaps.gz")
+    if target.exists() or not archive.is_file():
+        return
+    with TemporaryDirectory(prefix=".train-bitmaps-", dir=target.parent) as temporary:
+        staged = Path(temporary) / target.name
+        with gzip.open(archive, "rb") as source, staged.open("wb") as output:
+            shutil.copyfileobj(source, output)
+        if not target.exists():
+            staged.replace(target)
 
 
 if __name__ == "__main__":
@@ -23,4 +39,5 @@ if __name__ == "__main__":
     parser.add_argument("--config", type=Path)
     parser.add_argument("--archive-dir", type=Path)
     arguments = parser.parse_args()
+    _prepare_training_bitmaps(root)
     run(root, config_path=arguments.config, archive_root=arguments.archive_dir)
