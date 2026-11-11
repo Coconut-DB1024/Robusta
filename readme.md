@@ -10,7 +10,7 @@ The following database versions were used in our experiments:
 | Oracle | 26ai Free |
 | SQL Server | 2022 Developer Edition (16.0.4275.2) |
 
-The standalone LLM experiment uses PostgreSQL 14.23, while the L-error experiment uses **PostgreSQL 18.6**. We recommend using the same database versions for reproducibility.
+The standalone LLM experiment uses PostgreSQL 14.23, while the L-error experiment uses **PostgreSQL 18.6**. For reproducibility, we recommend using the same database versions, Python 3.10.20, and Linux x86_64.
 
 Install the required dependencies using:
 
