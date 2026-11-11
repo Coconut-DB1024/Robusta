@@ -64,6 +64,16 @@ python exp/L-error/main.py
 
 **Only PostgreSQL is supported.** The experimental results will be saved in the `data/L-error_results/<experiment>_results/` directory.
 
+**To run the Q-error experiment**, first configure the experiment settings in `configuration-qerror.json` located in the Robusta root directory.
+
+Then, run the following command from the Robusta root directory:
+
+```bash
+python exp/Qerror/main.py
+```
+
+The experimental results will be saved in the `data/Qerror/<experiment>/` directory.
+
 **Project Structure**
 
 The main directories are organized as follows:
