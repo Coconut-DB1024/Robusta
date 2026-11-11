@@ -1,0 +1,927 @@
+{
+  "target": {
+    "original_job_id": "JL25",
+    "job_light_query_id": 25,
+    "tables": [
+      "cast_info ci",
+      "title t",
+      "movie_companies mc"
+    ],
+    "joins": [
+      "t.id=ci.movie_id",
+      "t.id=mc.movie_id"
+    ],
+    "predicates": [
+      [
+        "ci.role_id",
+        "=",
+        "7"
+      ]
+    ],
+    "true_cardinality": 794591,
+    "baseline_q_error": 2.212537015898745,
+    "baseline_prediction": 1758062,
+    "official_sql": "SELECT COUNT(*) FROM cast_info ci,title t,movie_companies mc WHERE t.id=ci.movie_id AND t.id=mc.movie_id AND ci.role_id=7;",
+    "sql": "SELECT COUNT(*) FROM cast_info ci,title t,movie_companies mc WHERE t.id=ci.movie_id AND t.id=mc.movie_id AND ci.role_id=7;",
+    "sql_sha256": "46baa76c4721ddad59e3dbedc0446991d1d251d7316c69659c1920b9fa2b04cf",
+    "bitmap_hex": [
+      "00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000003c0000000000000000000000000000000000000000000000000000",
+      "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+    ]
+  },
+  "original_job_id": "JL25",
+  "variant": "optimized",
+  "training": [
+    {
+      "tables": [
+        "cast_info ci"
+      ],
+      "joins": [],
+      "predicates": [
+        [
+          "ci.role_id",
+          "=",
+          "7"
+        ]
+      ],
+      "predicate_template_indices": [
+        0
+      ],
+      "sql": "SELECT COUNT(*) FROM cast_info ci WHERE ci.role_id=7;",
+      "sample_id": 1,
+      "true_cardinality": 276403,
+      "bitmap_hex": [
+        "00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000003c0000000000000000000000000000000000000000000000000000"
+      ],
+      "sampling_tier": "target_related_lower_subquery"
+    },
+    {
+      "tables": [
+        "cast_info ci",
+        "title t"
+      ],
+      "joins": [
+        "t.id=ci.movie_id"
+      ],
+      "predicates": [
+        [
+          "ci.role_id",
+          "=",
+          "7"
+        ]
+      ],
+      "predicate_template_indices": [
+        0
+      ],
+      "sql": "SELECT COUNT(*) FROM cast_info ci,title t WHERE t.id=ci.movie_id AND ci.role_id=7;",
+      "sample_id": 2,
+      "true_cardinality": 276403,
+      "bitmap_hex": [
+        "00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000003c0000000000000000000000000000000000000000000000000000",
+        "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+      ],
+      "sampling_tier": "target_related_lower_subquery"
+    },
+    {
+      "tables": [
+        "cast_info ci",
+        "title t",
+        "movie_companies mc"
+      ],
+      "joins": [
+        "t.id=ci.movie_id",
+        "t.id=mc.movie_id"
+      ],
+      "predicates": [
+        [
+          "ci.role_id",
+          "=",
+          "9"
+        ]
+      ],
+      "predicate_template_indices": [
+        0
+      ],
+      "sql": "SELECT COUNT(*) FROM cast_info ci,title t,movie_companies mc WHERE t.id=ci.movie_id AND t.id=mc.movie_id AND ci.role_id=9;",
+      "sample_id": 14,
+      "true_cardinality": 1974854,
+      "bitmap_hex": [
+        "0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000ffffffff0000000000000000000000000000000000",
+        "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+        "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+      ],
+      "sampling_tier": "full_target_structure"
+    },
+    {
+      "tables": [
+        "title t",
+        "cast_info ci"
+      ],
+      "joins": [
+        "t.id=ci.movie_id"
+      ],
+      "predicates": [
+        [
+          "ci.role_id",
+          "=",
+          "6"
+        ]
+      ],
+      "predicate_template_indices": [
+        0
+      ],
+      "sql": "SELECT COUNT(*) FROM title t,cast_info ci WHERE t.id=ci.movie_id AND ci.role_id=6;",
+      "sample_id": 26,
+      "true_cardinality": 773674,
+      "bitmap_hex": [
+        "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+        "000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000e0ff030000000000000000000000000000000000000000000000000000"
+      ],
+      "sampling_tier": "single_filter"
+    },
+    {
+      "tables": [
+        "cast_info ci"
+      ],
+      "joins": [],
+      "predicates": [
+        [
+          "ci.role_id",
+          "=",
+          "10"
+        ]
+      ],
+      "predicate_template_indices": [
+        0
+      ],
+      "sql": "SELECT COUNT(*) FROM cast_info ci WHERE ci.role_id=10;",
+      "sample_id": 23,
+      "true_cardinality": 4323018,
+      "bitmap_hex": [
+        "000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000ffffffffffffffffffffffffffffffff03"
+      ],
+      "sampling_tier": "single_filter"
+    },
+    {
+      "tables": [
+        "title t",
+        "cast_info ci"
+      ],
+      "joins": [
+        "t.id=ci.movie_id"
+      ],
+      "predicates": [
+        [
+          "ci.role_id",
+          "=",
+          "10"
+        ]
+      ],
+      "predicate_template_indices": [
+        0
+      ],
+      "sql": "SELECT COUNT(*) FROM title t,cast_info ci WHERE t.id=ci.movie_id AND ci.role_id=10;",
+      "sample_id": 18,
+      "true_cardinality": 4323018,
+      "bitmap_hex": [
+        "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+        "000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000ffffffffffffffffffffffffffffffff03"
+      ],
+      "sampling_tier": "single_filter"
+    },
+    {
+      "tables": [
+        "cast_info ci"
+      ],
+      "joins": [],
+      "predicates": [],
+      "predicate_template_indices": [],
+      "sql": "SELECT COUNT(*) FROM cast_info ci;",
+      "sample_id": 3,
+      "true_cardinality": 36244344,
+      "bitmap_hex": [
+        "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+      ],
+      "sampling_tier": "no_filter"
+    },
+    {
+      "tables": [
+        "cast_info ci",
+        "title t",
+        "movie_companies mc"
+      ],
+      "joins": [
+        "t.id=ci.movie_id",
+        "t.id=mc.movie_id"
+      ],
+      "predicates": [
+        [
+          "ci.role_id",
+          "=",
+          "8"
+        ]
+      ],
+      "predicate_template_indices": [
+        0
+      ],
+      "sql": "SELECT COUNT(*) FROM cast_info ci,title t,movie_companies mc WHERE t.id=ci.movie_id AND t.id=mc.movie_id AND ci.role_id=8;",
+      "sample_id": 11,
+      "true_cardinality": 2444114,
+      "bitmap_hex": [
+        "0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000c0ffffffffff000000000000000000000000000000000000000000",
+        "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+        "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+      ],
+      "sampling_tier": "full_target_structure"
+    },
+    {
+      "tables": [
+        "title t",
+        "cast_info ci"
+      ],
+      "joins": [
+        "t.id=ci.movie_id"
+      ],
+      "predicates": [
+        [
+          "ci.role_id",
+          "=",
+          "8"
+        ]
+      ],
+      "predicate_template_indices": [
+        0
+      ],
+      "sql": "SELECT COUNT(*) FROM title t,cast_info ci WHERE t.id=ci.movie_id AND ci.role_id=8;",
+      "sample_id": 32,
+      "true_cardinality": 1703543,
+      "bitmap_hex": [
+        "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+        "0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000c0ffffffffff000000000000000000000000000000000000000000"
+      ],
+      "sampling_tier": "single_filter"
+    },
+    {
+      "tables": [
+        "cast_info ci",
+        "title t",
+        "movie_companies mc"
+      ],
+      "joins": [
+        "t.id=ci.movie_id",
+        "t.id=mc.movie_id"
+      ],
+      "predicates": [
+        [
+          "ci.role_id",
+          "=",
+          "11"
+        ]
+      ],
+      "predicate_template_indices": [
+        0
+      ],
+      "sql": "SELECT COUNT(*) FROM cast_info ci,title t,movie_companies mc WHERE t.id=ci.movie_id AND t.id=mc.movie_id AND ci.role_id=11;",
+      "sample_id": 13,
+      "true_cardinality": 795689,
+      "bitmap_hex": [
+        "00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000fc",
+        "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+        "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+      ],
+      "sampling_tier": "full_target_structure"
+    },
+    {
+      "tables": [
+        "title t"
+      ],
+      "joins": [],
+      "predicates": [],
+      "predicate_template_indices": [],
+      "sql": "SELECT COUNT(*) FROM title t;",
+      "sample_id": 4,
+      "true_cardinality": 2528312,
+      "bitmap_hex": [
+        "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+      ],
+      "sampling_tier": "no_filter"
+    },
+    {
+      "tables": [
+        "title t",
+        "cast_info ci"
+      ],
+      "joins": [
+        "t.id=ci.movie_id"
+      ],
+      "predicates": [
+        [
+          "ci.role_id",
+          "=",
+          "5"
+        ]
+      ],
+      "predicate_template_indices": [
+        0
+      ],
+      "sql": "SELECT COUNT(*) FROM title t,cast_info ci WHERE t.id=ci.movie_id AND ci.role_id=5;",
+      "sample_id": 28,
+      "true_cardinality": 898389,
+      "bitmap_hex": [
+        "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+        "00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000ffff1f00000000000000000000000000000000000000000000000000000000"
+      ],
+      "sampling_tier": "single_filter"
+    },
+    {
+      "tables": [
+        "title t",
+        "cast_info ci"
+      ],
+      "joins": [
+        "t.id=ci.movie_id"
+      ],
+      "predicates": [
+        [
+          "ci.role_id",
+          "=",
+          "2"
+        ]
+      ],
+      "predicate_template_indices": [
+        0
+      ],
+      "sql": "SELECT COUNT(*) FROM title t,cast_info ci WHERE t.id=ci.movie_id AND ci.role_id=2;",
+      "sample_id": 20,
+      "true_cardinality": 7451973,
+      "bitmap_hex": [
+        "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+        "0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000ffffffffffffffffffffffffffffffffffffffffffffffffff0300000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
+      ],
+      "sampling_tier": "single_filter"
+    },
+    {
+      "tables": [
+        "movie_companies mc"
+      ],
+      "joins": [],
+      "predicates": [],
+      "predicate_template_indices": [],
+      "sql": "SELECT COUNT(*) FROM movie_companies mc;",
+      "sample_id": 5,
+      "true_cardinality": 2609129,
+      "bitmap_hex": [
+        "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+      ],
+      "sampling_tier": "no_filter"
+    },
+    {
+      "tables": [
+        "cast_info ci",
+        "title t",
+        "movie_companies mc"
+      ],
+      "joins": [
+        "t.id=ci.movie_id",
+        "t.id=mc.movie_id"
+      ],
+      "predicates": [
+        [
+          "ci.role_id",
+          "=",
+          "10"
+        ]
+      ],
+      "predicate_template_indices": [
+        0
+      ],
+      "sql": "SELECT COUNT(*) FROM cast_info ci,title t,movie_companies mc WHERE t.id=ci.movie_id AND t.id=mc.movie_id AND ci.role_id=10;",
+      "sample_id": 9,
+      "true_cardinality": 17728827,
+      "bitmap_hex": [
+        "000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000ffffffffffffffffffffffffffffffff03",
+        "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+        "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+      ],
+      "sampling_tier": "full_target_structure"
+    },
+    {
+      "tables": [
+        "cast_info ci"
+      ],
+      "joins": [],
+      "predicates": [
+        [
+          "ci.role_id",
+          "=",
+          "5"
+        ]
+      ],
+      "predicate_template_indices": [
+        0
+      ],
+      "sql": "SELECT COUNT(*) FROM cast_info ci WHERE ci.role_id=5;",
+      "sample_id": 27,
+      "true_cardinality": 898389,
+      "bitmap_hex": [
+        "00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000ffff1f00000000000000000000000000000000000000000000000000000000"
+      ],
+      "sampling_tier": "single_filter"
+    },
+    {
+      "tables": [
+        "title t",
+        "cast_info ci"
+      ],
+      "joins": [
+        "t.id=ci.movie_id"
+      ],
+      "predicates": [
+        [
+          "ci.role_id",
+          "=",
+          "9"
+        ]
+      ],
+      "predicate_template_indices": [
+        0
+      ],
+      "sql": "SELECT COUNT(*) FROM title t,cast_info ci WHERE t.id=ci.movie_id AND ci.role_id=9;",
+      "sample_id": 24,
+      "true_cardinality": 1093558,
+      "bitmap_hex": [
+        "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+        "0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000ffffffff0000000000000000000000000000000000"
+      ],
+      "sampling_tier": "single_filter"
+    },
+    {
+      "tables": [
+        "cast_info ci",
+        "title t",
+        "movie_companies mc"
+      ],
+      "joins": [
+        "t.id=ci.movie_id",
+        "t.id=mc.movie_id"
+      ],
+      "predicates": [
+        [
+          "ci.role_id",
+          "=",
+          "1"
+        ]
+      ],
+      "predicate_template_indices": [
+        0
+      ],
+      "sql": "SELECT COUNT(*) FROM cast_info ci,title t,movie_companies mc WHERE t.id=ci.movie_id AND t.id=mc.movie_id AND ci.role_id=1;",
+      "sample_id": 10,
+      "true_cardinality": 27322258,
+      "bitmap_hex": [
+        "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+        "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+        "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+      ],
+      "sampling_tier": "full_target_structure"
+    },
+    {
+      "tables": [
+        "cast_info ci"
+      ],
+      "joins": [],
+      "predicates": [
+        [
+          "ci.role_id",
+          "=",
+          "1"
+        ]
+      ],
+      "predicate_template_indices": [
+        0
+      ],
+      "sql": "SELECT COUNT(*) FROM cast_info ci WHERE ci.role_id=1;",
+      "sample_id": 19,
+      "true_cardinality": 12670688,
+      "bitmap_hex": [
+        "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
+      ],
+      "sampling_tier": "single_filter"
+    },
+    {
+      "tables": [
+        "title t",
+        "cast_info ci"
+      ],
+      "joins": [
+        "t.id=ci.movie_id"
+      ],
+      "predicates": [
+        [
+          "ci.role_id",
+          "=",
+          "4"
+        ]
+      ],
+      "predicate_template_indices": [
+        0
+      ],
+      "sql": "SELECT COUNT(*) FROM title t,cast_info ci WHERE t.id=ci.movie_id AND ci.role_id=4;",
+      "sample_id": 35,
+      "true_cardinality": 2728943,
+      "bitmap_hex": [
+        "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+        "000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000080ffffffffffffffffffff00000000000000000000000000000000000000000000000000000000000000"
+      ],
+      "sampling_tier": "single_filter"
+    },
+    {
+      "tables": [
+        "cast_info ci",
+        "title t",
+        "movie_companies mc"
+      ],
+      "joins": [
+        "t.id=ci.movie_id",
+        "t.id=mc.movie_id"
+      ],
+      "predicates": [
+        [
+          "ci.role_id",
+          "=",
+          "5"
+        ]
+      ],
+      "predicate_template_indices": [
+        0
+      ],
+      "sql": "SELECT COUNT(*) FROM cast_info ci,title t,movie_companies mc WHERE t.id=ci.movie_id AND t.id=mc.movie_id AND ci.role_id=5;",
+      "sample_id": 16,
+      "true_cardinality": 1785222,
+      "bitmap_hex": [
+        "00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000ffff1f00000000000000000000000000000000000000000000000000000000",
+        "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+        "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+      ],
+      "sampling_tier": "full_target_structure"
+    },
+    {
+      "tables": [
+        "cast_info ci",
+        "title t",
+        "movie_companies mc"
+      ],
+      "joins": [
+        "t.id=ci.movie_id",
+        "t.id=mc.movie_id"
+      ],
+      "predicates": [
+        [
+          "ci.role_id",
+          "=",
+          "3"
+        ]
+      ],
+      "predicate_template_indices": [
+        0
+      ],
+      "sql": "SELECT COUNT(*) FROM cast_info ci,title t,movie_companies mc WHERE t.id=ci.movie_id AND t.id=mc.movie_id AND ci.role_id=3;",
+      "sample_id": 12,
+      "true_cardinality": 8049492,
+      "bitmap_hex": [
+        "000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000fcffffffffffffffffffffffffff7f0000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+        "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+        "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+      ],
+      "sampling_tier": "full_target_structure"
+    },
+    {
+      "tables": [
+        "title t",
+        "cast_info ci"
+      ],
+      "joins": [
+        "t.id=ci.movie_id"
+      ],
+      "predicates": [
+        [
+          "ci.role_id",
+          "=",
+          "11"
+        ]
+      ],
+      "predicate_template_indices": [
+        0
+      ],
+      "sql": "SELECT COUNT(*) FROM title t,cast_info ci WHERE t.id=ci.movie_id AND ci.role_id=11;",
+      "sample_id": 29,
+      "true_cardinality": 316118,
+      "bitmap_hex": [
+        "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+        "00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000fc"
+      ],
+      "sampling_tier": "single_filter"
+    },
+    {
+      "tables": [
+        "title t",
+        "cast_info ci"
+      ],
+      "joins": [
+        "t.id=ci.movie_id"
+      ],
+      "predicates": [],
+      "predicate_template_indices": [],
+      "sql": "SELECT COUNT(*) FROM title t,cast_info ci WHERE t.id=ci.movie_id;",
+      "sample_id": 6,
+      "true_cardinality": 36244344,
+      "bitmap_hex": [
+        "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+        "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+      ],
+      "sampling_tier": "no_filter"
+    },
+    {
+      "tables": [
+        "cast_info ci"
+      ],
+      "joins": [],
+      "predicates": [
+        [
+          "ci.role_id",
+          "=",
+          "9"
+        ]
+      ],
+      "predicate_template_indices": [
+        0
+      ],
+      "sql": "SELECT COUNT(*) FROM cast_info ci WHERE ci.role_id=9;",
+      "sample_id": 30,
+      "true_cardinality": 1093558,
+      "bitmap_hex": [
+        "0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000ffffffff0000000000000000000000000000000000"
+      ],
+      "sampling_tier": "single_filter"
+    },
+    {
+      "tables": [
+        "cast_info ci",
+        "title t",
+        "movie_companies mc"
+      ],
+      "joins": [
+        "t.id=ci.movie_id",
+        "t.id=mc.movie_id"
+      ],
+      "predicates": [],
+      "predicate_template_indices": [],
+      "sql": "SELECT COUNT(*) FROM cast_info ci,title t,movie_companies mc WHERE t.id=ci.movie_id AND t.id=mc.movie_id;",
+      "sample_id": 8,
+      "true_cardinality": 80274241,
+      "bitmap_hex": [
+        "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+        "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+        "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+      ],
+      "sampling_tier": "no_filter"
+    },
+    {
+      "tables": [
+        "cast_info ci"
+      ],
+      "joins": [],
+      "predicates": [
+        [
+          "ci.role_id",
+          "=",
+          "3"
+        ]
+      ],
+      "predicate_template_indices": [
+        0
+      ],
+      "sql": "SELECT COUNT(*) FROM cast_info ci WHERE ci.role_id=3;",
+      "sample_id": 17,
+      "true_cardinality": 4008037,
+      "bitmap_hex": [
+        "000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000fcffffffffffffffffffffffffff7f0000000000000000000000000000000000000000000000000000000000000000000000000000000000"
+      ],
+      "sampling_tier": "single_filter"
+    }
+  ],
+  "validation": [
+    {
+      "tables": [
+        "cast_info ci"
+      ],
+      "joins": [],
+      "predicates": [
+        [
+          "ci.role_id",
+          "=",
+          "2"
+        ]
+      ],
+      "predicate_template_indices": [
+        0
+      ],
+      "sql": "SELECT COUNT(*) FROM cast_info ci WHERE ci.role_id=2;",
+      "sample_id": 31,
+      "true_cardinality": 7451973,
+      "bitmap_hex": [
+        "0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000ffffffffffffffffffffffffffffffffffffffffffffffffff0300000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
+      ],
+      "sampling_tier": "single_filter"
+    },
+    {
+      "tables": [
+        "cast_info ci"
+      ],
+      "joins": [],
+      "predicates": [
+        [
+          "ci.role_id",
+          "=",
+          "6"
+        ]
+      ],
+      "predicate_template_indices": [
+        0
+      ],
+      "sql": "SELECT COUNT(*) FROM cast_info ci WHERE ci.role_id=6;",
+      "sample_id": 25,
+      "true_cardinality": 773674,
+      "bitmap_hex": [
+        "000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000e0ff030000000000000000000000000000000000000000000000000000"
+      ],
+      "sampling_tier": "single_filter"
+    },
+    {
+      "tables": [
+        "cast_info ci",
+        "title t",
+        "movie_companies mc"
+      ],
+      "joins": [
+        "t.id=ci.movie_id",
+        "t.id=mc.movie_id"
+      ],
+      "predicates": [
+        [
+          "ci.role_id",
+          "=",
+          "6"
+        ]
+      ],
+      "predicate_template_indices": [
+        0
+      ],
+      "sql": "SELECT COUNT(*) FROM cast_info ci,title t,movie_companies mc WHERE t.id=ci.movie_id AND t.id=mc.movie_id AND ci.role_id=6;",
+      "sample_id": 15,
+      "true_cardinality": 1572513,
+      "bitmap_hex": [
+        "000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000e0ff030000000000000000000000000000000000000000000000000000",
+        "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+        "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+      ],
+      "sampling_tier": "full_target_structure"
+    }
+  ],
+  "actual_total_samples": 30,
+  "range_bounds": {
+    "ci.role_id": [
+      1,
+      11
+    ]
+  },
+  "selected_graphs": [
+    {
+      "tables": [
+        "cast_info ci"
+      ],
+      "joins": [],
+      "available_predicate_indices": [
+        0
+      ]
+    },
+    {
+      "tables": [
+        "title t"
+      ],
+      "joins": [],
+      "available_predicate_indices": []
+    },
+    {
+      "tables": [
+        "movie_companies mc"
+      ],
+      "joins": [],
+      "available_predicate_indices": []
+    },
+    {
+      "tables": [
+        "title t",
+        "cast_info ci"
+      ],
+      "joins": [
+        "t.id=ci.movie_id"
+      ],
+      "available_predicate_indices": [
+        0
+      ]
+    },
+    {
+      "tables": [
+        "title t",
+        "movie_companies mc"
+      ],
+      "joins": [
+        "t.id=mc.movie_id"
+      ],
+      "available_predicate_indices": []
+    },
+    {
+      "tables": [
+        "cast_info ci",
+        "title t",
+        "movie_companies mc"
+      ],
+      "joins": [
+        "t.id=ci.movie_id",
+        "t.id=mc.movie_id"
+      ],
+      "available_predicate_indices": [
+        0
+      ]
+    }
+  ],
+  "selected_pairs": [],
+  "selected_triples": [],
+  "reserved_sample_ids": [
+    1,
+    2
+  ],
+  "sampling_counters": {
+    "attempts": 41,
+    "benchmark_excluded": 3,
+    "duplicates": 2
+  },
+  "search_audit": [
+    {
+      "tier": "full_target_structure",
+      "indices": [
+        0
+      ],
+      "wanted_additional": 30,
+      "accepted_additional": 8,
+      "attempts": 11,
+      "raw_selected_space": 11,
+      "finite_space_cursor": true,
+      "stop_reason": "all_selected_integer_candidates_attempted",
+      "exhaustion_proven": true
+    },
+    {
+      "tier": "single_filter",
+      "indices": [
+        0
+      ],
+      "wanted_additional": 22,
+      "accepted_additional": 20,
+      "attempts": 22,
+      "raw_selected_space": 22,
+      "finite_space_cursor": true,
+      "stop_reason": "all_selected_integer_candidates_attempted",
+      "exhaustion_proven": true
+    },
+    {
+      "tier": "single_filter",
+      "indices": [
+        0
+      ],
+      "wanted_additional": 2,
+      "accepted_additional": 0,
+      "attempts": 0,
+      "raw_selected_space": 22,
+      "finite_space_cursor": true,
+      "stop_reason": "all_selected_integer_candidates_attempted",
+      "exhaustion_proven": true
+    },
+    {
+      "tier": "single_filter_backfill",
+      "indices": [
+        0
+      ],
+      "wanted_additional": 964,
+      "accepted_additional": 0,
+      "attempts": 0,
+      "raw_selected_space": 22,
+      "finite_space_cursor": true,
+      "stop_reason": "all_selected_integer_candidates_attempted",
+      "exhaustion_proven": true
+    }
+  ],
+  "requested_samples": 1000,
+  "target_cardinality_used_for_selection": false
+}
