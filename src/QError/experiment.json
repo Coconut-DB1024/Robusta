@@ -1,0 +1,5 @@
+{
+  "method": "mscn",
+  "workload": "job-light",
+  "mode": "predict"
+}
