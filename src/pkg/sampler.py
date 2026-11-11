@@ -51,6 +51,20 @@ _STAGE3_SLOT_ORDER_CACHE = {}
 
 _ORACLE_DB_TYPES = frozenset({"oracle", "oracledb", "oracle_ai26"})
 
+_ORACLE_SAFE_ARGUMENT_LITERALS = {
+    "SQRT()": {"0": "4"},
+    "EXP()": {"0": "1"},
+    "LN()": {"0": "1"},
+    "LOG()": {"0": "2"},
+    "POWER()": {"0": "2", "1": "3"},
+    "COSH()": {"0": "1"},
+    "SINH()": {"0": "1"},
+    "TANH()": {"0": "1"},
+    "TO_NUMBER()": {"0": "'1'"},
+    "NLSSORT()": {"1": "'NLS_SORT=BINARY'"},
+    "FROM_TZ()": {"1": "'+00:00'"},
+}
+
 
 _SAMPLING_TIMING_SECONDS = (
     "sampler_setup_seconds",
@@ -2049,6 +2063,8 @@ class PredicateSampler:
         if not isinstance(slot_values, dict):
             return None
         literal = slot_values.get(slot_key)
+        if literal is None and getattr(self, "db_type", "") in _ORACLE_DB_TYPES:
+            literal = _ORACLE_SAFE_ARGUMENT_LITERALS.get(parent_key, {}).get(slot_key)
         if literal is None or not self._safe_literal_matches_terminal(token, literal):
             return None
         return str(literal)
