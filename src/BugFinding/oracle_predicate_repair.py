@@ -123,6 +123,8 @@ def conversion_domain(error):
         return "json"
     if code == 1465:
         return "raw"
+    if code == 12702:
+        return "nls"
     return ""
 
 
@@ -324,6 +326,11 @@ class OraclePredicateRepair:
                             force(child, "number")
                 return
 
+            if domain == "nls" and name == "NLSSORT" and len(children) > 1:
+                if infer(children[1]) != "null":
+                    replace(children[1], "'NLS_SORT=BINARY'")
+                return
+
             slots = fixed.get(name + "()", {})
             if domain in {"number", "date", "json", "raw"}:
                 for slot, value in slots.items():
@@ -340,6 +347,8 @@ class OraclePredicateRepair:
                 replace(children[0], "'" + value + "'")
                 if len(children) > 1:
                     replace(children[1], "'" + fmt + "'")
+                else:
+                    replace(node, f"{name}('{value}', '{fmt}')")
                 return
             if name == "TO_CHAR" and domain in {"number", "date"} and len(children) > 1:
                 replace(children[1], "'YYYY-MM-DD'" if types[0] == "date" else "'FM9990'")
