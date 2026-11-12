@@ -77,6 +77,7 @@ The experimental results will be saved in the `data/Qerror/<experiment>/` direct
 **Project Structure**
 
 The main directories are organized as follows:
+
 - **`data/`**: Stores the experimental results.
-- **`exp/`**: Intended for scripts used to launch the experimentals.
+- **`exp/`**: Contains scripts for running the experiments.
 - **`src/`**: Contains the project source code and supporting resources.
