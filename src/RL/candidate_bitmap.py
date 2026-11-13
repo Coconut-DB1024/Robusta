@@ -4424,6 +4424,137 @@ def _try_build_probe_expr(
     }
 
 
+def _count_probe_construction_gaps(
+    *,
+    graph_data: Dict[str, Any],
+    node_id: str,
+    edge_lookup: Dict[Tuple[str, int, str], Dict[str, Any]],
+    target_outer_node_id: str,
+    target_slot_index: int,
+    target_inner_node_id: str,
+    depth_remaining: int,
+    path: List[str],
+    target_edge_consumed: bool = False,
+    variant_index: int = 0,
+) -> Optional[Tuple[int, int]]:
+    if _try_build_probe_expr(
+        graph_data=graph_data,
+        node_id=node_id,
+        edge_lookup=edge_lookup,
+        target_outer_node_id=target_outer_node_id,
+        target_slot_index=target_slot_index,
+        target_inner_node_id=target_inner_node_id,
+        depth_remaining=depth_remaining,
+        path=path,
+        target_edge_consumed=target_edge_consumed,
+        variant_index=variant_index,
+    ) is not None:
+        return 0, 0
+
+    payload = _get_node_payload(graph_data, node_id)
+    if payload is None or _node_is_terminal(payload):
+        return None
+    if depth_remaining <= 0:
+        return 0, 1
+    slots = payload.get("slots", [])
+    if not isinstance(slots, list) or not slots:
+        return None
+
+    missing_count = 0
+    depth_count = 0
+    next_path = path + [node_id]
+    completion_variant_index = int(variant_index)
+    for slot_index, slot_items in enumerate(slots):
+        if not isinstance(slot_items, list):
+            return None
+        force_target_child = (
+            not target_edge_consumed
+            and node_id == target_outer_node_id
+            and slot_index == target_slot_index
+        )
+        allow_outer_sibling_fallback = (
+            not path
+            and node_id == target_outer_node_id
+            and slot_index != target_slot_index
+        )
+        if allow_outer_sibling_fallback:
+            fixed_result = _fixed_sql_result_for_non_target_slot(
+                node_id, slot_index, completion_variant_index,
+            )
+            if fixed_result is not None:
+                completion_variant_index //= int(fixed_result["variant_count"])
+                continue
+
+        raw_children = [target_inner_node_id] if force_target_child else list(slot_items)
+        candidate_children = [
+            str(child_id) for child_id in raw_children
+            if _get_node_payload(graph_data, str(child_id)) is not None
+        ]
+        candidate_children.sort(
+            key=lambda child_id: _probe_child_sort_key(
+                graph_data=graph_data,
+                edge_lookup=edge_lookup,
+                outer_node_id=node_id,
+                slot_index=slot_index,
+                child_node_id=child_id,
+            )
+        )
+        rotate_completion = allow_outer_sibling_fallback and _non_target_slot_safe_fallback_enabled()
+        if not force_target_child and len(candidate_children) > 1:
+            child_offset = int(completion_variant_index if rotate_completion else variant_index) % len(candidate_children)
+            if not rotate_completion:
+                variant_index //= len(candidate_children)
+            candidate_children = candidate_children[child_offset:] + candidate_children[:child_offset]
+
+        selected_gaps = None
+        first_failed_gaps = None
+        for child_node_id in candidate_children:
+            child_gaps = _count_probe_construction_gaps(
+                graph_data=graph_data,
+                node_id=child_node_id,
+                edge_lookup=edge_lookup,
+                target_outer_node_id=target_outer_node_id,
+                target_slot_index=target_slot_index,
+                target_inner_node_id=target_inner_node_id,
+                depth_remaining=depth_remaining - 1,
+                path=next_path,
+                target_edge_consumed=bool(target_edge_consumed or force_target_child),
+                variant_index=variant_index,
+            )
+            if child_gaps == (0, 0):
+                selected_gaps = child_gaps
+                break
+            if first_failed_gaps is None and child_gaps is not None:
+                first_failed_gaps = child_gaps
+
+        if selected_gaps is None:
+            if allow_outer_sibling_fallback:
+                fallback_result = _safe_fallback_for_non_target_slot(
+                    outer_node_id=node_id,
+                    slot_index=slot_index,
+                    edge_lookup=edge_lookup,
+                    variant_index=completion_variant_index,
+                )
+                if fallback_result is not None:
+                    completion_variant_index //= int(fallback_result["variant_count"])
+                    continue
+            if not candidate_children:
+                if raw_children:
+                    return None
+                missing_count += 1
+                continue
+            if first_failed_gaps is None:
+                return None
+            selected_gaps = first_failed_gaps
+
+        missing_count += selected_gaps[0]
+        depth_count += selected_gaps[1]
+        if rotate_completion:
+            completion_variant_index //= len(candidate_children)
+
+    return missing_count, depth_count
+
+
 def build_probe_predicate_from_graph_data(
     probe_graph_data: Dict[str, Any],
     *,
@@ -4591,6 +4722,24 @@ def build_probe_predicate_from_graph_data(
             'Stage 17-11 RL uses in-memory probe predicates to avoid growth of runtime_probe files.',
         ],
     }
+
+    if build_result is None and variant_construct_failed_count > 0 and variant_duplicate_count == 0:
+        try:
+            gap_counts = _count_probe_construction_gaps(
+                graph_data=probe_graph_data,
+                node_id=target_outer_node_id,
+                edge_lookup=edge_lookup,
+                target_outer_node_id=target_outer_node_id,
+                target_slot_index=target_slot_index,
+                target_inner_node_id=target_inner_node_id,
+                depth_remaining=depth_limit,
+                path=[],
+                variant_index=variant_base_index,
+            )
+        except Exception:
+            gap_counts = None
+        if gap_counts is not None and bool(gap_counts[0]) != bool(gap_counts[1]):
+            report["construction_gap_count"] = sum(gap_counts)
 
     return report
 

@@ -3357,6 +3357,9 @@ class SqlDependencyEnv(gym.Env):
                     "environment_error" if construct_environment_failure else "downstream_construct_failed"
                 ),
                 candidate_bitmap_safe_closure_used=False,
+                candidate_bitmap_downstream_gap_count=int(
+                    probe_predicate_report.get("construction_gap_count", 0)
+                ),
             )
             self.last_reward = penalty
             if not construct_environment_failure:

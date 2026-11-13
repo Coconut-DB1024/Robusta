@@ -35,6 +35,7 @@ def compute_reward(
         candidate_bitmap_global_new_edge: bool = False,
         candidate_bitmap_failure_kind: str = "",
         candidate_bitmap_safe_closure_used: bool = False,
+        candidate_bitmap_downstream_gap_count: int = 0,
 ) -> Tuple[float, Dict[str, Any]]:
     reward = 0.0
     reasons = []
@@ -152,6 +153,9 @@ def compute_reward(
         components["candidate_downstream_unavailable"] = float(
             getattr(RL_ENV_CONFIG, "reward_candidate_bitmap_downstream_unavailable_penalty", -1.0)
         )
+        gap_count = max(0, int(candidate_bitmap_downstream_gap_count))
+        if gap_count > 0:
+            components["candidate_downstream_unavailable"] = -2.0 * gap_count / (gap_count + 1.0)
         reasons.append("Candidate Downstream Unavailable")
     else:
         if db_success:
